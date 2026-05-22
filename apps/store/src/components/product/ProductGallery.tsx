@@ -49,7 +49,7 @@ export default function ProductGallery({ product }: ProductGalleryProps) {
           className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all min-h-[44px] ${
             viewMode === "avatar"
               ? "bg-[#44944A] text-black"
-              : "text-[var(--color-text-secondary)] hover:text-white"
+              : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
           }`}
         >
           <User className="h-3.5 w-3.5" />
@@ -60,7 +60,7 @@ export default function ProductGallery({ product }: ProductGalleryProps) {
           className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all min-h-[44px] ${
             viewMode === "photos"
               ? "bg-[#44944A] text-black"
-              : "text-[var(--color-text-secondary)] hover:text-white"
+              : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
           }`}
         >
           <ImageIcon className="h-3.5 w-3.5" />
@@ -211,7 +211,7 @@ export default function ProductGallery({ product }: ProductGalleryProps) {
                 className={`flex-1 rounded-lg border px-3 py-2.5 text-xs font-medium transition-all min-h-[44px] ${
                   currentPose === pose
                     ? "border-[#44944A] bg-[#44944A] text-black"
-                    : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:text-white hover:border-[var(--color-text-muted)]"
+                    : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-text-muted)]"
                 }`}
               >
                 {pose === "tpose"

@@ -93,7 +93,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
           {/* Breadcrumb */}
           <Link
             to="/catalog"
-            className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:text-white mb-8"
+            className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)] mb-8"
           >
             <ArrowLeft className="h-4 w-4" />
             {t("product.backToCatalog")}
@@ -187,7 +187,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                       className={`relative rounded-xl border px-5 py-3 text-sm font-medium transition-all min-h-[44px] ${
                         selectedSize === size
                           ? "border-[#44944A] bg-[#44944A] text-black"
-                          : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:border-[var(--color-text-muted)] hover:text-white"
+                          : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                       }`}
                     >
                       {size}
@@ -231,7 +231,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   className={`flex items-center justify-center gap-2 rounded-xl border px-5 py-4 text-sm transition-all min-h-[44px] min-w-[44px] ${
                     isWishlisted
                       ? "border-[#44944A] text-[#44944A]"
-                      : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:border-[var(--color-text-muted)] hover:text-white"
+                      : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                   }`}
                   aria-label={
                     isWishlisted
@@ -256,7 +256,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                       }
                     }
                   }}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-[var(--color-border-custom)] px-5 py-4 text-sm text-[var(--color-text-secondary)] transition-all hover:border-[var(--color-text-muted)] hover:text-white min-h-[44px] min-w-[44px]"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-[var(--color-border-custom)] px-5 py-4 text-sm text-[var(--color-text-secondary)] transition-all hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] min-h-[44px] min-w-[44px]"
                   aria-label={t("product.share")}
                 >
                   <Share2 className="h-4 w-4" />

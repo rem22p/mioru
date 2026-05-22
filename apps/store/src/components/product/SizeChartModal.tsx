@@ -61,7 +61,7 @@ export default function SizeChartModal({ isOpen, onClose, product }: SizeChartMo
               </div>
               <button
                 onClick={onClose}
-                className="min-w-[44px] min-h-[44px] rounded-lg border border-[var(--color-border-custom)] flex items-center justify-center text-[var(--color-text-secondary)] hover:text-white hover:border-[var(--color-text-muted)] transition-all"
+                className="min-w-[44px] min-h-[44px] rounded-lg border border-[var(--color-border-custom)] flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-text-muted)] transition-all"
                 aria-label={t('common.close')}
               >
                 <X className="h-4 w-4" />

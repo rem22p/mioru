@@ -63,7 +63,7 @@ export default function AdminPage() {
             className={`flex items-center gap-2 pb-4 text-sm font-medium transition-colors min-h-[44px] ${
               activeTab === "products"
                 ? "text-[#44944A] border-b-2 border-[#44944A]"
-                : "text-[var(--color-text-secondary)] hover:text-white"
+                : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
             }`}
           >
             <Package className="h-4 w-4" />
@@ -74,7 +74,7 @@ export default function AdminPage() {
             className={`flex items-center gap-2 pb-4 text-sm font-medium transition-colors min-h-[44px] ${
               activeTab === "orders"
                 ? "text-[#44944A] border-b-2 border-[#44944A]"
-                : "text-[var(--color-text-secondary)] hover:text-white"
+                : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
             }`}
           >
             <ShoppingBag className="h-4 w-4" />
@@ -191,7 +191,7 @@ export default function AdminPage() {
                         className={`rounded-lg border min-w-[44px] min-h-[44px] px-3 py-1 text-sm transition-all flex items-center justify-center ${
                           newProduct.sizes.includes(size)
                             ? "border-[#44944A] bg-[#44944A] text-black"
-                            : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:text-white"
+                            : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
                         }`}
                       >
                         {size}
@@ -222,7 +222,7 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={() => setShowForm(false)}
-                    className="rounded-xl border border-[var(--color-border-custom)] px-6 py-2 text-sm text-[var(--color-text-secondary)] transition-all hover:bg-[var(--color-bg-card)] hover:text-white"
+                    className="rounded-xl border border-[var(--color-border-custom)] px-6 py-2 text-sm text-[var(--color-text-secondary)] transition-all hover:bg-[var(--color-bg-card)] hover:text-[var(--color-text-primary)]"
                   >
                     {t("admin.productForm.cancel")}
                   </button>

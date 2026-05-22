@@ -31,7 +31,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
             className={`relative flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors ${
               activeTab === tab.id
                 ? 'text-white'
-                : 'text-[var(--color-text-secondary)] hover:text-white'
+                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
             }`}
           >
             {tab.icon}

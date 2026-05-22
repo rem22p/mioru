@@ -156,7 +156,7 @@ export default function AvatarPage() {
                     className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
                       currentPose === pose
                         ? "border-[#44944A] bg-[#44944A] text-black"
-                        : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:text-white"
+                        : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
                     }`}
                   >
                     {pose === "tpose"
@@ -189,7 +189,7 @@ export default function AvatarPage() {
                     className={`flex-1 rounded-xl border px-4 py-3 text-sm font-medium transition-all ${
                       localParams.gender === g
                         ? "border-[#44944A] bg-[#44944A] text-black"
-                        : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:text-white"
+                        : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
                     }`}
                   >
                     {g === "male" ? t("avatar.male") : t("avatar.female")}
@@ -238,7 +238,7 @@ export default function AvatarPage() {
               </button>
               <button
                 onClick={handleReset}
-                className="flex items-center justify-center gap-2 rounded-xl border border-[var(--color-border-custom)] px-6 py-3 text-sm text-[var(--color-text-secondary)] transition-all hover:bg-[var(--color-bg-card)] hover:text-white"
+                className="flex items-center justify-center gap-2 rounded-xl border border-[var(--color-border-custom)] px-6 py-3 text-sm text-[var(--color-text-secondary)] transition-all hover:bg-[var(--color-bg-card)] hover:text-[var(--color-text-primary)]"
               >
                 <RotateCcw className="h-4 w-4" />
                 {t("avatar.reset")}

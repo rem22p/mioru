@@ -85,7 +85,7 @@ export default function Header({
                   className={`group relative text-sm font-medium transition-colors ${
                     isLight
                       ? "text-gray-500 hover:text-gray-900"
-                      : "text-[var(--color-text-secondary)] hover:text-white"
+                      : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
                   }`}
                 >
                   {t(link.labelKey)}
@@ -104,7 +104,7 @@ export default function Header({
                 className={`flex items-center gap-1 h-11 px-2 text-sm font-medium transition-colors rounded-lg ${
                   isLight
                     ? "text-gray-500 hover:text-gray-900"
-                    : "text-[var(--color-text-secondary)] hover:text-white"
+                    : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
                 }`}
                 aria-label="Change language"
               >
@@ -133,7 +133,7 @@ export default function Header({
                           ? "text-[#44944A] bg-[#44944A]/10"
                           : isLight
                             ? "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                            : "text-[var(--color-text-secondary)] hover:text-white hover:bg-[var(--color-border-custom)]"
+                            : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border-custom)]"
                       }`}
                     >
                       {lang.label}
@@ -149,7 +149,7 @@ export default function Header({
               className={`h-11 w-11 flex items-center justify-center transition-colors rounded-lg ${
                 isLight
                   ? "text-gray-500 hover:text-gray-900"
-                  : "text-[var(--color-text-secondary)] hover:text-white"
+                  : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
               }`}
               aria-label={t("theme.toggle")}
             >
@@ -166,7 +166,7 @@ export default function Header({
               className={`h-11 w-11 flex items-center justify-center transition-colors rounded-lg ${
                 isLight
                   ? "text-gray-500 hover:text-gray-900"
-                  : "text-[var(--color-text-secondary)] hover:text-white"
+                  : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
               }`}
             >
               <User className="h-5 w-5" />
@@ -177,7 +177,7 @@ export default function Header({
               className={`h-11 w-11 flex items-center justify-center md:hidden transition-colors rounded-lg ${
                 isLight
                   ? "text-gray-500 hover:text-gray-900"
-                  : "text-[var(--color-text-secondary)] hover:text-white"
+                  : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
               }`}
               onClick={() => setMenuOpen(!menuOpen)}
               aria-label={menuOpen ? t("common.close") : "Menu"}

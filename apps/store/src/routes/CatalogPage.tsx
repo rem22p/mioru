@@ -68,7 +68,7 @@ export default function CatalogPage() {
             className={`block w-full text-left text-sm py-2 transition-colors ${
               selectedCategory === "all"
                 ? "text-[#44944A]"
-                : "text-[var(--color-text-secondary)] hover:text-white"
+                : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
             }`}
           >
             {t("catalog.filters.allCategories")}
@@ -80,7 +80,7 @@ export default function CatalogPage() {
               className={`block w-full text-left text-sm py-2 transition-colors ${
                 selectedCategory === cat.slug
                   ? "text-[#44944A]"
-                  : "text-[var(--color-text-secondary)] hover:text-white"
+                  : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
               }`}
             >
               {cat.name}

@@ -100,7 +100,7 @@ export default function CartPage() {
                           item.quantity - 1,
                         )
                       }
-                      className="rounded-lg border border-[var(--color-border-custom)] min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--color-text-secondary)] hover:text-white transition-colors"
+                      className="rounded-lg border border-[var(--color-border-custom)] min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
                       aria-label="Уменьшить"
                     >
                       <Minus className="h-4 w-4" />
@@ -116,7 +116,7 @@ export default function CartPage() {
                           item.quantity + 1,
                         )
                       }
-                      className="rounded-lg border border-[var(--color-border-custom)] min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--color-text-secondary)] hover:text-white transition-colors"
+                      className="rounded-lg border border-[var(--color-border-custom)] min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
                       aria-label="Увеличить"
                     >
                       <Plus className="h-4 w-4" />
@@ -180,7 +180,7 @@ export default function CartPage() {
             </Link>
             <button
               onClick={clearCart}
-              className="rounded-xl border border-[var(--color-border-custom)] px-6 py-4 text-sm text-[var(--color-text-secondary)] transition-all hover:bg-[var(--color-bg-card)] hover:text-white"
+              className="rounded-xl border border-[var(--color-border-custom)] px-6 py-4 text-sm text-[var(--color-text-secondary)] transition-all hover:bg-[var(--color-bg-card)] hover:text-[var(--color-text-primary)]"
             >
               {t("cart.clear")}
             </button>
