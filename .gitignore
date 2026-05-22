@@ -1,0 +1,37 @@
+node_modules/
+dist/
+.next/
+*.local
+.env.local
+.env.*.local
+coverage/
+test-results/
+playwright-report/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+*.exe
+mioru-admin/backend/mioru
+mioru-admin/backend/server
+
+# Old projects (kept for reference, not in monorepo)
+mioru-admin/
+mioru-store/
+mioru-site/
+
+# Test artifacts
+apps/store/test-results/
+apps/store/playwright-report/
+Screenshot_*.png
+backend/api/mioru
+backend/api/server
+next-app/
+*.png

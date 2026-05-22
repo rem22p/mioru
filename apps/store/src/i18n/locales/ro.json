@@ -1,0 +1,236 @@
+{
+  "common": {
+    "siteName": "MIORU",
+    "siteDescription": "Probă virtuală de haine",
+    "learnMore": "Află mai mult",
+    "back": "Înapoi",
+    "save": "Salvează",
+    "cancel": "Anulează",
+    "delete": "Șterge",
+    "edit": "Editează",
+    "close": "Închide",
+    "loading": "Se încarcă...",
+    "error": "Eroare",
+    "scrollToTop": "Sus"
+  },
+  "nav": {
+    "catalog": "Catalog",
+    "avatar": "Avatar",
+    "profile": "Profil",
+    "cart": "Coș",
+    "admin": "Panou admin"
+  },
+  "home": {
+    "hero": {
+      "badge": "3D Avatar Try-On",
+      "title1": "Probă",
+      "title2": "înainte de cumpărare",
+      "description": "Creează-ți avatarul 3D și probează haine online. Potrivire exactă, proporții reale.",
+      "cta1": "Vezi catalogul",
+      "cta2": "Creează avatar",
+      "stats": {
+        "categories": "Categorii",
+        "products": "Produse",
+        "tryOn": "Probă"
+      }
+    },
+    "categories": {
+      "badge": "01 / Categorii",
+      "title": "Alege-ți stilul",
+      "allProducts": "Toate produsele →"
+    },
+    "about": {
+      "badge": "02 / Despre noi",
+      "title1": "Tehnologia",
+      "title2": "schimbă shoppingul",
+      "items": [
+        { "label": "Avatar 3D", "desc": "Creează o copie digitală fidelă a corpului tău" },
+        { "label": "Probă virtuală", "desc": "Vezi cum îți stă înainte să cumperi" },
+        { "label": "Sistem XP", "desc": "Câștigă puncte și deblochează recompense" },
+        { "label": "Mărimi precise", "desc": "Selectare după măsurătorile tale exacte" }
+      ]
+    },
+    "featured": {
+      "badge": "03 / Populare",
+      "title": "Tendințele sezonului",
+      "allProducts": "Toate produsele →",
+      "addToCart": "Adaugă în coș"
+    },
+    "cta": {
+      "badge": "Începe acum",
+      "title1": "Ești gata să găsești",
+      "title2": "potrivirea perfectă?",
+      "description": "Creează-ți avatarul, probează hainele în 3D și comandă fără surprize.",
+      "button": "Creează avatar"
+    }
+  },
+  "catalog": {
+    "title": "Toate produsele",
+    "badge": "Catalog",
+    "count": "{{count}} produse",
+    "sortBy": {
+      "newest": "Cele mai noi",
+      "priceAsc": "Preț ↑",
+      "priceDesc": "Preț ↓"
+    },
+    "filters": {
+      "title": "Filtre",
+      "allCategories": "Toate categoriile",
+      "categories": "Categorii",
+      "price": "Preț",
+      "from": "De la",
+      "to": "Până la"
+    }
+  },
+  "product": {
+    "backToCatalog": "Înapoi la catalog",
+    "reviews": "{{count}} recenzii",
+    "xpReward": "+{{xp}} XP la cumpărare",
+    "size": "Mărime",
+    "sizeChart": "Tabel de mărimi",
+    "addToCart": "În coș",
+    "addedToCart": "Adăugat",
+    "selectSize": "Selectează mărimea",
+    "wishlist": "Adaugă la favorite",
+    "unwishlist": "Șterge de la favorite",
+    "share": "Distribuie",
+    "tabs": {
+      "description": "Descriere",
+      "material": "Compoziție și îngrijire",
+      "delivery": "Livrare și retur"
+    },
+    "trust": {
+      "shipping": "Livrare rapidă",
+      "returns": "14 zile retur",
+      "secure": "Plată securizată"
+    },
+    "fit": {
+      "title": "Croială",
+      "slim": "Mulat",
+      "regular": "Normal",
+      "oversized": "Oversize",
+      "loose": "Lejer"
+    },
+    "relatedProducts": "Produse similare",
+    "view3D": "Pe avatar",
+    "viewPhotos": "Foto",
+    "pose": "Poză",
+    "modelParams": "Parametrii modelului",
+    "allProducts": "Toate produsele"
+  },
+  "cart": {
+    "title": "Coș",
+    "empty": "Coșul este gol",
+    "emptyDescription": "Adaugă produse din catalog",
+    "toCatalog": "Spre catalog",
+    "size": "Mărime",
+    "total": "Total",
+    "items": "Produse",
+    "shipping": "Livrare",
+    "free": "Gratuit",
+    "checkout": "Finalizează comanda",
+    "clear": "Golește"
+  },
+  "checkout": {
+    "title": "Finalizare comandă",
+    "steps": {
+      "contacts": "Contact",
+      "address": "Adresă",
+      "payment": "Plată",
+      "confirmation": "Confirmare"
+    },
+    "fields": {
+      "name": "Nume și prenume",
+      "phone": "Telefon",
+      "email": "Email",
+      "city": "Oraș",
+      "street": "Stradă",
+      "house": "Număr",
+      "apartment": "Apartament"
+    },
+    "payment": {
+      "card": "Card online",
+      "cardDesc": "Visa, Mastercard, MIR",
+      "sbp": "SBP",
+      "sbpDesc": "Sistem de plăți rapide",
+      "cod": "Ramburs",
+      "codDesc": "Numerar sau card la livrare"
+    },
+    "back": "Înapoi",
+    "next": "Continuă",
+    "confirm": "Confirmă comanda",
+    "orderSummary": "Comanda",
+    "total": "Total"
+  },
+  "profile": {
+    "title": "Contul meu",
+    "level": "Nivel",
+    "xp": "{{xp}} XP",
+    "toNextLevel": "Până la {{level}}: {{xp}} XP",
+    "myAvatar": "Avatarul meu",
+    "adminPanel": "Panou admin",
+    "orderHistory": "Istoric comenzi"
+  },
+  "avatar": {
+    "title": "Editor avatar",
+    "gender": "Sex",
+    "male": "Masculin",
+    "female": "Feminin",
+    "height": "Înălțime (cm)",
+    "weight": "Greutate (kg)",
+    "fatPercentage": "Procent grăsime",
+    "musclePercentage": "Procent masă musculară",
+    "save": "Salvează",
+    "reset": "Resetează",
+    "tip": "Sfat",
+    "tipText": "Pentru o probă precisă, introdu măsurătorile reale ale corpului. Avatarul este folosit pentru a vizualiza cum se potrivesc hainele.",
+    "loading": "Se încarcă 3D..."
+  },
+  "admin": {
+    "title": "Panou admin",
+    "tabs": {
+      "products": "Produse",
+      "orders": "Comenzi"
+    },
+    "addProduct": "Adaugă produs",
+    "productForm": {
+      "name": "Denumire",
+      "price": "Preț",
+      "category": "Categorie",
+      "description": "Descriere",
+      "sizes": "Mărimi",
+      "photo": "Fotografie produs",
+      "photoHint": "Trage o fotografie aici sau apasă pentru încărcare",
+      "photoRecommendation": "Recomandat: flat lay, fundal alb",
+      "save": "Salvează",
+      "cancel": "Anulează"
+    },
+    "table": {
+      "product": "Produs",
+      "category": "Categorie",
+      "price": "Preț",
+      "actions": "Acțiuni",
+      "order": "Comandă",
+      "date": "Dată",
+      "amount": "Sumă",
+      "status": "Status"
+    }
+  },
+  "footer": {
+    "description": "Probă virtuală de haine. Creează-ți avatarul. Găsește potrivirea perfectă.",
+    "navigation": "Navigare",
+    "info": "Informații",
+    "contacts": "Contacte",
+    "delivery": "Livrare",
+    "payment": "Plată",
+    "returns": "Retur",
+    "sizes": "Mărimi",
+    "copyright": "© 2025 MIORU",
+    "rights": "Toate drepturile rezervate"
+  },
+  "theme": {
+    "dark": "Întunecat",
+    "light": "Deschis",
+    "toggle": "Comută tema"
+  }
+}

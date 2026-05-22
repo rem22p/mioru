@@ -1,0 +1,163 @@
+import { Link } from "react-router-dom";
+import { mockUser, mockOrders } from "@/lib/data";
+import { VIP_LEVELS } from "@/lib/constants";
+import { User, Settings, Package, Star, ChevronRight } from "lucide-react";
+import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
+import { Helmet } from "react-helmet-async";
+
+export default function ProfilePage() {
+  const { t } = useTranslation();
+  const user = mockUser;
+  const currentVip = VIP_LEVELS.reduce((prev, curr) =>
+    user.xpBalance >= curr.minXp ? curr : prev,
+  );
+  const nextVip = VIP_LEVELS.find((v) => v.level > currentVip.level);
+  const progress = nextVip
+    ? ((user.xpBalance - currentVip.minXp) /
+        (nextVip.minXp - currentVip.minXp)) *
+      100
+    : 100;
+
+  return (
+    <div className="px-6 py-24 lg:px-8">
+      <Helmet>
+        <title>Личный кабинет — MIORU</title>
+        <meta
+          name="description"
+          content="Ваш личный кабинет MIORU. Управляйте аватаром, отслеживайте заказы и уровень XP."
+        />
+        <meta property="og:title" content="Личный кабинет — MIORU" />
+        <link rel="canonical" href="https://mioru.store/profile" />
+      </Helmet>
+      <div className="mx-auto max-w-4xl">
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-4xl font-bold tracking-tighter text-[var(--color-text-primary)] sm:text-5xl"
+        >
+          {t("profile.title")}
+        </motion.h1>
+
+        {/* Profile Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="mt-10 rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-6"
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#44944A]/10">
+              <User className="h-8 w-8 text-[#44944A]" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{user.name}</h2>
+              <p className="text-sm text-[var(--color-text-secondary)]">{user.email}</p>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* XP Progress */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mt-6 rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-primary)]">
+                {t("profile.level")}:{" "}
+                <span className="text-[#44944A]">{currentVip.name}</span>
+              </h3>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+                {t("profile.xp", {
+                  xp: user.xpBalance.toLocaleString("ru-RU"),
+                })}
+              </p>
+            </div>
+            {nextVip && (
+              <span className="text-xs text-[var(--color-text-muted)] font-mono">
+                {t("profile.toNextLevel", {
+                  level: nextVip.name,
+                  xp: nextVip.minXp.toLocaleString("ru-RU"),
+                })}
+              </span>
+            )}
+          </div>
+          <div className="h-2 rounded-full bg-[var(--color-bg-primary)] overflow-hidden">
+            <div
+              className="h-full rounded-full bg-[#44944A] transition-all"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </motion.div>
+
+        {/* Quick Links */}
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <Link
+            to="/avatar"
+            className="flex items-center justify-between rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-5 transition-all hover:border-[#44944A]/50"
+          >
+            <div className="flex items-center gap-3">
+              <Settings className="h-5 w-5 text-[#44944A]" />
+              <span className="text-sm font-medium text-[var(--color-text-primary)]">
+                {t("profile.myAvatar")}
+              </span>
+            </div>
+            <ChevronRight className="h-4 w-4 text-[var(--color-text-muted)]" />
+          </Link>
+          <Link
+            to="/admin"
+            className="flex items-center justify-between rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-5 transition-all hover:border-[#44944A]/50"
+          >
+            <div className="flex items-center gap-3">
+              <Star className="h-5 w-5 text-[#44944A]" />
+              <span className="text-sm font-medium text-[var(--color-text-primary)]">
+                {t("profile.adminPanel")}
+              </span>
+            </div>
+            <ChevronRight className="h-4 w-4 text-[var(--color-text-muted)]" />
+          </Link>
+        </div>
+
+        {/* Orders */}
+        <div className="mt-12">
+          <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-6">
+            {t("profile.orderHistory")}
+          </h3>
+          <div className="space-y-4">
+            {mockOrders.map((order) => (
+              <div
+                key={order.id}
+                className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-5"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Package className="h-5 w-5 text-[var(--color-text-muted)]" />
+                    <div>
+                      <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                        {order.id}
+                      </p>
+                      <p className="text-xs text-[var(--color-text-muted)]">
+                        {new Date(order.createdAt).toLocaleDateString("ru-RU")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-[var(--color-text-primary)]">
+                      {order.total.toLocaleString("ru-RU")} ₽
+                    </p>
+                    <p className="text-xs text-[var(--color-text-muted)] capitalize">
+                      {order.status}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

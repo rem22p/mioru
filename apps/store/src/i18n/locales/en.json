@@ -1,0 +1,236 @@
+{
+  "common": {
+    "siteName": "MIORU",
+    "siteDescription": "Virtual try-on for clothing",
+    "learnMore": "Learn more",
+    "back": "Back",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "loading": "Loading...",
+    "error": "Error",
+    "scrollToTop": "Back to top"
+  },
+  "nav": {
+    "catalog": "Catalog",
+    "avatar": "Avatar",
+    "profile": "Profile",
+    "cart": "Cart",
+    "admin": "Admin panel"
+  },
+  "home": {
+    "hero": {
+      "badge": "3D Avatar Try-On",
+      "title1": "Try it on",
+      "title2": "before you buy",
+      "description": "Create your 3D avatar and try on clothes online. Accurate fit, real proportions.",
+      "cta1": "Browse catalog",
+      "cta2": "Create avatar",
+      "stats": {
+        "categories": "Categories",
+        "products": "Products",
+        "tryOn": "Try-On"
+      }
+    },
+    "categories": {
+      "badge": "01 / Categories",
+      "title": "Choose your style",
+      "allProducts": "All products →"
+    },
+    "about": {
+      "badge": "02 / About us",
+      "title1": "Technology",
+      "title2": "is changing shopping",
+      "items": [
+        { "label": "3D Avatar", "desc": "Create an accurate digital twin of your body" },
+        { "label": "Virtual Try-On", "desc": "See how it fits before you buy" },
+        { "label": "XP System", "desc": "Earn points and unlock rewards" },
+        { "label": "Precise Sizing", "desc": "Matched to your exact measurements" }
+      ]
+    },
+    "featured": {
+      "badge": "03 / Featured",
+      "title": "This season's trends",
+      "allProducts": "All products →",
+      "addToCart": "Add to cart"
+    },
+    "cta": {
+      "badge": "Start now",
+      "title1": "Ready to find",
+      "title2": "your perfect fit?",
+      "description": "Create your avatar, try on clothes in 3D, and order with zero surprises.",
+      "button": "Create avatar"
+    }
+  },
+  "catalog": {
+    "title": "All products",
+    "badge": "Catalog",
+    "count": "{{count}} products",
+    "sortBy": {
+      "newest": "Newest first",
+      "priceAsc": "Price ↑",
+      "priceDesc": "Price ↓"
+    },
+    "filters": {
+      "title": "Filters",
+      "allCategories": "All categories",
+      "categories": "Categories",
+      "price": "Price",
+      "from": "From",
+      "to": "To"
+    }
+  },
+  "product": {
+    "backToCatalog": "Back to catalog",
+    "reviews": "{{count}} reviews",
+    "xpReward": "+{{xp}} XP with purchase",
+    "size": "Size",
+    "sizeChart": "Size chart",
+    "addToCart": "Add to cart",
+    "addedToCart": "Added",
+    "selectSize": "Select size",
+    "wishlist": "Add to wishlist",
+    "unwishlist": "Remove from wishlist",
+    "share": "Share",
+    "tabs": {
+      "description": "Description",
+      "material": "Material & care",
+      "delivery": "Delivery & returns"
+    },
+    "trust": {
+      "shipping": "Fast delivery",
+      "returns": "14-day returns",
+      "secure": "Secure payment"
+    },
+    "fit": {
+      "title": "Fit",
+      "slim": "Slim",
+      "regular": "Regular",
+      "oversized": "Oversized",
+      "loose": "Loose"
+    },
+    "relatedProducts": "You might also like",
+    "view3D": "On avatar",
+    "viewPhotos": "Photos",
+    "pose": "Pose",
+    "modelParams": "Model info",
+    "allProducts": "All products"
+  },
+  "cart": {
+    "title": "Cart",
+    "empty": "Your cart is empty",
+    "emptyDescription": "Add items from the catalog",
+    "toCatalog": "Go to catalog",
+    "size": "Size",
+    "total": "Total",
+    "items": "Items",
+    "shipping": "Shipping",
+    "free": "Free",
+    "checkout": "Checkout",
+    "clear": "Clear"
+  },
+  "checkout": {
+    "title": "Checkout",
+    "steps": {
+      "contacts": "Contacts",
+      "address": "Address",
+      "payment": "Payment",
+      "confirmation": "Confirmation"
+    },
+    "fields": {
+      "name": "Full name",
+      "phone": "Phone",
+      "email": "Email",
+      "city": "City",
+      "street": "Street",
+      "house": "Building",
+      "apartment": "Apartment"
+    },
+    "payment": {
+      "card": "Card online",
+      "cardDesc": "Visa, Mastercard, MIR",
+      "sbp": "SBP",
+      "sbpDesc": "Fast Payment System",
+      "cod": "Cash on delivery",
+      "codDesc": "Cash or card on receipt"
+    },
+    "back": "Back",
+    "next": "Next",
+    "confirm": "Confirm order",
+    "orderSummary": "Order summary",
+    "total": "Total"
+  },
+  "profile": {
+    "title": "My account",
+    "level": "Level",
+    "xp": "{{xp}} XP",
+    "toNextLevel": "To level {{level}}: {{xp}} XP",
+    "myAvatar": "My avatar",
+    "adminPanel": "Admin panel",
+    "orderHistory": "Order history"
+  },
+  "avatar": {
+    "title": "Avatar editor",
+    "gender": "Gender",
+    "male": "Male",
+    "female": "Female",
+    "height": "Height (cm)",
+    "weight": "Weight (kg)",
+    "fatPercentage": "Body fat %",
+    "musclePercentage": "Muscle %",
+    "save": "Save",
+    "reset": "Reset",
+    "tip": "Tip",
+    "tipText": "For an accurate try-on, enter your real body measurements. The avatar is used to visualize how clothes will fit.",
+    "loading": "Loading 3D..."
+  },
+  "admin": {
+    "title": "Admin panel",
+    "tabs": {
+      "products": "Products",
+      "orders": "Orders"
+    },
+    "addProduct": "Add product",
+    "productForm": {
+      "name": "Name",
+      "price": "Price",
+      "category": "Category",
+      "description": "Description",
+      "sizes": "Sizes",
+      "photo": "Product photo",
+      "photoHint": "Drag a photo here or click to upload",
+      "photoRecommendation": "Recommended: flat lay, white background",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "table": {
+      "product": "Product",
+      "category": "Category",
+      "price": "Price",
+      "actions": "Actions",
+      "order": "Order",
+      "date": "Date",
+      "amount": "Amount",
+      "status": "Status"
+    }
+  },
+  "footer": {
+    "description": "Virtual try-on for clothing. Create your avatar. Find your perfect fit.",
+    "navigation": "Navigation",
+    "info": "Information",
+    "contacts": "Contacts",
+    "delivery": "Delivery",
+    "payment": "Payment",
+    "returns": "Returns",
+    "sizes": "Sizes",
+    "copyright": "© 2025 MIORU",
+    "rights": "All rights reserved"
+  },
+  "theme": {
+    "dark": "Dark",
+    "light": "Light",
+    "toggle": "Toggle theme"
+  }
+}

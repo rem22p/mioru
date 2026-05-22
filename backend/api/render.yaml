@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: mioru-backend
+    env: go
+    region: frankfurt
+    plan: free
+    buildCommand: go build -o mioru ./cmd/server
+    startCommand: ./mioru
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: REDIS_URL
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: APP_BASE_URL
+        value: https://admin.mioru.store
+      - key: PORT
+        value: 8000
