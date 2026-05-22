@@ -12,6 +12,7 @@ playwright-report/
 # IDE
 .vscode/
 .idea/
+.agents/
 
 # OS
 .DS_Store
