@@ -14,13 +14,16 @@ const CheckoutPage = lazy(() => import("@/routes/CheckoutPage"));
 const AvatarPage = lazy(() => import("@/routes/AvatarPage"));
 const ProfilePage = lazy(() => import("@/routes/ProfilePage"));
 const AdminPage = lazy(() => import("@/routes/AdminPage"));
+const CustomOrderPage = lazy(() => import("@/routes/CustomOrderPage"));
 
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="text-center">
         <div className="text-6xl mb-4 animate-pulse">👤</div>
-        <p className="text-[var(--color-text-muted)] font-mono text-sm">Loading...</p>
+        <p className="text-[var(--color-text-muted)] font-mono text-sm">
+          Loading...
+        </p>
       </div>
     </div>
   );
@@ -78,6 +81,7 @@ export default function App() {
               <Route path="/avatar" element={<AvatarPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/admin" element={<AdminPage />} />
+              <Route path="/custom-order" element={<CustomOrderPage />} />
             </Routes>
           </Suspense>
         </main>

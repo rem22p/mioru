@@ -13,6 +13,35 @@
     "error": "Error",
     "scrollToTop": "Back to top"
   },
+  "customOrder": {
+    "title": "Custom order",
+    "managerBlock": "You can also write to our manager on Telegram @miorumanager",
+    "photo": "Photo of desired item",
+    "photoHint": "Attach a photo of the item you want to order",
+    "height": "Height (cm)",
+    "weight": "Weight (kg)",
+    "city": "City",
+    "cityPlaceholder": "Enter your city",
+    "deliveryTime": "Delivery time",
+    "deliveryTimeInfo": "The final price depends on the chosen delivery timeframe. Sometimes your size may not be available under certain rates — the manager will let you know.",
+    "deliveryTimeOptions": {
+      "fast": "3-5 days",
+      "medium": "8-10 days",
+      "slow": "25-30 days"
+    },
+    "deliveryMethod": "Delivery method",
+    "deliveryMethods": {
+      "personal": "In-person meeting (Tiraspol/Bender) — free",
+      "address": "To address (Tiraspol) — +10 RUB",
+      "bus": "Minibus (PMR + Chisinau) — 20 to 50 RUB",
+      "express": "Express postal delivery (PMR, except Tiraspol and Bender) — 20 to 50 RUB",
+      "moldovaPost": "Moldova Post (all cities in Moldova) — 20 to 50 RUB"
+    },
+    "comment": "Comment",
+    "commentPlaceholder": "Specify your preferences for size, color, material...",
+    "submit": "Send to manager",
+    "afterSubmit": "Our manager will contact you soon on Telegram with information about your order. If this format of communication doesn't work for you, please reach out to us on Instagram @mioru.store."
+  },
   "nav": {
     "catalog": "Catalog",
     "avatar": "Avatar",
@@ -27,7 +56,7 @@
       "title2": "before you buy",
       "description": "Create your 3D avatar and try on clothes online. Accurate fit, real proportions.",
       "cta1": "Browse catalog",
-      "cta2": "Create avatar",
+      "cta2": "Custom order",
       "stats": {
         "categories": "Categories",
         "products": "Products",
@@ -44,10 +73,16 @@
       "title1": "Technology",
       "title2": "is changing shopping",
       "items": [
-        { "label": "3D Avatar", "desc": "Create an accurate digital twin of your body" },
+        {
+          "label": "3D Avatar",
+          "desc": "Create an accurate digital twin of your body"
+        },
         { "label": "Virtual Try-On", "desc": "See how it fits before you buy" },
         { "label": "XP System", "desc": "Earn points and unlock rewards" },
-        { "label": "Precise Sizing", "desc": "Matched to your exact measurements" }
+        {
+          "label": "Precise Sizing",
+          "desc": "Matched to your exact measurements"
+        }
       ]
     },
     "featured": {

@@ -13,6 +13,35 @@
     "error": "Eroare",
     "scrollToTop": "Sus"
   },
+  "customOrder": {
+    "title": "Comandă personalizată",
+    "managerBlock": "Poți de asemenea să scrii managerului nostru pe Telegram @miorumanager",
+    "photo": "Fotografia articolului dorit",
+    "photoHint": "Atașează o fotografie a produsului pe care vrei să-l comanzi",
+    "height": "Înălțime (cm)",
+    "weight": "Greutate (kg)",
+    "city": "Oraș",
+    "cityPlaceholder": "Introdu orașul tău",
+    "deliveryTime": "Termen de livrare",
+    "deliveryTimeInfo": "Prețul final depinde de termenul de livrare ales. Uneori mărimea ta poate să nu fie disponibilă pentru anumite tarife — managerul te va informa.",
+    "deliveryTimeOptions": {
+      "fast": "3-5 zile",
+      "medium": "8-10 zile",
+      "slow": "25-30 zile"
+    },
+    "deliveryMethod": "Mod de livrare",
+    "deliveryMethods": {
+      "personal": "Întâlnire personală (Tiraspol/Bender) — gratuit",
+      "address": "La adresă (Tiraspol) — +10 RUB",
+      "bus": "Rutieră (RMN + Chișinău) — de la 20 până la 50 RUB",
+      "express": "Livrare expres prin poștă (RMN, în afară de Tiraspol și Bender) — de la 20 până la 50 RUB",
+      "moldovaPost": "Poșta Moldovei (toate orașele din Moldova) — de la 20 până la 50 RUB"
+    },
+    "comment": "Comentariu",
+    "commentPlaceholder": "Specifică preferințele tale de mărime, culoare, material...",
+    "submit": "Trimite managerului",
+    "afterSubmit": "În curând managerul nostru te va contacta pe Telegram cu informații despre comanda ta. Dacă acest format de comunicare nu este posibil pentru tine, te rugăm să ne scrii pe Instagram @mioru.store."
+  },
   "nav": {
     "catalog": "Catalog",
     "avatar": "Avatar",
@@ -27,7 +56,7 @@
       "title2": "înainte de cumpărare",
       "description": "Creează-ți avatarul 3D și probează haine online. Potrivire exactă, proporții reale.",
       "cta1": "Vezi catalogul",
-      "cta2": "Creează avatar",
+      "cta2": "Comandă personalizată",
       "stats": {
         "categories": "Categorii",
         "products": "Produse",
@@ -44,10 +73,22 @@
       "title1": "Tehnologia",
       "title2": "schimbă shoppingul",
       "items": [
-        { "label": "Avatar 3D", "desc": "Creează o copie digitală fidelă a corpului tău" },
-        { "label": "Probă virtuală", "desc": "Vezi cum îți stă înainte să cumperi" },
-        { "label": "Sistem XP", "desc": "Câștigă puncte și deblochează recompense" },
-        { "label": "Mărimi precise", "desc": "Selectare după măsurătorile tale exacte" }
+        {
+          "label": "Avatar 3D",
+          "desc": "Creează o copie digitală fidelă a corpului tău"
+        },
+        {
+          "label": "Probă virtuală",
+          "desc": "Vezi cum îți stă înainte să cumperi"
+        },
+        {
+          "label": "Sistem XP",
+          "desc": "Câștigă puncte și deblochează recompense"
+        },
+        {
+          "label": "Mărimi precise",
+          "desc": "Selectare după măsurătorile tale exacte"
+        }
       ]
     },
     "featured": {

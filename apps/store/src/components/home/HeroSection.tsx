@@ -49,7 +49,7 @@ export default function HeroSection() {
             </span>
           </Link>
           <Link
-            to="/avatar"
+            to="/custom-order"
             className="rounded-full border border-[var(--color-border-light)] px-8 py-4 text-sm font-medium text-[var(--color-text-primary)] transition-all hover:border-[#44944A] hover:text-[#44944A]"
           >
             {t("home.hero.cta2")}
