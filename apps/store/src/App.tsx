@@ -15,6 +15,7 @@ const AvatarPage = lazy(() => import("@/routes/AvatarPage"));
 const ProfilePage = lazy(() => import("@/routes/ProfilePage"));
 const AdminPage = lazy(() => import("@/routes/AdminPage"));
 const CustomOrderPage = lazy(() => import("@/routes/CustomOrderPage"));
+const ContactsPage = lazy(() => import("@/routes/ContactsPage"));
 
 function PageLoader() {
   return (
@@ -82,6 +83,7 @@ export default function App() {
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/custom-order" element={<CustomOrderPage />} />
+              <Route path="/contacts" element={<ContactsPage />} />
             </Routes>
           </Suspense>
         </main>

@@ -3,16 +3,32 @@ import { motion } from "framer-motion";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Upload, Send, AlertCircle } from "lucide-react";
+import { Upload, Send } from "lucide-react";
 
 const deliveryTimeOptions = ["fast", "medium", "slow"] as const;
 
 const deliveryMethods = [
-  { key: "personal", cities: "Tiraspol, Bender", free: true },
-  { key: "address", cities: "Tiraspol", extra: "+10 руб" },
-  { key: "bus", cities: "Chișinău, Rîbnița, Camenca, Dnestrovsc, Bălți" },
-  { key: "express", cities: "PMR (кроме Тирасполя и Бендер)" },
-  { key: "moldovaPost", cities: "Молдова (все города)" },
+  { key: "personal", price: "Бесплатно", priceColor: "text-[#44944A]" },
+  {
+    key: "address",
+    price: "25 руб",
+    priceColor: "text-[var(--color-text-secondary)]",
+  },
+  {
+    key: "bus",
+    price: "до 50 руб",
+    priceColor: "text-[var(--color-text-secondary)]",
+  },
+  {
+    key: "express",
+    price: "до 50 руб",
+    priceColor: "text-[var(--color-text-secondary)]",
+  },
+  {
+    key: "moldovaPost",
+    price: "до 50 руб",
+    priceColor: "text-[var(--color-text-secondary)]",
+  },
 ] as const;
 
 export default function CustomOrderPage() {
@@ -58,8 +74,12 @@ export default function CustomOrderPage() {
     const errs: Record<string, string> = {};
     if (photos.length === 0) errs.photos = "Прикрепите хотя бы одно фото";
     if (!height && !weight) errs.body = "Укажите рост или вес";
+    if (height && Number(height) < 100)
+      errs.body = "Рост не может быть меньше 100 см";
     if (height && Number(height) > 250)
       errs.body = "Рост не может быть больше 250 см";
+    if (weight && Number(weight) < 30)
+      errs.body = "Вес не может быть меньше 30 кг";
     if (weight && Number(weight) > 200)
       errs.body = "Вес не может быть больше 200 кг";
     if (!city.trim()) errs.city = "Укажите город";
@@ -117,17 +137,22 @@ export default function CustomOrderPage() {
             className="mt-10 space-y-8"
           >
             {/* Manager block */}
-            <a
-              href="https://t.me/miorumanager"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-start gap-3 rounded-xl bg-yellow-400/10 border border-yellow-400/30 p-4 hover:bg-yellow-400/20 transition-colors cursor-pointer"
+            <Link
+              to="/contacts"
+              className="flex items-center justify-between gap-3 rounded-xl bg-[#44944A]/5 border border-[#44944A]/20 p-5 hover:bg-[#44944A]/10 hover:border-[#44944A]/40 transition-all cursor-pointer group"
             >
-              <AlertCircle className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5" />
-              <p className="text-sm text-yellow-400/90">
-                {t("customOrder.managerBlock")}
-              </p>
-            </a>
+              <div>
+                <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                  {t("customOrder.managerBlock")}
+                </p>
+                <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                  {t("customOrder.managerSubtitle")}
+                </p>
+              </div>
+              <div className="w-9 h-9 rounded-full bg-[#44944A] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <span className="text-white text-lg leading-none">→</span>
+              </div>
+            </Link>
 
             {/* Photo */}
             <div>
@@ -217,6 +242,7 @@ export default function CustomOrderPage() {
                   }}
                   onBlur={() => {
                     handleBlur("body");
+                    if (height && Number(height) < 100) setHeight("100");
                     if (height && Number(height) > 250) setHeight("250");
                   }}
                   className={inputClass}
@@ -254,6 +280,7 @@ export default function CustomOrderPage() {
                   }}
                   onBlur={() => {
                     handleBlur("body");
+                    if (weight && Number(weight) < 30) setWeight("30");
                     if (weight && Number(weight) > 200) setWeight("200");
                   }}
                   className={inputClass}
@@ -360,15 +387,15 @@ export default function CustomOrderPage() {
                       }}
                       className="mt-0.5 accent-[#44944A]"
                     />
-                    <div>
+                    <div className="flex items-center justify-between w-full">
                       <span className="text-sm text-[var(--color-text-primary)]">
                         {t(`customOrder.deliveryMethods.${method.key}`)}
                       </span>
-                      {method.free && (
-                        <span className="ml-2 text-xs text-[#44944A] font-medium">
-                          Бесплатно
-                        </span>
-                      )}
+                      <span
+                        className={`text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--color-bg-secondary)] ${method.priceColor} shrink-0 ml-3`}
+                      >
+                        {method.price}
+                      </span>
                     </div>
                   </label>
                 ))}

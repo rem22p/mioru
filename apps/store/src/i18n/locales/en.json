@@ -15,7 +15,8 @@
   },
   "customOrder": {
     "title": "Custom order",
-    "managerBlock": "You can also write to our manager on Telegram @miorumanager",
+    "managerBlock": "You can also contact our manager directly",
+    "managerSubtitle": "Telegram, Instagram, Email",
     "photo": "Photo of desired item",
     "photoHint": "Attach a photo of the item you want to order",
     "height": "Height (cm)",

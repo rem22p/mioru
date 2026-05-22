@@ -15,7 +15,8 @@
   },
   "customOrder": {
     "title": "Comandă personalizată",
-    "managerBlock": "Poți de asemenea să scrii managerului nostru pe Telegram @miorumanager",
+    "managerBlock": "Poți de asemenea să contactezi managerul nostru direct",
+    "managerSubtitle": "Telegram, Instagram, Email",
     "photo": "Fotografia articolului dorit",
     "photoHint": "Atașează o fotografie a produsului pe care vrei să-l comanzi",
     "height": "Înălțime (cm)",
