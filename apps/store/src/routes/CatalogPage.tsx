@@ -75,7 +75,19 @@ export default function CatalogPage() {
     if (selectedCategory !== "all") {
       const catId = flatCategories.find((c) => c.slug === selectedCategory)?.id;
       if (catId != null) {
-        result = result.filter((p) => p.category_id === catId);
+        // Find all descendant IDs (parent + children + grandchildren)
+        const ids = new Set<number>();
+        const collect = (cats: typeof categories) => {
+          for (const c of cats) {
+            if (c.id === catId || ids.has(c.parent_id ?? 0)) {
+              ids.add(c.id);
+            }
+            if (c.children) collect(c.children);
+          }
+        };
+        collect(categories);
+        ids.add(catId);
+        result = result.filter((p) => ids.has(p.category_id));
       }
     }
     result = result.filter(
@@ -227,32 +239,47 @@ export default function CatalogPage() {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="mb-8"
             >
-              {/* Category chips */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                <button
-                  onClick={() => setSelectedCategory("all")}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                    selectedCategory === "all"
-                      ? "bg-[#44944A] text-black"
-                      : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-text-muted)]"
-                  }`}
-                >
-                  {t("catalog.filters.allCategories")}
-                </button>
+              {/* Category chips — structured by parent */}
+              <div className="space-y-3 mb-4">
+                {/* 'All' chip */}
+                <div className="flex flex-wrap gap-2 items-center">
+                  <button
+                    onClick={() => setSelectedCategory("all")}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                      selectedCategory === "all"
+                        ? "bg-[#44944A] text-black"
+                        : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
+                    }`}
+                  >
+                    {t("catalog.filters.allCategories")}
+                  </button>
+                </div>
+
+                {/* Parent categories with sub-chips */}
                 {categories
                   .filter((c) => !c.parent_id)
-                  .map((cat) => (
-                    <button
-                      key={cat.id}
-                      onClick={() => setSelectedCategory(cat.slug)}
-                      className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                        selectedCategory === cat.slug
-                          ? "bg-[#44944A] text-black"
-                          : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-text-muted)]"
-                      }`}
+                  .map((parent) => (
+                    <div
+                      key={parent.id}
+                      className="flex flex-wrap gap-2 items-center"
                     >
-                      {cat.name}
-                    </button>
+                      <span className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mr-1">
+                        {parent.name}
+                      </span>
+                      {parent.children?.map((child) => (
+                        <button
+                          key={child.id}
+                          onClick={() => setSelectedCategory(child.slug)}
+                          className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                            selectedCategory === child.slug
+                              ? "bg-[#44944A] text-black"
+                              : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
+                          }`}
+                        >
+                          {child.name}
+                        </button>
+                      ))}
+                    </div>
                   ))}
               </div>
 
