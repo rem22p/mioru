@@ -32,7 +32,7 @@ export default function AdminLayout() {
 
   if (!isAuthenticated) return null;
 
-  if (isLoading || !user) {
+  if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--color-bg-primary)]">
         <div className="text-center">
