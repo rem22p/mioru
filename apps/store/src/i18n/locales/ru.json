@@ -11,6 +11,7 @@
     "close": "Закрыть",
     "loading": "Загрузка...",
     "error": "Ошибка",
+    "retry": "Повторить",
     "scrollToTop": "Наверх"
   },
   "customOrder": {
@@ -144,6 +145,8 @@
       "oversized": "Оверсайз",
       "loose": "Свободный"
     },
+    "notFound": "Товар не найден",
+    "notFoundDesc": "Такого товара не существует или он был удалён.",
     "relatedProducts": "Похожие товары",
     "view3D": "На аватаре",
     "viewPhotos": "Фото",

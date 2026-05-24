@@ -1,14 +1,34 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
-import { products, categories } from "@/lib/data";
+import { useCatalogStore } from "@/stores/catalogStore";
 import { useCartStore } from "@/stores/cartStore";
 import { ShoppingBag, SlidersHorizontal, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
 
+function categoryEmoji(slug: string): string {
+  const map: Record<string, string> = {
+    sneakers: "👟",
+    slides: "🩴",
+    tshirts: "👕",
+    shorts: "🩳",
+    bracelets: "⛓️",
+  };
+  return map[slug] || "📦";
+}
+
 export default function CatalogPage() {
   const { t } = useTranslation();
+  const {
+    products,
+    categories,
+    loading,
+    error,
+    fetchProducts,
+    fetchCategories,
+  } = useCatalogStore();
+
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 20000]);
   const [sortBy, setSortBy] = useState<"price-asc" | "price-desc" | "newest">(
@@ -17,10 +37,45 @@ export default function CatalogPage() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
 
+  // Fetch data on mount
+  useEffect(() => {
+    fetchProducts();
+    fetchCategories();
+  }, [fetchProducts, fetchCategories]);
+
+  // category_id → slug lookup
+  const categorySlugById = useMemo(() => {
+    const map = new Map<number, string>();
+    const walk = (cats: typeof categories) => {
+      for (const c of cats) {
+        map.set(c.id, c.slug);
+        if (c.children) walk(c.children);
+      }
+    };
+    walk(categories);
+    return map;
+  }, [categories]);
+
+  // Flatten category tree for filter buttons
+  const flatCategories = useMemo(() => {
+    const result: typeof categories = [];
+    const walk = (cats: typeof categories) => {
+      for (const c of cats) {
+        result.push(c);
+        if (c.children) walk(c.children);
+      }
+    };
+    walk(categories);
+    return result;
+  }, [categories]);
+
   const filteredProducts = useMemo(() => {
     let result = products;
     if (selectedCategory !== "all") {
-      result = result.filter((p) => p.category.slug === selectedCategory);
+      const catId = flatCategories.find((c) => c.slug === selectedCategory)?.id;
+      if (catId != null) {
+        result = result.filter((p) => p.category_id === catId);
+      }
     }
     result = result.filter(
       (p) => p.price >= priceRange[0] && p.price <= priceRange[1],
@@ -35,12 +90,12 @@ export default function CatalogPage() {
       case "newest":
         result = [...result].sort(
           (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         );
         break;
     }
     return result;
-  }, [selectedCategory, priceRange, sortBy]);
+  }, [products, selectedCategory, priceRange, sortBy, flatCategories]);
 
   useEffect(() => {
     if (mobileFiltersOpen) {
@@ -73,7 +128,7 @@ export default function CatalogPage() {
           >
             {t("catalog.filters.allCategories")}
           </button>
-          {categories.map((cat) => (
+          {flatCategories.map((cat) => (
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.slug)}
@@ -146,88 +201,105 @@ export default function CatalogPage() {
             {t("catalog.title")}
           </h1>
         </motion.div>
-        <div className="flex gap-8">
-          <aside className="hidden w-64 shrink-0 md:block">
-            <FilterContent />
-          </aside>
-          <div className="flex-1">
-            <div className="mb-6 flex items-center justify-between">
-              <p className="text-sm font-mono text-[var(--color-text-muted)]">
-                {t("catalog.count", { count: filteredProducts.length })}
+
+        {loading && products.length === 0 ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="text-6xl mb-4 animate-pulse">📦</div>
+              <p className="text-[var(--color-text-muted)] font-mono text-sm">
+                {t("catalog.loading")}
               </p>
-              <div className="flex items-center gap-4">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                  className="rounded-lg bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-base sm:text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A]"
-                >
-                  <option value="newest">{t("catalog.sortBy.newest")}</option>
-                  <option value="price-asc">
-                    {t("catalog.sortBy.priceAsc")}
-                  </option>
-                  <option value="price-desc">
-                    {t("catalog.sortBy.priceDesc")}
-                  </option>
-                </select>
-                <button
-                  onClick={() => setMobileFiltersOpen(true)}
-                  className="flex items-center gap-2 rounded-lg bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] md:hidden min-h-[44px]"
-                >
-                  <SlidersHorizontal className="h-4 w-4" />
-                  {t("catalog.filters.title")}
-                </button>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {filteredProducts.map((product, index) => (
-                <motion.div
-                  key={product.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: index * 0.05 }}
-                  className="group"
-                >
-                  <Link to={`/product/${product.slug}`}>
-                    <div className="card-hover relative aspect-[3/4] overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)]">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-3xl sm:text-5xl transition-transform duration-500 group-hover:scale-110">
-                          {product.category.slug === "sneakers" && "👟"}
-                          {product.category.slug === "slides" && "🩴"}
-                          {product.category.slug === "tshirts" && "👕"}
-                          {product.category.slug === "shorts" && "🩳"}
-                          {product.category.slug === "bracelets" && "⛓️"}
-                        </span>
-                      </div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-bg-primary)] via-transparent to-transparent opacity-60" />
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          addItem(product, product.sizes[0]);
-                        }}
-                        className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#44944A] opacity-0 transition-all duration-300 hover:scale-110 group-hover:opacity-100"
-                        aria-label={t("home.featured.addToCart")}
-                      >
-                        <ShoppingBag className="h-4 w-4 text-black" />
-                      </button>
-                      <div className="absolute bottom-0 left-0 right-0 p-4">
-                        <p className="text-[10px] font-mono uppercase tracking-wider text-[#558b5c]">
-                          {product.category.name}
-                        </p>
-                        <h3 className="mt-1 text-sm font-medium text-[var(--color-text-primary)] line-clamp-1">
-                          {product.name}
-                        </h3>
-                        <p className="mt-1 text-sm font-bold text-[#44944A]">
-                          {product.price.toLocaleString("ru-RU")} ₽
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                </motion.div>
-              ))}
             </div>
           </div>
-        </div>
+        ) : error ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <p className="text-red-400 font-mono text-sm">{error}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex gap-8">
+            <aside className="hidden w-64 shrink-0 md:block">
+              <FilterContent />
+            </aside>
+            <div className="flex-1">
+              <div className="mb-6 flex items-center justify-between">
+                <p className="text-sm font-mono text-[var(--color-text-muted)]">
+                  {t("catalog.count", { count: filteredProducts.length })}
+                </p>
+                <div className="flex items-center gap-4">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                    className="rounded-lg bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-base sm:text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A]"
+                  >
+                    <option value="newest">{t("catalog.sortBy.newest")}</option>
+                    <option value="price-asc">
+                      {t("catalog.sortBy.priceAsc")}
+                    </option>
+                    <option value="price-desc">
+                      {t("catalog.sortBy.priceDesc")}
+                    </option>
+                  </select>
+                  <button
+                    onClick={() => setMobileFiltersOpen(true)}
+                    className="flex items-center gap-2 rounded-lg bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] md:hidden min-h-[44px]"
+                  >
+                    <SlidersHorizontal className="h-4 w-4" />
+                    {t("catalog.filters.title")}
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                {filteredProducts.map((product, index) => (
+                  <motion.div
+                    key={product.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: index * 0.05 }}
+                    className="group"
+                  >
+                    <Link to={`/product/${product.slug}`}>
+                      <div className="card-hover relative aspect-[3/4] overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)]">
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-3xl sm:text-5xl transition-transform duration-500 group-hover:scale-110">
+                            {categoryEmoji(
+                              categorySlugById.get(product.category_id) || "",
+                            )}
+                          </span>
+                        </div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-bg-primary)] via-transparent to-transparent opacity-60" />
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            addItem(product, product.sizes[0]);
+                          }}
+                          className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#44944A] opacity-0 transition-all duration-300 hover:scale-110 group-hover:opacity-100"
+                          aria-label={t("home.featured.addToCart")}
+                        >
+                          <ShoppingBag className="h-4 w-4 text-black" />
+                        </button>
+                        <div className="absolute bottom-0 left-0 right-0 p-4">
+                          <p className="text-[10px] font-mono uppercase tracking-wider text-[#558b5c]">
+                            {product.category_name}
+                          </p>
+                          <h3 className="mt-1 text-sm font-medium text-[var(--color-text-primary)] line-clamp-1">
+                            {product.name}
+                          </h3>
+                          <p className="mt-1 text-sm font-bold text-[#44944A]">
+                            {product.price.toLocaleString("ru-RU")} ₽
+                          </p>
+                        </div>
+                      </div>
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
       <AnimatePresence>
         {mobileFiltersOpen && (
           <motion.div

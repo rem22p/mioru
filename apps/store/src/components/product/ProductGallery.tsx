@@ -1,7 +1,7 @@
 import { useState, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
-import { Product } from "@/types";
+import type { Product } from "@/types";
 import { useAvatarStore } from "@/stores/avatarStore";
 import { useTranslation } from "react-i18next";
 
@@ -26,17 +26,19 @@ export default function ProductGallery({ product }: ProductGalleryProps) {
   const [failedImages, setFailedImages] = useState<Set<number>>(new Set());
   const { params, currentPose, setPose } = useAvatarStore();
 
+  const imageUrls = product.images.map((img) => img.url);
+
   const handleImageError = (index: number) => {
     setFailedImages((prev) => new Set(prev).add(index));
   };
 
   const nextPhoto = () => {
-    setSelectedPhotoIndex((prev) => (prev + 1) % product.images.length);
+    setSelectedPhotoIndex((prev) => (prev + 1) % imageUrls.length);
   };
 
   const prevPhoto = () => {
     setSelectedPhotoIndex(
-      (prev) => (prev - 1 + product.images.length) % product.images.length,
+      (prev) => (prev - 1 + imageUrls.length) % imageUrls.length,
     );
   };
 
@@ -154,18 +156,17 @@ export default function ProductGallery({ product }: ProductGalleryProps) {
               transition={{ duration: 0.3 }}
               className="absolute inset-0 flex items-center justify-center"
             >
-              {product.images.length > 0 &&
-              !failedImages.has(selectedPhotoIndex) ? (
+              {imageUrls.length > 0 && !failedImages.has(selectedPhotoIndex) ? (
                 <div className="relative w-full h-full">
                   <img
-                    src={product.images[selectedPhotoIndex]}
+                    src={imageUrls[selectedPhotoIndex]}
                     alt={`${product.name} — фото ${selectedPhotoIndex + 1}`}
                     className="object-cover w-full h-full"
                     onError={() => handleImageError(selectedPhotoIndex)}
                   />
 
                   {/* Navigation Arrows */}
-                  {product.images.length > 1 && (
+                  {imageUrls.length > 1 && (
                     <>
                       <button
                         onClick={prevPhoto}
@@ -182,16 +183,16 @@ export default function ProductGallery({ product }: ProductGalleryProps) {
                         <ChevronRight className="h-5 w-5" />
                       </button>
                       <div className="absolute top-4 right-4 bg-[var(--color-bg-primary)]/60 backdrop-blur-sm border border-[var(--color-border-custom)] rounded-full px-3 py-1 text-xs font-mono text-[var(--color-text-primary)]">
-                        {selectedPhotoIndex + 1} / {product.images.length}
+                        {selectedPhotoIndex + 1} / {imageUrls.length}
                       </div>
                     </>
                   )}
                 </div>
               ) : (
                 <div className="text-center flex flex-col items-center justify-center">
-                  <CategoryEmoji slug={product.category.slug} />
+                  <span className="text-6xl">📦</span>
                   <p className="mt-4 text-xs font-mono text-[var(--color-text-muted)] uppercase tracking-wider">
-                    {product.images[selectedPhotoIndex] || "Нет фото"}
+                    {imageUrls[selectedPhotoIndex] || "Нет фото"}
                   </p>
                 </div>
               )}
@@ -222,7 +223,7 @@ export default function ProductGallery({ product }: ProductGalleryProps) {
           </div>
         ) : (
           <div className="flex gap-2 overflow-x-auto pb-2">
-            {product.images.map((img, idx) => (
+            {imageUrls.map((img, idx) => (
               <button
                 key={img}
                 onClick={() => setSelectedPhotoIndex(idx)}
@@ -241,7 +242,7 @@ export default function ProductGallery({ product }: ProductGalleryProps) {
                   />
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center text-2xl bg-[var(--color-bg-card)]">
-                    <CategoryEmoji slug={product.category.slug} />
+                    <span className="text-2xl">📦</span>
                   </div>
                 )}
               </button>
@@ -251,18 +252,4 @@ export default function ProductGallery({ product }: ProductGalleryProps) {
       </div>
     </div>
   );
-}
-
-function CategoryEmoji({ slug }: { slug: string }) {
-  const emoji =
-    slug === "sneakers"
-      ? "👟"
-      : slug === "slides"
-        ? "🩴"
-        : slug === "tshirts"
-          ? "👕"
-          : slug === "shorts"
-            ? "🩳"
-            : "⛓️";
-  return <span className="text-6xl">{emoji}</span>;
 }

@@ -11,6 +11,7 @@
     "close": "Închide",
     "loading": "Se încarcă...",
     "error": "Eroare",
+    "retry": "Reîncearcă",
     "scrollToTop": "Sus"
   },
   "customOrder": {
@@ -153,6 +154,8 @@
       "oversized": "Oversize",
       "loose": "Lejer"
     },
+    "notFound": "Produsul nu a fost găsit",
+    "notFoundDesc": "Produsul pe care îl cauți nu există sau a fost eliminat.",
     "relatedProducts": "Produse similare",
     "view3D": "Pe avatar",
     "viewPhotos": "Foto",

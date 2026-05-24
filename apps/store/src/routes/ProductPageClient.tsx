@@ -1,7 +1,8 @@
 import { useState, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Product } from "@/types";
+import type { Product, Review } from "@/types";
+import { toSizeChart } from "@/types";
 import { useCartStore } from "@/stores/cartStore";
 import { useTranslation } from "react-i18next";
 import {
@@ -36,6 +37,9 @@ interface ProductPageClientProps {
   product: Product;
 }
 
+/** Empty reviews array — backend doesn't have reviews yet. */
+const EMPTY_REVIEWS: Review[] = [];
+
 export default function ProductPageClient({ product }: ProductPageClientProps) {
   const { t } = useTranslation();
   const [selectedSize, setSelectedSize] = useState<string>("");
@@ -44,12 +48,14 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   const [addedToCart, setAddedToCart] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
 
+  // Transform backend size_chart rows into UI format
+  const sizeChart = toSizeChart(product.size_chart);
+
+  const reviews = EMPTY_REVIEWS;
+
   const averageRating =
-    product.reviews.length > 0
-      ? Math.round(
-          product.reviews.reduce((s, r) => s + r.rating, 0) /
-            product.reviews.length,
-        )
+    reviews.length > 0
+      ? Math.round(reviews.reduce((s, r) => s + r.rating, 0) / reviews.length)
       : 0;
 
   const handleAddToCart = () => {
@@ -124,7 +130,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
             >
               {/* Category & Name */}
               <p className="text-xs font-mono uppercase tracking-[0.3em] text-[#558b5c]">
-                {product.category.name}
+                {product.category_name}
               </p>
               <h1 className="mt-3 text-4xl font-bold tracking-tighter text-[var(--color-text-primary)] sm:text-5xl">
                 {product.name}
@@ -146,7 +152,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                     ))}
                   </div>
                   <span className="text-xs text-[var(--color-text-secondary)]">
-                    {t("product.reviews", { count: product.reviews.length })}
+                    {t("product.reviews", { count: reviews.length })}
                   </span>
                 </div>
                 <p className="text-3xl font-bold text-[#44944A]">
@@ -157,7 +163,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
               {/* XP Badge */}
               <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#44944A]/10 px-4 py-2 text-xs font-mono text-[#44944A] w-fit">
                 <Star className="h-3 w-3 fill-[#44944A]" />
-                {t("product.xpReward", { xp: product.xpReward })}
+                {t("product.xpReward", { xp: product.xp_reward })}
               </div>
 
               {/* Short Description */}
@@ -171,13 +177,15 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-primary)]">
                     {t("product.size")}
                   </h3>
-                  <button
-                    onClick={() => setShowSizeChart(true)}
-                    className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[#44944A] transition-colors min-h-[44px] px-2"
-                  >
-                    <Ruler className="h-3.5 w-3.5" />
-                    {t("product.sizeChart")}
-                  </button>
+                  {sizeChart && (
+                    <button
+                      onClick={() => setShowSizeChart(true)}
+                      className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[#44944A] transition-colors min-h-[44px] px-2"
+                    >
+                      <Ruler className="h-3.5 w-3.5" />
+                      {t("product.sizeChart")}
+                    </button>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-3">
                   {product.sizes.map((size) => (
@@ -298,13 +306,13 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
 
           {/* Reviews */}
           <Suspense fallback={null}>
-            <ReviewsSection reviews={product.reviews} />
+            <ReviewsSection reviews={reviews} />
           </Suspense>
 
           {/* Related Products */}
           <Suspense fallback={null}>
             <RelatedProducts
-              relatedProductIds={product.relatedProductIds}
+              relatedProductIds={[]}
               currentProductId={product.id}
             />
           </Suspense>
@@ -312,13 +320,15 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
       </div>
 
       {/* Size Chart Modal */}
-      <Suspense fallback={null}>
-        <SizeChartModal
-          isOpen={showSizeChart}
-          onClose={() => setShowSizeChart(false)}
-          product={product}
-        />
-      </Suspense>
+      {sizeChart && (
+        <Suspense fallback={null}>
+          <SizeChartModal
+            isOpen={showSizeChart}
+            onClose={() => setShowSizeChart(false)}
+            product={product}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Ruler } from 'lucide-react';
-import { Product } from '@/types';
-import { useTranslation } from 'react-i18next';
+import { useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { X, Ruler } from "lucide-react";
+import type { Product } from "@/types";
+import { toSizeChart } from "@/types";
+import { useTranslation } from "react-i18next";
 
 interface SizeChartModalProps {
   isOpen: boolean;
@@ -10,22 +11,29 @@ interface SizeChartModalProps {
   product: Product;
 }
 
-export default function SizeChartModal({ isOpen, onClose, product }: SizeChartModalProps) {
+export default function SizeChartModal({
+  isOpen,
+  onClose,
+  product,
+}: SizeChartModalProps) {
   const { t } = useTranslation();
 
   // Body scroll lock
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = "hidden";
     } else {
-      document.body.style.overflow = '';
+      document.body.style.overflow = "";
     }
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [isOpen]);
 
-  if (!product.sizeChart) return null;
+  const sizeChart = toSizeChart(product.size_chart);
+  if (!sizeChart) return null;
 
-  const { columns, rows, unit } = product.sizeChart;
+  const { columns, rows } = sizeChart;
 
   return (
     <AnimatePresence>
@@ -55,14 +63,18 @@ export default function SizeChartModal({ isOpen, onClose, product }: SizeChartMo
               <div className="flex items-center gap-3">
                 <Ruler className="h-5 w-5 text-[#44944A]" />
                 <div>
-                  <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{t('product.sizeChart')}</h3>
-                  <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">{product.name}</p>
+                  <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                    {t("product.sizeChart")}
+                  </h3>
+                  <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
+                    {product.name}
+                  </p>
                 </div>
               </div>
               <button
                 onClick={onClose}
                 className="min-w-[44px] min-h-[44px] rounded-lg border border-[var(--color-border-custom)] flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-text-muted)] transition-all"
-                aria-label={t('common.close')}
+                aria-label={t("common.close")}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -75,7 +87,7 @@ export default function SizeChartModal({ isOpen, onClose, product }: SizeChartMo
                   <tr className="border-b border-[var(--color-border-custom)]">
                     {columns.map((col) => (
                       <th
-                        key={String(col.key)}
+                        key={col.key}
                         className="text-left py-3 px-4 text-xs font-mono uppercase tracking-wider text-[var(--color-text-secondary)]"
                       >
                         {col.label}
@@ -86,17 +98,17 @@ export default function SizeChartModal({ isOpen, onClose, product }: SizeChartMo
                 <tbody>
                   {rows.map((row, idx) => (
                     <tr
-                      key={row.size}
+                      key={idx}
                       className={`border-b border-[var(--color-border-custom)]/50 ${
-                        idx % 2 === 0 ? 'bg-[var(--color-bg-primary)]/50' : ''
+                        idx % 2 === 0 ? "bg-[var(--color-bg-primary)]/50" : ""
                       }`}
                     >
                       {columns.map((col) => (
                         <td
-                          key={String(col.key)}
+                          key={col.key}
                           className="py-3 px-4 text-sm text-[var(--color-text-primary)]"
                         >
-                          {row[col.key] ?? '—'}
+                          {row[col.key] ?? "—"}
                         </td>
                       ))}
                     </tr>
@@ -111,26 +123,25 @@ export default function SizeChartModal({ isOpen, onClose, product }: SizeChartMo
                     Посадка
                   </p>
                   <p className="text-sm text-[var(--color-text-primary)]">
-                    {product.fit === 'slim' && 'Облегающий крой. Рекомендуем брать размер вверх, если хотите более свободную посадку.'}
-                    {product.fit === 'regular' && 'Стандартный крой. Выбирайте свой обычный размер.'}
-                    {product.fit === 'oversized' && 'Свободный оверсайз крой. Рекомендуем брать свой обычный размер для заявленного эффекта.'}
-                    {product.fit === 'loose' && 'Свободный крой. Рекомендуем брать размер вниз для более прилегающей посадки.'}
+                    {product.fit === "slim" &&
+                      "Облегающий крой. Рекомендуем брать размер вверх, если хотите более свободную посадку."}
+                    {product.fit === "regular" &&
+                      "Стандартный крой. Выбирайте свой обычный размер."}
+                    {product.fit === "oversized" &&
+                      "Свободный оверсайз крой. Рекомендуем брать свой обычный размер для заявленного эффекта."}
+                    {product.fit === "loose" &&
+                      "Свободный крой. Рекомендуем брать размер вниз для более прилегающей посадки."}
+                    {product.fit !== "slim" &&
+                      product.fit !== "regular" &&
+                      product.fit !== "oversized" &&
+                      product.fit !== "loose" &&
+                      `Крой: ${product.fit}. Выбирайте свой обычный размер.`}
                   </p>
-                </div>
-              )}
-
-              {/* Model Info */}
-              {product.modelInfo && (
-                <div className="mt-4 p-4 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)]">
-                  <p className="text-xs font-mono uppercase tracking-wider text-[var(--color-text-secondary)] mb-1">
-                    {t('product.modelParams')}
-                  </p>
-                  <p className="text-sm text-[var(--color-text-primary)]">{product.modelInfo}</p>
                 </div>
               )}
 
               <p className="mt-4 text-xs text-[var(--color-text-muted)]">
-                Все замеры даны в {unit === 'cm' ? 'сантиметрах' : 'дюймах'}. Допускается отклонение ±1–2 {unit === 'cm' ? 'см' : 'дюйма'}.
+                Все замеры даны в сантиметрах. Допускается отклонение ±1–2 см.
               </p>
             </div>
           </motion.div>

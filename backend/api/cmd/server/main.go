@@ -88,7 +88,13 @@ func main() {
 	// WebSocket
 	mux.HandleFunc("/ws/notes", wsH.HandleNotes)
 
-	// Admin: Categories (public for now, can be used by store frontend)
+	// Store: Public product & category endpoints (no auth)
+	storeH := handler.NewStoreHandler(pgStore)
+	mux.HandleFunc("GET /api/products", cors(storeH.ListProducts))
+	mux.HandleFunc("GET /api/products/{slug}", cors(storeH.GetProduct))
+	mux.HandleFunc("GET /api/categories", cors(storeH.ListCategories))
+
+	// Admin: Categories
 	mux.HandleFunc("GET /api/admin/categories", cors(productH.Categories))
 
 	// Admin: Products (with auth)
@@ -185,12 +191,14 @@ func cors(next http.HandlerFunc) http.HandlerFunc {
 func corsHeaders(w http.ResponseWriter, r *http.Request) {
 	origin := r.Header.Get("Origin")
 	allowed := map[string]bool{
-		"http://localhost:5173":         true,
+		"http://localhost:5173":         true, // store dev
 		"http://127.0.0.1:5173":         true,
-		"http://localhost:5174":         true,
+		"http://localhost:5174":         true, // admin dev
 		"http://127.0.0.1:5174":         true,
 		"http://localhost:8080":         true,
 		"http://127.0.0.1:8080":         true,
+		"https://mioru.store":           true,
+		"https://www.mioru.store":       true,
 		"https://admin.mioru.store":     true,
 		"https://www.admin.mioru.store": true,
 	}

@@ -30,7 +30,9 @@ export default function CartPage() {
         <h2 className="mt-6 text-2xl font-bold text-[var(--color-text-primary)]">
           {t("cart.empty")}
         </h2>
-        <p className="mt-2 text-[var(--color-text-secondary)]">{t("cart.emptyDescription")}</p>
+        <p className="mt-2 text-[var(--color-text-secondary)]">
+          {t("cart.emptyDescription")}
+        </p>
         <Link
           to="/catalog"
           className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#44944A] px-6 py-3 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(192,254,57,0.3)]"
@@ -71,11 +73,7 @@ export default function CartPage() {
               className="flex gap-4 rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-4"
             >
               <div className="h-24 w-24 shrink-0 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] flex items-center justify-center text-3xl">
-                {item.product.category.slug === "sneakers" && "👟"}
-                {item.product.category.slug === "slides" && "🩴"}
-                {item.product.category.slug === "tshirts" && "👕"}
-                {item.product.category.slug === "shorts" && "🩳"}
-                {item.product.category.slug === "bracelets" && "⛓️"}
+                📦
               </div>
 
               <div className="flex flex-1 flex-col justify-between">
@@ -156,7 +154,9 @@ export default function CartPage() {
               </span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-[var(--color-text-secondary)]">{t("cart.shipping")}</span>
+              <span className="text-[var(--color-text-secondary)]">
+                {t("cart.shipping")}
+              </span>
               <span className="text-[#44944A]">{t("cart.free")}</span>
             </div>
             <div className="border-t border-[var(--color-border-custom)] pt-3">

@@ -1,38 +1,54 @@
-import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
-import { Product } from '@/types';
-import { products } from '@/lib/data';
-import { ArrowUpRight } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useEffect } from "react";
+import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
+import { useCatalogStore } from "@/stores/catalogStore";
+import { ArrowUpRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface RelatedProductsProps {
-  relatedProductIds: string[];
-  currentProductId: string;
+  relatedProductIds: number[];
+  currentProductId: number;
 }
 
-export default function RelatedProducts({ relatedProductIds, currentProductId }: RelatedProductsProps) {
+export default function RelatedProducts({
+  relatedProductIds,
+  currentProductId,
+}: RelatedProductsProps) {
   const { t } = useTranslation();
-  const relatedProducts = products.filter(
-    (p) => relatedProductIds.includes(p.id) && p.id !== currentProductId
-  );
+  const { products, fetchProducts } = useCatalogStore();
 
-  if (relatedProducts.length === 0) return null;
+  useEffect(() => {
+    if (products.length === 0) {
+      fetchProducts();
+    }
+  }, [products.length, fetchProducts]);
+
+  const related = relatedProductIds.length
+    ? products.filter(
+        (p) => relatedProductIds.includes(p.id) && p.id !== currentProductId,
+      )
+    : // Fallback: show 4 random products from the same category
+      products.filter((p) => p.id !== currentProductId).slice(0, 4);
+
+  if (related.length === 0) return null;
 
   return (
     <div className="mt-16">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{t('product.relatedProducts')}</h3>
+        <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+          {t("product.relatedProducts")}
+        </h3>
         <Link
           to="/catalog"
           className="text-xs font-mono text-[var(--color-text-secondary)] hover:text-[#44944A] transition-colors uppercase tracking-wider flex items-center gap-1"
         >
-          {t('product.allProducts')}
+          {t("product.allProducts")}
           <ArrowUpRight className="h-3.5 w-3.5" />
         </Link>
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {relatedProducts.map((product, index) => (
+        {related.map((product, index) => (
           <motion.div
             key={product.id}
             initial={{ opacity: 0, y: 20 }}
@@ -44,11 +60,7 @@ export default function RelatedProducts({ relatedProductIds, currentProductId }:
                 <div className="relative aspect-square overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] transition-all group-hover:border-[#44944A]/50">
                   <div className="absolute inset-0 flex items-center justify-center">
                     <span className="text-4xl transition-transform duration-500 group-hover:scale-110">
-                      {product.category.slug === 'sneakers' && '👟'}
-                      {product.category.slug === 'slides' && '🩴'}
-                      {product.category.slug === 'tshirts' && '👕'}
-                      {product.category.slug === 'shorts' && '🩳'}
-                      {product.category.slug === 'bracelets' && '⛓️'}
+                      📦
                     </span>
                   </div>
 
@@ -63,13 +75,13 @@ export default function RelatedProducts({ relatedProductIds, currentProductId }:
 
                 <div className="mt-3">
                   <p className="text-xs font-mono text-[var(--color-text-muted)] uppercase tracking-wider">
-                    {product.category.name}
+                    {product.category_name}
                   </p>
                   <p className="mt-1 text-sm font-medium text-[var(--color-text-primary)] transition-colors group-hover:text-[#44944A] line-clamp-1">
                     {product.name}
                   </p>
                   <p className="mt-1 text-sm font-bold text-[var(--color-text-primary)]">
-                    {product.price.toLocaleString('ru-RU')} ₽
+                    {product.price.toLocaleString("ru-RU")} ₽
                   </p>
                 </div>
               </div>
