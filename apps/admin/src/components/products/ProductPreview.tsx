@@ -53,6 +53,7 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
     "description" | "material" | "delivery"
   >("description");
   const [mainImage, setMainImage] = useState(0);
+  const [showSizeChart, setShowSizeChart] = useState(false);
 
   const isLight = previewTheme === "light";
   const displayPrice = data.price || 0;
@@ -237,6 +238,7 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
                       Размер
                     </h3>
                     <button
+                      onClick={() => setShowSizeChart(true)}
                       className={`inline-flex items-center gap-1.5 text-xs ${textSecondary} hover:${accentText} transition-colors`}
                     >
                       <Ruler className="h-3.5 w-3.5" />
@@ -505,6 +507,151 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
           </div>
         </div>
       </motion.div>
+
+      {/* Size Chart Modal */}
+      {showSizeChart && data.sizeChart.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowSizeChart(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={(e) => e.stopPropagation()}
+            className={`w-full max-w-lg mx-4 rounded-2xl ${cardBg} border ${border} shadow-2xl overflow-hidden`}
+          >
+            <div
+              className={`flex items-center justify-between p-6 border-b ${border}`}
+            >
+              <h2
+                className={`text-lg font-bold tracking-tighter ${textPrimary}`}
+              >
+                Таблица размеров
+              </h2>
+              <button
+                onClick={() => setShowSizeChart(false)}
+                className={`h-8 w-8 flex items-center justify-center rounded-lg ${textMuted} hover:${textPrimary} transition-colors`}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className={`border-b ${border}`}>
+                    <th
+                      className={`text-left py-3 px-3 text-xs font-semibold uppercase tracking-wider ${textMuted}`}
+                    >
+                      Размер
+                    </th>
+                    {data.sizeChart.some((r) => r.chest) && (
+                      <th
+                        className={`text-left py-3 px-3 text-xs font-semibold uppercase tracking-wider ${textMuted}`}
+                      >
+                        Грудь
+                      </th>
+                    )}
+                    {data.sizeChart.some((r) => r.waist) && (
+                      <th
+                        className={`text-left py-3 px-3 text-xs font-semibold uppercase tracking-wider ${textMuted}`}
+                      >
+                        Талия
+                      </th>
+                    )}
+                    {data.sizeChart.some((r) => r.hips) && (
+                      <th
+                        className={`text-left py-3 px-3 text-xs font-semibold uppercase tracking-wider ${textMuted}`}
+                      >
+                        Бёдра
+                      </th>
+                    )}
+                    {data.sizeChart.some((r) => r.length) && (
+                      <th
+                        className={`text-left py-3 px-3 text-xs font-semibold uppercase tracking-wider ${textMuted}`}
+                      >
+                        Длина
+                      </th>
+                    )}
+                    {data.sizeChart.some((r) => r.foot_length) && (
+                      <th
+                        className={`text-left py-3 px-3 text-xs font-semibold uppercase tracking-wider ${textMuted}`}
+                      >
+                        Длина стопы (см)
+                      </th>
+                    )}
+                    {data.sizeChart.some((r) => r.wrist) && (
+                      <th
+                        className={`text-left py-3 px-3 text-xs font-semibold uppercase tracking-wider ${textMuted}`}
+                      >
+                        Запястье (см)
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.sizeChart
+                    .filter((r) => r.label.trim())
+                    .map((row, i) => (
+                      <tr
+                        key={i}
+                        className={`border-b ${border} last:border-b-0`}
+                      >
+                        <td className={`py-3 px-3 font-medium ${textPrimary}`}>
+                          {row.label}
+                        </td>
+                        {data.sizeChart.some((r) => r.chest) && (
+                          <td
+                            className={`py-3 px-3 ${textSecondary} font-mono`}
+                          >
+                            {row.chest || "-"}
+                          </td>
+                        )}
+                        {data.sizeChart.some((r) => r.waist) && (
+                          <td
+                            className={`py-3 px-3 ${textSecondary} font-mono`}
+                          >
+                            {row.waist || "-"}
+                          </td>
+                        )}
+                        {data.sizeChart.some((r) => r.hips) && (
+                          <td
+                            className={`py-3 px-3 ${textSecondary} font-mono`}
+                          >
+                            {row.hips || "-"}
+                          </td>
+                        )}
+                        {data.sizeChart.some((r) => r.length) && (
+                          <td
+                            className={`py-3 px-3 ${textSecondary} font-mono`}
+                          >
+                            {row.length || "-"}
+                          </td>
+                        )}
+                        {data.sizeChart.some((r) => r.foot_length) && (
+                          <td
+                            className={`py-3 px-3 ${textSecondary} font-mono`}
+                          >
+                            {row.foot_length || "-"}
+                          </td>
+                        )}
+                        {data.sizeChart.some((r) => r.wrist) && (
+                          <td
+                            className={`py-3 px-3 ${textSecondary} font-mono`}
+                          >
+                            {row.wrist || "-"}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </motion.div>
   );
 }
