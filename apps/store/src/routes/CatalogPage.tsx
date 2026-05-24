@@ -31,11 +31,14 @@ export default function CatalogPage() {
   } = useCatalogStore();
 
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 20000]);
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+  const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
+  const [selectedColors, setSelectedColors] = useState<Set<string>>(new Set());
+  const [selectedSizes, setSelectedSizes] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<"price-asc" | "price-desc" | "newest">(
     "newest",
   );
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
 
   // Fetch data on mount
@@ -70,12 +73,42 @@ export default function CatalogPage() {
     return result;
   }, [categories]);
 
+
+  // Available filter options from current product set
+  const availableFilters = useMemo(() => {
+    const brands = new Set<string>();
+    const colors = new Set<string>();
+    const sizes = new Set<string>();
+    for (const p of products) {
+      if (p.brand) brands.add(p.brand);
+      if (p.color) colors.add(p.color);
+      if (p.sizes) p.sizes.forEach((s) => sizes.add(s));
+    }
+    return {
+      brands: [...brands].sort(),
+      colors: [...colors].sort(),
+      sizes: [...sizes].sort((a, b) => {
+        const na = parseInt(a);
+        const nb = parseInt(b);
+        if (!isNaN(na) && !isNaN(nb)) return na - nb;
+        return a.localeCompare(b);
+      }),
+    };
+  }, [products]);
+
+  const toggleFilter = (setter: any, value: string) => {
+    setter((prev: Set<string>) => {
+      const next = new Set(prev);
+      next.has(value) ? next.delete(value) : next.add(value);
+      return next;
+    });
+  };
+
   const filteredProducts = useMemo(() => {
     let result = products;
     if (selectedCategory !== "all") {
       const catId = flatCategories.find((c) => c.slug === selectedCategory)?.id;
       if (catId != null) {
-        // Find all descendant IDs (parent + children + grandchildren)
         const ids = new Set<number>();
         const collect = (cats: typeof categories) => {
           for (const c of cats) {
@@ -90,9 +123,14 @@ export default function CatalogPage() {
         result = result.filter((p) => ids.has(p.category_id));
       }
     }
-    result = result.filter(
-      (p) => p.price >= priceRange[0] && p.price <= priceRange[1],
-    );
+    if (priceMin) result = result.filter((p) => p.price >= Number(priceMin));
+    if (priceMax) result = result.filter((p) => p.price <= Number(priceMax));
+    if (selectedBrands.size > 0)
+      result = result.filter((p) => selectedBrands.has(p.brand));
+    if (selectedColors.size > 0)
+      result = result.filter((p) => selectedColors.has(p.color));
+    if (selectedSizes.size > 0)
+      result = result.filter((p) => p.sizes?.some((s) => selectedSizes.has(s)));
     switch (sortBy) {
       case "price-asc":
         result = [...result].sort((a, b) => a.price - b.price);
@@ -108,7 +146,7 @@ export default function CatalogPage() {
         break;
     }
     return result;
-  }, [products, selectedCategory, priceRange, sortBy, flatCategories]);
+  }, [products, selectedCategory, sortBy, flatCategories]);
 
   useEffect(() => {
     if (mobileFiltersOpen) {
@@ -120,70 +158,6 @@ export default function CatalogPage() {
       document.body.style.overflow = "";
     };
   }, [mobileFiltersOpen]);
-
-  const inputBaseClass =
-    "w-full rounded-lg bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-base sm:text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A]";
-
-  const FilterContent = () => (
-    <div className="space-y-8">
-      <div>
-        <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-muted)]">
-          {t("catalog.filters.categories")}
-        </h3>
-        <div className="mt-4 space-y-1">
-          <button
-            onClick={() => setSelectedCategory("all")}
-            className={`block w-full text-left text-sm py-2 transition-colors ${
-              selectedCategory === "all"
-                ? "text-[#44944A]"
-                : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
-            }`}
-          >
-            {t("catalog.filters.allCategories")}
-          </button>
-          {flatCategories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.slug)}
-              className={`block w-full text-left text-sm py-2 transition-colors ${
-                selectedCategory === cat.slug
-                  ? "text-[#44944A]"
-                  : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
-              }`}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div>
-        <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-muted)]">
-          {t("catalog.filters.price")}
-        </h3>
-        <div className="mt-4 flex items-center gap-3">
-          <input
-            type="number"
-            value={priceRange[0]}
-            onChange={(e) =>
-              setPriceRange([Number(e.target.value), priceRange[1]])
-            }
-            className={inputBaseClass}
-            placeholder={t("catalog.filters.from")}
-          />
-          <span className="text-[var(--color-text-muted)]">—</span>
-          <input
-            type="number"
-            value={priceRange[1]}
-            onChange={(e) =>
-              setPriceRange([priceRange[0], Number(e.target.value)])
-            }
-            className={inputBaseClass}
-            placeholder={t("catalog.filters.to")}
-          />
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="px-6 py-24 lg:px-8">
@@ -322,6 +296,100 @@ export default function CatalogPage() {
                   );
                 })()}
 
+
+              {/* Dynamic filters — price, size, brand, color */}
+              {(availableFilters.brands.length > 0 ||
+                availableFilters.colors.length > 0 ||
+                availableFilters.sizes.length > 0) && (
+                <div className="space-y-3 mt-3">
+                  {/* Price */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-[var(--color-text-muted)] shrink-0 w-12">Цена</span>
+                    <input
+                      type="number"
+                      placeholder="От"
+                      value={priceMin}
+                      onChange={(e) => setPriceMin(e.target.value)}
+                      className="w-20 rounded-lg bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-2 py-1 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#44944A]"
+                    />
+                    <span className="text-xs text-[var(--color-text-muted)]">—</span>
+                    <input
+                      type="number"
+                      placeholder="До"
+                      value={priceMax}
+                      onChange={(e) => setPriceMax(e.target.value)}
+                      className="w-20 rounded-lg bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-2 py-1 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#44944A]"
+                    />
+                  </div>
+
+                  {/* Sizes */}
+                  {availableFilters.sizes.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-[var(--color-text-muted)] shrink-0 w-12 pt-1">Размер</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {availableFilters.sizes.map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => toggleFilter(setSelectedSizes, s)}
+                            className={`px-2.5 py-0.5 rounded text-xs font-medium transition-all ${
+                              selectedSizes.has(s)
+                                ? 'bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]'
+                                : 'bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]'
+                            }`}
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Brands */}
+                  {availableFilters.brands.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-[var(--color-text-muted)] shrink-0 w-12 pt-1">Бренд</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {availableFilters.brands.map((b) => (
+                          <button
+                            key={b}
+                            onClick={() => toggleFilter(setSelectedBrands, b)}
+                            className={`px-2.5 py-0.5 rounded text-xs font-medium transition-all ${
+                              selectedBrands.has(b)
+                                ? 'bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]'
+                                : 'bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]'
+                            }`}
+                          >
+                            {b}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Colors */}
+                  {availableFilters.colors.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-[var(--color-text-muted)] shrink-0 w-12 pt-1">Цвет</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {availableFilters.colors.map((c) => (
+                          <button
+                            key={c}
+                            onClick={() => toggleFilter(setSelectedColors, c)}
+                            className={`px-2.5 py-0.5 rounded text-xs font-medium transition-all ${
+                              selectedColors.has(c)
+                                ? 'bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]'
+                                : 'bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]'
+                            }`}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Sort + count row */}
               <div className="flex items-center gap-3 mt-4">
                 <select
@@ -402,42 +470,7 @@ export default function CatalogPage() {
         )}
       </div>
 
-      <AnimatePresence>
-        {mobileFiltersOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 md:hidden"
-          >
-            <div
-              className="absolute inset-0 bg-black/50"
-              onClick={() => setMobileFiltersOpen(false)}
-            />
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "tween", duration: 0.3 }}
-              className="absolute right-0 top-0 h-full w-80 bg-[var(--color-bg-primary)] border-l border-[var(--color-border-custom)] p-6"
-            >
-              <div className="mb-6 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                  {t("catalog.filters.title")}
-                </h2>
-                <button
-                  onClick={() => setMobileFiltersOpen(false)}
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg"
-                  aria-label={t("common.close")}
-                >
-                  <X className="h-6 w-6 text-[var(--color-text-secondary)]" />
-                </button>
-              </div>
-              <FilterContent />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
     </div>
   );
 }
