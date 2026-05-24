@@ -240,7 +240,7 @@ export default function CatalogPage() {
               className="mb-8"
             >
               {/* Category chips — horizontal scroll */}
-              <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-none">
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
                 <button
                   onClick={() => setSelectedCategory("all")}
                   className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
@@ -253,20 +253,74 @@ export default function CatalogPage() {
                 </button>
                 {categories
                   .filter((c) => !c.parent_id)
-                  .map((cat) => (
-                    <button
-                      key={cat.id}
-                      onClick={() => setSelectedCategory(cat.slug)}
-                      className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                        selectedCategory === cat.slug
-                          ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]"
-                          : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
-                      }`}
-                    >
-                      {cat.name}
-                    </button>
-                  ))}
+                  .map((cat) => {
+                    const isActive =
+                      selectedCategory === cat.slug ||
+                      cat.children?.some((ch) => selectedCategory === ch.slug);
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => setSelectedCategory(cat.slug)}
+                        className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                          isActive
+                            ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]"
+                            : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
+                        }`}
+                      >
+                        {cat.name}
+                      </button>
+                    );
+                  })}
               </div>
+
+              {/* Subcategory chips — show when parent selected */}
+              {selectedCategory !== "all" &&
+                (() => {
+                  const parent = categories.find(
+                    (c) =>
+                      !c.parent_id &&
+                      c.children?.some(
+                        (ch) =>
+                          selectedCategory === ch.slug ||
+                          c.slug === selectedCategory,
+                      ),
+                  );
+                  const subCats =
+                    parent?.children?.filter(
+                      (ch) => ch.slug !== selectedCategory,
+                    ) || [];
+                  if (subCats.length === 0) return null;
+                  return (
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none ml-4">
+                      <span className="shrink-0 self-center text-xs text-[var(--color-text-muted)] mr-1">
+                        Подкатегории:
+                      </span>
+                      <button
+                        onClick={() => setSelectedCategory(parent!.slug)}
+                        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                          selectedCategory === parent!.slug
+                            ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]"
+                            : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
+                        }`}
+                      >
+                        Все
+                      </button>
+                      {subCats.map((ch) => (
+                        <button
+                          key={ch.id}
+                          onClick={() => setSelectedCategory(ch.slug)}
+                          className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                            selectedCategory === ch.slug
+                              ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]"
+                              : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
+                          }`}
+                        >
+                          {ch.name}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
 
               {/* Sort + count row */}
               <div className="flex items-center gap-3 mt-4">
