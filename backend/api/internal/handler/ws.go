@@ -16,12 +16,14 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
 		allowed := map[string]bool{
-			"http://localhost:5173":      true,
-			"http://127.0.0.1:5173":     true,
-			"http://localhost:8080":      true,
-			"http://127.0.0.1:8080":     true,
-			"https://admin.mioru.store":  true,
-			"https://www.admin.mioru.store": true,
+			"http://localhost:5173":             true,
+			"http://127.0.0.1:5173":            true,
+			"http://localhost:5174":             true,
+			"http://127.0.0.1:5174":            true,
+			"http://localhost:8080":             true,
+			"http://127.0.0.1:8080":            true,
+			"https://admin.mioru.store":         true,
+			"https://www.admin.mioru.store":     true,
 		}
 		return allowed[origin]
 	},

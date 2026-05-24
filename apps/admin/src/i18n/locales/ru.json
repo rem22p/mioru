@@ -1,0 +1,88 @@
+{
+  "common": {
+    "siteName": "MIORU Admin",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "close": "Закрыть",
+    "loading": "Загрузка...",
+    "error": "Ошибка",
+    "back": "Назад",
+    "confirm": "Подтвердить"
+  },
+  "auth": {
+    "login": "Вход",
+    "register": "Регистрация",
+    "forgotPassword": "Забыли пароль?",
+    "resetPassword": "Сброс пароля",
+    "username": "Никнейм",
+    "email": "Email",
+    "password": "Пароль",
+    "newPassword": "Новый пароль",
+    "currentPassword": "Текущий пароль",
+    "confirmPassword": "Повторите пароль",
+    "firstName": "Имя",
+    "lastName": "Фамилия",
+    "loginButton": "Войти",
+    "registerButton": "Зарегистрироваться",
+    "sendResetLink": "Отправить ссылку",
+    "resetButton": "Сменить пароль",
+    "noAccount": "Нет аккаунта?",
+    "hasAccount": "Уже есть аккаунт?",
+    "registration": "Регистрация",
+    "forgotPasswordTitle": "Восстановление пароля",
+    "forgotPasswordDesc": "Введите email, и мы отправим ссылку для сброса пароля",
+    "resetPasswordTitle": "Новый пароль",
+    "resetPasswordDesc": "Придумайте новый пароль",
+    "fillAllFields": "Заполните все поля",
+    "invalidCredentials": "Неверный логин или пароль",
+    "connectionError": "Ошибка соединения",
+    "passwordMinLength": "Минимум 8 символов",
+    "passwordMaxLength": "Максимум 72 символа",
+    "passwordNeedLettersAndNumbers": "Нужны буквы и цифры"
+  },
+  "sidebar": {
+    "workspaces": "Пространства",
+    "profile": "Профиль",
+    "settings": "Настройки",
+    "logout": "Выход"
+  },
+  "workspace": {
+    "selectPrompt": "Выбери рабочее пространство",
+    "selectDesc": "Выбери раздел в меню слева, чтобы начать работу",
+    "inDevelopment": "Модуль в разработке"
+  },
+  "notes": {
+    "newNote": "Новая заметка...",
+    "addNote": "Добавить"
+  },
+  "profile": {
+    "title": "Профиль",
+    "displayName": "Отображаемое имя",
+    "displayNamePlaceholder": "Как вас зовут?",
+    "avatarColor": "Цвет аватарки",
+    "saveProfile": "Сохранить профиль",
+    "saved": "Профиль сохранён",
+    "saveError": "Ошибка сохранения профиля",
+    "changePassword": "Изменить пароль",
+    "passwordChanged": "Пароль изменён",
+    "passwordError": "Ошибка смены пароля",
+    "passwordWrongCurrent": "Неверный текущий пароль",
+    "passwordMismatch": "Пароли не совпадают",
+    "passwordSameAsCurrent": "Новый пароль должен отличаться от текущего",
+    "passwordRequirements": "Минимум 8 символов, буквы и цифры"
+  },
+  "settings": {
+    "title": "Настройки",
+    "theme": "Тема",
+    "dark": "Тёмная",
+    "light": "Светлая",
+    "uiScale": "Размер интерфейса"
+  },
+  "theme": {
+    "dark": "Тёмная",
+    "light": "Светлая",
+    "toggle": "Переключить тему"
+  }
+}

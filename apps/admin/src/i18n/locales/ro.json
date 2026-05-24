@@ -1,0 +1,88 @@
+{
+  "common": {
+    "siteName": "MIORU Admin",
+    "save": "Salvează",
+    "cancel": "Anulează",
+    "delete": "Șterge",
+    "edit": "Editează",
+    "close": "Închide",
+    "loading": "Se încarcă...",
+    "error": "Eroare",
+    "back": "Înapoi",
+    "confirm": "Confirmă"
+  },
+  "auth": {
+    "login": "Autentificare",
+    "register": "Înregistrare",
+    "forgotPassword": "Ai uitat parola?",
+    "resetPassword": "Resetează parola",
+    "username": "Nume de utilizator",
+    "email": "Email",
+    "password": "Parolă",
+    "newPassword": "Parolă nouă",
+    "currentPassword": "Parola curentă",
+    "confirmPassword": "Confirmă parola",
+    "firstName": "Prenume",
+    "lastName": "Nume",
+    "loginButton": "Autentificare",
+    "registerButton": "Înregistrare",
+    "sendResetLink": "Trimite linkul",
+    "resetButton": "Schimbă parola",
+    "noAccount": "Nu ai cont?",
+    "hasAccount": "Ai deja cont?",
+    "registration": "Înregistrare",
+    "forgotPasswordTitle": "Recuperare parolă",
+    "forgotPasswordDesc": "Introdu emailul și vom trimite un link pentru resetarea parolei",
+    "resetPasswordTitle": "Parolă nouă",
+    "resetPasswordDesc": "Creează o parolă nouă",
+    "fillAllFields": "Completează toate câmpurile",
+    "invalidCredentials": "Nume de utilizator sau parolă incorecte",
+    "connectionError": "Eroare de conexiune",
+    "passwordMinLength": "Minim 8 caractere",
+    "passwordMaxLength": "Maxim 72 caractere",
+    "passwordNeedLettersAndNumbers": "Sunt necesare litere și cifre"
+  },
+  "sidebar": {
+    "workspaces": "Spații de lucru",
+    "profile": "Profil",
+    "settings": "Setări",
+    "logout": "Deconectare"
+  },
+  "workspace": {
+    "selectPrompt": "Selectează un spațiu de lucru",
+    "selectDesc": "Alege o secțiune din meniul din stânga pentru a începe",
+    "inDevelopment": "Modul în dezvoltare"
+  },
+  "notes": {
+    "newNote": "Notiță nouă...",
+    "addNote": "Adaugă"
+  },
+  "profile": {
+    "title": "Profil",
+    "displayName": "Nume afișat",
+    "displayNamePlaceholder": "Cum te cheamă?",
+    "avatarColor": "Culoare avatar",
+    "saveProfile": "Salvează profilul",
+    "saved": "Profil salvat",
+    "saveError": "Eroare la salvare",
+    "changePassword": "Schimbă parola",
+    "passwordChanged": "Parola a fost schimbată",
+    "passwordError": "Eroare la schimbarea parolei",
+    "passwordWrongCurrent": "Parola curentă este incorectă",
+    "passwordMismatch": "Parolele nu coincid",
+    "passwordSameAsCurrent": "Parola nouă trebuie să difere de cea curentă",
+    "passwordRequirements": "Minim 8 caractere, litere și cifre"
+  },
+  "settings": {
+    "title": "Setări",
+    "theme": "Temă",
+    "dark": "Întunecat",
+    "light": "Deschis",
+    "uiScale": "Dimensiune interfață"
+  },
+  "theme": {
+    "dark": "Întunecat",
+    "light": "Deschis",
+    "toggle": "Comută tema"
+  }
+}

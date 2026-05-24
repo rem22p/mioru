@@ -13,6 +13,8 @@ type Config struct {
 	RedisAddr   string
 	RedisPW     string
 	Port        string
+	DBPath      string
+	UploadDir   string
 }
 
 func Load() Config {
@@ -43,11 +45,24 @@ func Load() Config {
 	if port == "" {
 		port = "8000"
 	}
+
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "mioru.db"
+	}
+
+	uploadDir := os.Getenv("UPLOAD_DIR")
+	if uploadDir == "" {
+		uploadDir = "uploads"
+	}
+
 	return Config{
 		SecretKey:   secret,
 		TokenExpiry: 1440,
 		RedisAddr:   addr,
 		RedisPW:     pw,
 		Port:        port,
+		DBPath:      dbPath,
+		UploadDir:   uploadDir,
 	}
 }

@@ -271,6 +271,16 @@ func (s *Store) CreateResetToken(ctx context.Context, email, token string) error
 	return s.rdb.Set(ctx, resetKey+token, username, time.Hour).Err()
 }
 
+// Keys returns all Redis keys matching pattern (for migration).
+func (s *Store) Keys(ctx context.Context, pattern string) ([]string, error) {
+	return s.rdb.Keys(ctx, pattern).Result()
+}
+
+// GetRaw returns the raw value for a Redis key (for migration).
+func (s *Store) GetRaw(ctx context.Context, key string) ([]byte, error) {
+	return s.rdb.Get(ctx, key).Bytes()
+}
+
 func (s *Store) ConsumeResetToken(ctx context.Context, token string) (string, error) {
 	username, err := s.rdb.Get(ctx, resetKey+token).Result()
 	if err == redis.Nil {

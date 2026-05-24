@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"mioru/internal/email"
 	"mioru/internal/handler"
 	"mioru/internal/middleware"
+	"mioru/internal/model"
 	"mioru/internal/store"
 )
 
@@ -27,18 +29,36 @@ func main() {
 
 	cfg := config.Load()
 
-	s := store.New(cfg.RedisAddr, cfg.RedisPW)
+	// Redis store (for notes, WebSocket, reset tokens)
+	redisStore := store.New(cfg.RedisAddr, cfg.RedisPW)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := s.Ping(ctx); err != nil {
+	if err := redisStore.Ping(ctx); err != nil {
 		log.Fatal("Redis connection failed:", err)
+	}
+
+	// SQLite store (for users, products, categories)
+	sqliteStore, err := store.NewSQLiteStore(cfg.DBPath)
+	if err != nil {
+		log.Fatal("SQLite initialization failed:", err)
+	}
+	defer sqliteStore.Close()
+
+	// Auto-migrate: if SQLite users table is empty and Redis has users, migrate them
+	autoMigrateUsers(redisStore, sqliteStore)
+
+	// Ensure upload directory exists
+	if err := os.MkdirAll(cfg.UploadDir, 0755); err != nil {
+		log.Printf("WARNING: Failed to create upload dir %s: %v", cfg.UploadDir, err)
 	}
 
 	emailSvc := email.NewService("onboarding@resend.dev")
 
-	authH := handler.NewAuthHandler(s, emailSvc, cfg.SecretKey, cfg.TokenExpiry)
-	noteH := handler.NewNoteHandler(s)
-	wsH := handler.NewWSHandler(s, cfg.SecretKey)
+	// Handlers
+	authH := handler.NewAuthHandler(sqliteStore, redisStore, emailSvc, cfg.SecretKey, cfg.TokenExpiry)
+	noteH := handler.NewNoteHandler(redisStore)
+	wsH := handler.NewWSHandler(redisStore, cfg.SecretKey)
+	productH := handler.NewProductHandler(sqliteStore, cfg.UploadDir)
 
 	mux := http.NewServeMux()
 
@@ -68,6 +88,26 @@ func main() {
 	// WebSocket
 	mux.HandleFunc("/ws/notes", wsH.HandleNotes)
 
+	// Admin: Categories (public for now, can be used by store frontend)
+	mux.HandleFunc("GET /api/admin/categories", cors(productH.Categories))
+
+	// Admin: Products (with auth)
+	mux.Handle("GET /api/admin/products", middleware.AuthMW(cfg.SecretKey)(http.HandlerFunc(productH.List)))
+	mux.Handle("POST /api/admin/products", middleware.AuthMW(cfg.SecretKey)(http.HandlerFunc(productH.Create)))
+	mux.Handle("GET /api/admin/products/{slug}", middleware.AuthMW(cfg.SecretKey)(http.HandlerFunc(productH.Get)))
+	mux.Handle("PUT /api/admin/products/{slug}", middleware.AuthMW(cfg.SecretKey)(http.HandlerFunc(productH.Update)))
+	mux.Handle("DELETE /api/admin/products/{slug}", middleware.AuthMW(cfg.SecretKey)(http.HandlerFunc(productH.Delete)))
+
+	// Admin: Upload (with auth)
+	mux.Handle("POST /api/admin/upload", middleware.AuthMW(cfg.SecretKey)(http.HandlerFunc(productH.Upload)))
+
+	// Admin: Migration (with auth)
+	mux.Handle("POST /api/admin/migrate-users", middleware.AuthMW(cfg.SecretKey)(handler.MigrateUsersHandler(redisStore, sqliteStore)))
+
+	// Serve uploaded files
+	fileServer := http.FileServer(http.Dir(cfg.UploadDir))
+	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", fileServer))
+
 	// CORS preflight
 	mux.HandleFunc("OPTIONS /api/", func(w http.ResponseWriter, r *http.Request) {
 		corsHeaders(w, r)
@@ -80,6 +120,54 @@ func main() {
 	addr := ":" + cfg.Port
 	log.Printf("Server starting on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, securityHeaders(mux)))
+}
+
+// autoMigrateUsers migrates users from Redis to SQLite if the SQLite users table is empty.
+func autoMigrateUsers(redisStore *store.Store, sqliteStore *store.SQLiteStore) {
+	empty, err := sqliteStore.IsUsersTableEmpty()
+	if err != nil {
+		log.Printf("WARNING: Failed to check users table: %v", err)
+		return
+	}
+	if !empty {
+		return
+	}
+
+	keys, err := redisStore.Keys(context.Background(), "user:*")
+	if err != nil {
+		log.Printf("WARNING: Failed to list Redis users: %v", err)
+		return
+	}
+	if len(keys) == 0 {
+		return
+	}
+
+	log.Printf("Auto-migrating %d users from Redis to SQLite...", len(keys))
+	migrated := 0
+	for _, key := range keys {
+		data, err := redisStore.GetRaw(context.Background(), key)
+		if err != nil {
+			log.Printf("Auto-migrate: failed to get key %s: %v", key, err)
+			continue
+		}
+
+		var u model.User
+		if err := json.Unmarshal(data, &u); err != nil {
+			log.Printf("Auto-migrate: failed to unmarshal %s: %v", key, err)
+			continue
+		}
+
+		if u.Role == "" {
+			u.Role = "admin"
+		}
+
+		if err := sqliteStore.CreateUser(u); err != nil {
+			log.Printf("Auto-migrate: failed to insert %s: %v", u.Username, err)
+			continue
+		}
+		migrated++
+	}
+	log.Printf("Auto-migration complete: %d/%d users migrated", migrated, len(keys))
 }
 
 func cors(next http.HandlerFunc) http.HandlerFunc {
@@ -96,12 +184,14 @@ func cors(next http.HandlerFunc) http.HandlerFunc {
 func corsHeaders(w http.ResponseWriter, r *http.Request) {
 	origin := r.Header.Get("Origin")
 	allowed := map[string]bool{
-		"http://localhost:5173":      true,
-		"http://127.0.0.1:5173":     true,
-		"http://localhost:8080":      true,
-		"http://127.0.0.1:8080":     true,
-		"https://admin.mioru.store":  true,
-		"https://www.admin.mioru.store": true,
+		"http://localhost:5173":             true,
+		"http://127.0.0.1:5173":            true,
+		"http://localhost:5174":             true,
+		"http://127.0.0.1:5174":            true,
+		"http://localhost:8080":             true,
+		"http://127.0.0.1:8080":            true,
+		"https://admin.mioru.store":         true,
+		"https://www.admin.mioru.store":     true,
 	}
 	if allowed[origin] {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
