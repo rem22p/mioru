@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useCatalogStore } from "@/stores/catalogStore";
 import { useCartStore } from "@/stores/cartStore";
+import { getImageUrl } from "@/lib/api";
 import { ShoppingBag, SlidersHorizontal, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
