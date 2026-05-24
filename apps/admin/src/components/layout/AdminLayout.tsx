@@ -3,15 +3,14 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useUiStore } from '@/stores/uiStore';
 import Sidebar from './Sidebar';
-import EmptyState from '@/components/common/EmptyState';
 import Placeholder from '@/components/common/Placeholder';
 import Products from '@/workspaces/Products';
 import Profile from '@/workspaces/Profile';
 import Settings from '@/workspaces/Settings';
-import { StickyNote, Banknote, BarChart3, Bot, Flame, Lightbulb } from 'lucide-react';
+import { StickyNote, Banknote, BarChart3, Bot, Flame, Lightbulb, Loader2 } from 'lucide-react';
 
 export default function AdminLayout() {
-  const { isAuthenticated, fetchUser, user } = useAuthStore();
+  const { isAuthenticated, isLoading, user, fetchUser } = useAuthStore();
   const { sidebarCollapsed, toggleSidebar } = useUiStore();
   const nav = useNavigate();
 
@@ -23,9 +22,20 @@ export default function AdminLayout() {
     if (!user) {
       fetchUser();
     }
-  }, [isAuthenticated, user, fetchUser, nav]);
+  }, [isAuthenticated]);
 
   if (!isAuthenticated) return null;
+
+  if (isLoading || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[var(--color-bg-primary)]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 text-[var(--color-accent)] animate-spin mx-auto mb-4" />
+          <p className="text-sm text-[var(--color-text-muted)]">Загрузка...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--color-bg-primary)]">
