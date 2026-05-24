@@ -129,6 +129,7 @@ export default function ProductForm({
   const showSize = criteria.includes("size");
   const showBrand = criteria.includes("brand");
   const showColor = criteria.includes("color");
+  const showModel = criteria.includes("model");
 
   // Determine size options
   const getSizeOptions = (): readonly string[] => {
@@ -474,19 +475,21 @@ export default function ProductForm({
                 </div>
               )}
 
-              {/* Model */}
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
-                  Модель / артикул
-                </label>
-                <input
-                  type="text"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  placeholder="MD-001"
-                  className={`${TEXT_FIELD_STYLE} font-mono`}
-                />
-              </div>
+              {/* Model — only for shoes */}
+              {showModel && (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
+                    Модель
+                  </label>
+                  <input
+                    type="text"
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    placeholder="Air Force, Samba..."
+                    className={TEXT_FIELD_STYLE}
+                  />
+                </div>
+              )}
 
               {/* Fit */}
               <div>
