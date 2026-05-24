@@ -73,7 +73,6 @@ export default function CatalogPage() {
     return result;
   }, [categories]);
 
-
   // Available filter options from current product set
   const availableFilters = useMemo(() => {
     const brands = new Set<string>();
@@ -296,99 +295,104 @@ export default function CatalogPage() {
                   );
                 })()}
 
-
               {/* Dynamic filters — price, size, brand, color */}
-              {(availableFilters.brands.length > 0 ||
-                availableFilters.colors.length > 0 ||
-                availableFilters.sizes.length > 0) && (
-                <div className="space-y-3 mt-3">
-                  {/* Price */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-[var(--color-text-muted)] shrink-0 w-12">Цена</span>
-                    <input
-                      type="number"
-                      placeholder="От"
-                      value={priceMin}
-                      onChange={(e) => setPriceMin(e.target.value)}
-                      className="w-20 rounded-lg bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-2 py-1 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#44944A]"
-                    />
-                    <span className="text-xs text-[var(--color-text-muted)]">—</span>
-                    <input
-                      type="number"
-                      placeholder="До"
-                      value={priceMax}
-                      onChange={(e) => setPriceMax(e.target.value)}
-                      className="w-20 rounded-lg bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-2 py-1 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#44944A]"
-                    />
-                  </div>
-
-                  {/* Sizes */}
-                  {availableFilters.sizes.length > 0 && (
-                    <div className="flex items-start gap-2">
-                      <span className="text-xs text-[var(--color-text-muted)] shrink-0 w-12 pt-1">Размер</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {availableFilters.sizes.map((s) => (
-                          <button
-                            key={s}
-                            onClick={() => toggleFilter(setSelectedSizes, s)}
-                            className={`px-2.5 py-0.5 rounded text-xs font-medium transition-all ${
-                              selectedSizes.has(s)
-                                ? 'bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]'
-                                : 'bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]'
-                            }`}
-                          >
-                            {s}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Brands */}
-                  {availableFilters.brands.length > 0 && (
-                    <div className="flex items-start gap-2">
-                      <span className="text-xs text-[var(--color-text-muted)] shrink-0 w-12 pt-1">Бренд</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {availableFilters.brands.map((b) => (
-                          <button
-                            key={b}
-                            onClick={() => toggleFilter(setSelectedBrands, b)}
-                            className={`px-2.5 py-0.5 rounded text-xs font-medium transition-all ${
-                              selectedBrands.has(b)
-                                ? 'bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]'
-                                : 'bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]'
-                            }`}
-                          >
-                            {b}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Colors */}
-                  {availableFilters.colors.length > 0 && (
-                    <div className="flex items-start gap-2">
-                      <span className="text-xs text-[var(--color-text-muted)] shrink-0 w-12 pt-1">Цвет</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {availableFilters.colors.map((c) => (
-                          <button
-                            key={c}
-                            onClick={() => toggleFilter(setSelectedColors, c)}
-                            className={`px-2.5 py-0.5 rounded text-xs font-medium transition-all ${
-                              selectedColors.has(c)
-                                ? 'bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]'
-                                : 'bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]'
-                            }`}
-                          >
-                            {c}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+              <div className="space-y-3 mt-3">
+                {/* Price */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-[var(--color-text-muted)] shrink-0 w-12">
+                    Цена
+                  </span>
+                  <input
+                    type="number"
+                    placeholder="От"
+                    value={priceMin}
+                    onChange={(e) => setPriceMin(e.target.value)}
+                    className="w-20 rounded-lg bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-2 py-1 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#44944A]"
+                  />
+                  <span className="text-xs text-[var(--color-text-muted)]">
+                    —
+                  </span>
+                  <input
+                    type="number"
+                    placeholder="До"
+                    value={priceMax}
+                    onChange={(e) => setPriceMax(e.target.value)}
+                    className="w-20 rounded-lg bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-2 py-1 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#44944A]"
+                  />
                 </div>
-              )}
+
+                {/* Sizes */}
+                {availableFilters.sizes.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-[var(--color-text-muted)] shrink-0 w-12 pt-1">
+                      Размер
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {availableFilters.sizes.map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => toggleFilter(setSelectedSizes, s)}
+                          className={`px-2.5 py-0.5 rounded text-xs font-medium transition-all ${
+                            selectedSizes.has(s)
+                              ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]"
+                              : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Brands */}
+                {availableFilters.brands.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-[var(--color-text-muted)] shrink-0 w-12 pt-1">
+                      Бренд
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {availableFilters.brands.map((b) => (
+                        <button
+                          key={b}
+                          onClick={() => toggleFilter(setSelectedBrands, b)}
+                          className={`px-2.5 py-0.5 rounded text-xs font-medium transition-all ${
+                            selectedBrands.has(b)
+                              ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]"
+                              : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
+                          }`}
+                        >
+                          {b}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Colors */}
+                {availableFilters.colors.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-[var(--color-text-muted)] shrink-0 w-12 pt-1">
+                      Цвет
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {availableFilters.colors.map((c) => (
+                        <button
+                          key={c}
+                          onClick={() => toggleFilter(setSelectedColors, c)}
+                          className={`px-2.5 py-0.5 rounded text-xs font-medium transition-all ${
+                            selectedColors.has(c)
+                              ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]"
+                              : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
+                          }`}
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Sort + count row */}
               <div className="flex items-center gap-3 mt-4">
@@ -469,8 +473,6 @@ export default function CatalogPage() {
           </div>
         )}
       </div>
-
-
     </div>
   );
 }
