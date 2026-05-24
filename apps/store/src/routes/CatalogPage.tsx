@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useCatalogStore } from "@/stores/catalogStore";
 import { useCartStore } from "@/stores/cartStore";
 import { getImageUrl } from "@/lib/api";
-import { ShoppingBag, SlidersHorizontal, X } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
 
@@ -146,17 +146,6 @@ export default function CatalogPage() {
     }
     return result;
   }, [products, selectedCategory, sortBy, flatCategories]);
-
-  useEffect(() => {
-    if (mobileFiltersOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [mobileFiltersOpen]);
 
   return (
     <div className="px-6 py-24 lg:px-8">
