@@ -211,9 +211,14 @@ export default function ProductTable({
 
             {/* Status */}
             <div className="col-span-1">
-              {product.in_stock ? (
+              {product.status === "in_stock" ? (
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-500 bg-green-500/10 px-2.5 py-1 rounded-full">
                   <CircleCheck className="h-3 w-3" />В наличии
+                </span>
+              ) : product.status === "pre_order" ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-yellow-500 bg-yellow-500/10 px-2.5 py-1 rounded-full">
+                  <Circle className="h-3 w-3" />
+                  Под заказ
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 bg-red-500/10 px-2.5 py-1 rounded-full">

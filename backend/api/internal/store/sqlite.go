@@ -94,6 +94,8 @@ func (s *SQLiteStore) migrate() error {
 		description TEXT NOT NULL DEFAULT '',
 		xp_reward INTEGER NOT NULL DEFAULT 0,
 		in_stock INTEGER NOT NULL DEFAULT 1,
+		status TEXT NOT NULL DEFAULT 'in_stock',
+		stock_quantity INTEGER NOT NULL DEFAULT 0,
 		created_by TEXT NOT NULL DEFAULT '',
 		created_at TEXT NOT NULL DEFAULT (datetime('now')),
 		updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -160,6 +162,10 @@ func (s *SQLiteStore) migrate() error {
 	if _, err := s.db.Exec(cats); err != nil {
 		return fmt.Errorf("insert default categories: %w", err)
 	}
+
+	// Migrations for existing databases
+	s.db.Exec(`ALTER TABLE products ADD COLUMN status TEXT NOT NULL DEFAULT 'in_stock'`)
+	s.db.Exec(`ALTER TABLE products ADD COLUMN stock_quantity INTEGER NOT NULL DEFAULT 0`)
 
 	return nil
 }
@@ -283,9 +289,9 @@ func (s *SQLiteStore) CreateProduct(p model.Product) (int64, error) {
 	}
 
 	res, err := tx.Exec(`
-		INSERT INTO products (slug, category_id, brand, name, price, color, model, fit, material, care, description, xp_reward, in_stock, created_by)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		p.Slug, p.CategoryID, p.Brand, p.Name, p.Price, p.Color, p.Model, p.Fit, p.Material, string(careJSON), p.Description, p.XPReward, inStock, p.CreatedBy,
+		INSERT INTO products (slug, category_id, brand, name, price, color, model, fit, material, care, description, xp_reward, in_stock, status, stock_quantity, created_by)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		p.Slug, p.CategoryID, p.Brand, p.Name, p.Price, p.Color, p.Model, p.Fit, p.Material, string(careJSON), p.Description, p.XPReward, inStock, p.Status, p.StockQty, p.CreatedBy,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("insert product: %w", err)
@@ -352,9 +358,9 @@ func (s *SQLiteStore) UpdateProduct(slug string, p model.Product) error {
 	}
 
 	_, err = tx.Exec(`
-		UPDATE products SET slug=?, category_id=?, brand=?, name=?, price=?, color=?, model=?, fit=?, material=?, care=?, description=?, xp_reward=?, in_stock=?, updated_at=datetime('now')
+		UPDATE products SET slug=?, category_id=?, brand=?, name=?, price=?, color=?, model=?, fit=?, material=?, care=?, description=?, xp_reward=?, in_stock=?, status=?, stock_quantity=?, updated_at=datetime('now')
 		WHERE id=?`,
-		p.Slug, p.CategoryID, p.Brand, p.Name, p.Price, p.Color, p.Model, p.Fit, p.Material, string(careJSON), p.Description, p.XPReward, inStock, productID,
+		p.Slug, p.CategoryID, p.Brand, p.Name, p.Price, p.Color, p.Model, p.Fit, p.Material, string(careJSON), p.Description, p.XPReward, inStock, p.Status, p.StockQty, productID,
 	)
 	if err != nil {
 		return fmt.Errorf("update product: %w", err)
@@ -524,7 +530,7 @@ func (s *SQLiteStore) ListProducts(filter model.ProductFilter) ([]model.Product,
 func (s *SQLiteStore) queryProduct(whereClause string, arg interface{}) (*model.Product, error) {
 	query := `SELECT p.id, p.slug, p.category_id, COALESCE(c.name, '') as category_name,
 		p.brand, p.name, p.price, p.color, p.model, p.fit, p.material, p.care,
-		p.description, p.xp_reward, p.in_stock, p.created_by, p.created_at, p.updated_at
+		p.description, p.xp_reward, p.in_stock, p.status, p.stock_quantity, p.created_by, p.created_at, p.updated_at
 		FROM products p
 		LEFT JOIN categories c ON c.id = p.category_id ` + whereClause
 
@@ -534,7 +540,7 @@ func (s *SQLiteStore) queryProduct(whereClause string, arg interface{}) (*model.
 	if err := s.db.QueryRow(query, arg).Scan(
 		&p.ID, &p.Slug, &p.CategoryID, &p.CategoryName,
 		&p.Brand, &p.Name, &p.Price, &p.Color, &p.Model, &p.Fit, &p.Material, &careJSON,
-		&p.Description, &p.XPReward, &inStock, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
+		&p.Description, &p.XPReward, &inStock, &p.Status, &p.StockQty, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil

@@ -66,6 +66,10 @@ export default function ProductForm({
     product?.xp_reward ? String(product.xp_reward) : "0",
   );
   const [inStock, setInStock] = useState(product?.in_stock ?? true);
+  const [status, setStatus] = useState(product?.status || "in_stock");
+  const [stockQuantity, setStockQuantity] = useState(
+    product?.stock_quantity ? String(product.stock_quantity) : "0",
+  );
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | "">(
     product?.category_id || "",
   );
@@ -270,6 +274,8 @@ export default function ProductForm({
       fd.append("xp_reward", xpReward || "0");
       fd.append("category_id", String(selectedCategoryId));
       fd.append("in_stock", inStock ? "1" : "0");
+      fd.append("status", status);
+      fd.append("stock_quantity", stockQuantity || "0");
       if (showColor || color) fd.append("color", color);
       if (model) fd.append("model", model);
       if (fit) fd.append("fit", fit);
@@ -553,23 +559,37 @@ export default function ProductForm({
                 </div>
               </div>
 
-              {/* Stock */}
+              {/* Status + Quantity */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
                     Статус
                   </label>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={inStock}
-                      onChange={(e) => setInStock(e.target.checked)}
-                      className="w-4 h-4 rounded accent-[#44944A]"
-                    />
-                    <span className="text-sm text-[var(--color-text-primary)]">
-                      В наличии
-                    </span>
+                  <select
+                    value={status}
+                    onChange={(e) => {
+                      setStatus(e.target.value);
+                      setInStock(e.target.value === "in_stock");
+                    }}
+                    className={TEXT_FIELD_STYLE}
+                  >
+                    <option value="in_stock">В наличии</option>
+                    <option value="pre_order">Под заказ</option>
+                    <option value="none">Нет</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
+                    Количество
                   </label>
+                  <input
+                    type="number"
+                    value={stockQuantity}
+                    onChange={(e) => setStockQuantity(e.target.value)}
+                    placeholder="0"
+                    min="0"
+                    className={`${TEXT_FIELD_STYLE} font-mono`}
+                  />
                 </div>
               </div>
             </div>

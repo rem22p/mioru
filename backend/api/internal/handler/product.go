@@ -328,6 +328,18 @@ func parseProductFromForm(r *http.Request) (model.Product, error) {
 	}
 	p.InStock = r.FormValue("in_stock") == "true" || r.FormValue("in_stock") == "1"
 
+	p.Status = strings.TrimSpace(r.FormValue("status"))
+	if p.Status == "" {
+		if p.InStock {
+			p.Status = "in_stock"
+		} else {
+			p.Status = "none"
+		}
+	}
+	if v, err := strconv.Atoi(r.FormValue("stock_quantity")); err == nil {
+		p.StockQty = v
+	}
+
 	if p.Slug == "" {
 		return p, fmt.Errorf("slug is required")
 	}

@@ -64,6 +64,8 @@ type Product struct {
 	Description  string         `json:"description"`
 	XPReward     int            `json:"xp_reward"`
 	InStock      bool           `json:"in_stock"`
+	Status       string         `json:"status"`
+	StockQty     int            `json:"stock_quantity"`
 	CreatedBy    string         `json:"created_by"`
 	CreatedAt    string         `json:"created_at"`
 	UpdatedAt    string         `json:"updated_at"`

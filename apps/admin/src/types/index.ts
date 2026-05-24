@@ -64,6 +64,8 @@ export interface Product {
   price: number;
   xp_reward: number;
   in_stock: boolean;
+  status: string;
+  stock_quantity: number;
   category_id: number;
   category_name?: string;
   images: ProductImage[];
