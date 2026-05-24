@@ -223,25 +223,26 @@ func (s *PostgresStore) GetCategoriesFlat(ctx context.Context) ([]model.Category
 func buildCategoryTree(cats []model.Category) []model.Category {
 	byID := make(map[int]*model.Category)
 	for i := range cats {
+		cats[i].Children = []model.Category{}
 		byID[cats[i].ID] = &cats[i]
-		byID[cats[i].ID].Children = []model.Category{}
 	}
 
-	var roots []model.Category
+	var roots []*model.Category
 	for i := range cats {
-		c := cats[i]
+		c := &cats[i]
 		if c.ParentID == nil {
 			roots = append(roots, c)
 		} else if parent, ok := byID[*c.ParentID]; ok {
-			parent.Children = append(parent.Children, c)
+			parent.Children = append(parent.Children, *c)
 		}
 	}
 
-	for i := range roots {
-		cleanEmptyChildren(&roots[i])
+	result := make([]model.Category, len(roots))
+	for i, r := range roots {
+		cleanEmptyChildren(r)
+		result[i] = *r
 	}
-
-	return roots
+	return result
 }
 
 func cleanEmptyChildren(c *model.Category) {
