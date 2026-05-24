@@ -1,4 +1,11 @@
-import type { User, Note, Product, Category, ProductFilter, ProductsResponse } from "@/types";
+import type {
+  User,
+  Note,
+  Product,
+  Category,
+  ProductFilter,
+  ProductsResponse,
+} from "@/types";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
@@ -22,7 +29,7 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
     headers: {
       ...headers,
-      ...(options?.headers as Record<string, string> || {}),
+      ...((options?.headers as Record<string, string>) || {}),
     },
   });
 
@@ -101,39 +108,41 @@ export const deleteNote = (id: string) =>
 export const fetchProducts = (params: Partial<ProductFilter>) => {
   const searchParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
+    if (value !== undefined && value !== null && value !== "") {
       searchParams.set(key, String(value));
     }
   });
-  return api<ProductsResponse>(`/api/admin/products?${searchParams.toString()}`);
+  return api<ProductsResponse>(
+    `/api/admin/products?${searchParams.toString()}`,
+  );
 };
 
 export const fetchProduct = (slug: string) =>
   api<Product>(`/api/admin/products/${slug}`);
 
 export const createProduct = (data: FormData) =>
-  api<Product>('/api/admin/products', {
-    method: 'POST',
+  api<Product>("/api/admin/products", {
+    method: "POST",
     body: data,
   });
 
 export const updateProduct = (slug: string, data: FormData) =>
   api<Product>(`/api/admin/products/${slug}`, {
-    method: 'PUT',
+    method: "PUT",
     body: data,
   });
 
 export const deleteProduct = (slug: string) =>
-  api<void>(`/api/admin/products/${slug}`, { method: 'DELETE' });
+  api<void>(`/api/admin/products/${slug}`, { method: "DELETE" });
 
 export const fetchCategories = () =>
-  api<Category[]>('/api/admin/categories');
+  api<Category[]>("/api/admin/categories?flat=1");
 
 export const uploadImage = (file: File) => {
   const fd = new FormData();
-  fd.append('file', file);
-  return api<{ url: string }>('/api/admin/upload', {
-    method: 'POST',
+  fd.append("file", file);
+  return api<{ url: string }>("/api/admin/upload", {
+    method: "POST",
     body: fd,
   });
 };

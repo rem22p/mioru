@@ -218,8 +218,17 @@ func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 // Categories handles GET /api/admin/categories
+// Use ?flat=1 to get a flat list with parent_id (for form dropdowns).
 func (h *ProductHandler) Categories(w http.ResponseWriter, r *http.Request) {
-	cats, err := h.store.GetCategories()
+	flat := r.URL.Query().Get("flat") == "1"
+
+	var cats []model.Category
+	var err error
+	if flat {
+		cats, err = h.store.GetCategoriesFlat()
+	} else {
+		cats, err = h.store.GetCategories()
+	}
 	if err != nil {
 		jsonError(w, "internal error: "+err.Error(), http.StatusInternalServerError)
 		return

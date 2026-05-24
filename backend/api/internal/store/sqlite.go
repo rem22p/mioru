@@ -200,6 +200,38 @@ func (s *SQLiteStore) GetCategories() ([]model.Category, error) {
 	return buildCategoryTree(all), nil
 }
 
+// GetCategoriesFlat returns all categories as a flat list with ParentID references.
+func (s *SQLiteStore) GetCategoriesFlat() ([]model.Category, error) {
+	rows, err := s.db.Query(`SELECT id, parent_id, name, slug, criteria, sort_order FROM categories ORDER BY sort_order, id`)
+	if err != nil {
+		return nil, fmt.Errorf("query categories: %w", err)
+	}
+	defer rows.Close()
+
+	var all []model.Category
+	for rows.Next() {
+		var c model.Category
+		var parentID sql.NullInt64
+		var criteriaJSON string
+		if err := rows.Scan(&c.ID, &parentID, &c.Name, &c.Slug, &criteriaJSON, &c.SortOrder); err != nil {
+			return nil, fmt.Errorf("scan category: %w", err)
+		}
+		if parentID.Valid {
+			pid := int(parentID.Int64)
+			c.ParentID = &pid
+		}
+		json.Unmarshal([]byte(criteriaJSON), &c.Criteria)
+		if c.Criteria == nil {
+			c.Criteria = []string{}
+		}
+		all = append(all, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+	return all, nil
+}
+
 func buildCategoryTree(cats []model.Category) []model.Category {
 	byID := make(map[int]*model.Category)
 	for i := range cats {
