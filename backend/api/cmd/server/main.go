@@ -190,19 +190,7 @@ func cors(next http.HandlerFunc) http.HandlerFunc {
 
 func corsHeaders(w http.ResponseWriter, r *http.Request) {
 	origin := r.Header.Get("Origin")
-	allowed := map[string]bool{
-		"http://localhost:5173":         true, // store dev
-		"http://127.0.0.1:5173":         true,
-		"http://localhost:5174":         true, // admin dev
-		"http://127.0.0.1:5174":         true,
-		"http://localhost:8080":         true,
-		"http://127.0.0.1:8080":         true,
-		"https://mioru.store":           true,
-		"https://www.mioru.store":       true,
-		"https://admin.mioru.store":     true,
-		"https://www.admin.mioru.store": true,
-	}
-	if allowed[origin] {
+	if origin != "" {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 	}
