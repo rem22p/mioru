@@ -470,12 +470,12 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
-                  Цена до скидки
+                  XP награда
                 </label>
                 <input
                   type="number"
-                  value={compareAtPrice}
-                  onChange={(e) => setCompareAtPrice(e.target.value)}
+                  value={xpReward}
+                  onChange={(e) => setXpReward(e.target.value)}
                   placeholder="0"
                   min="0"
                   className={`${TEXT_FIELD_STYLE} font-mono`}
@@ -498,19 +498,6 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
                   />
                   <span className="text-sm text-[var(--color-text-primary)]">В наличии</span>
                 </label>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
-                  Количество
-                </label>
-                <input
-                  type="number"
-                  value={stockQuantity}
-                  onChange={(e) => setStockQuantity(e.target.value)}
-                  placeholder="0"
-                  min="0"
-                  className={`${TEXT_FIELD_STYLE} font-mono`}
-                />
               </div>
             </div>
           </div>
@@ -578,7 +565,10 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
                       Длина
                     </th>
                     <th className="text-left py-2 px-2 text-xs font-semibold text-[var(--color-text-muted)] uppercase">
-                      Рукав
+                      Длина стопы
+                    </th>
+                    <th className="text-left py-2 px-2 text-xs font-semibold text-[var(--color-text-muted)] uppercase">
+                      Запястье
                     </th>
                     <th className="w-10" />
                   </tr>
@@ -589,8 +579,8 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
                       <td className="py-1.5 px-1">
                         <input
                           type="text"
-                          value={row.size}
-                          onChange={(e) => updateSizeChartRow(i, 'size', e.target.value)}
+                          value={row.label || ''}
+                          onChange={(e) => updateSizeChartRow(i, 'label', e.target.value)}
                           placeholder="M"
                           className="w-full rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-2 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#44944A]"
                         />
@@ -634,9 +624,18 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
                       <td className="py-1.5 px-1">
                         <input
                           type="text"
-                          value={row.sleeve || ''}
-                          onChange={(e) => updateSizeChartRow(i, 'sleeve', e.target.value)}
-                          placeholder="64"
+                          value={row.foot_length || ''}
+                          onChange={(e) => updateSizeChartRow(i, 'foot_length', e.target.value)}
+                          placeholder="26.5"
+                          className="w-full rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-2 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#44944A] font-mono"
+                        />
+                      </td>
+                      <td className="py-1.5 px-1">
+                        <input
+                          type="text"
+                          value={row.wrist || ''}
+                          onChange={(e) => updateSizeChartRow(i, 'wrist', e.target.value)}
+                          placeholder="17"
                           className="w-full rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-2 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#44944A] font-mono"
                         />
                       </td>
