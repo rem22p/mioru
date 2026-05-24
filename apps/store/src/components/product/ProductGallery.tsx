@@ -2,6 +2,7 @@ import { useState, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Product } from "@/types";
+import { getImageUrl } from "@/lib/api";
 import { useAvatarStore } from "@/stores/avatarStore";
 import { useTranslation } from "react-i18next";
 
@@ -26,7 +27,7 @@ export default function ProductGallery({ product }: ProductGalleryProps) {
   const [failedImages, setFailedImages] = useState<Set<number>>(new Set());
   const { params, currentPose, setPose } = useAvatarStore();
 
-  const imageUrls = product.images.map((img) => img.url);
+  const imageUrls = product.images.map((img) => getImageUrl(img.url));
 
   const handleImageError = (index: number) => {
     setFailedImages((prev) => new Set(prev).add(index));
