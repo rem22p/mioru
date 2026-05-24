@@ -301,13 +301,13 @@ export default function CatalogPage() {
                         <ShoppingBag className="h-4 w-4 text-black" />
                       </button>
                       <div className="absolute bottom-0 left-0 right-0 p-4">
-                        <p className="text-[10px] font-mono uppercase tracking-wider text-[#558b5c]">
+                        <p className="text-xs font-mono uppercase tracking-wider text-[#558b5c]">
                           {product.category_name}
                         </p>
-                        <h3 className="mt-1 text-sm font-medium text-[var(--color-text-primary)] line-clamp-1">
+                        <h3 className="mt-1 text-base font-medium text-[var(--color-text-primary)] line-clamp-1">
                           {product.name}
                         </h3>
-                        <p className="mt-1 text-sm font-bold text-[#44944A]">
+                        <p className="mt-1 text-base font-bold text-[#44944A]">
                           {product.price.toLocaleString("ru-RU")} ₽
                         </p>
                       </div>
