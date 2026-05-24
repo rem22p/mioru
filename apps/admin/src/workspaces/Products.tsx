@@ -1,11 +1,11 @@
-import { useEffect, useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useProductStore } from '@/stores/productStore';
-import ProductTable from '@/components/products/ProductTable';
-import ProductForm from '@/components/products/ProductForm';
-import DeleteDialog from '@/components/products/DeleteDialog';
-import type { Product } from '@/types';
-import { CATEGORIES, SORT_OPTIONS } from '@/lib/constants';
+import { useEffect, useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useProductStore } from "@/stores/productStore";
+import ProductTable from "@/components/products/ProductTable";
+import ProductForm from "@/components/products/ProductForm";
+import DeleteDialog from "@/components/products/DeleteDialog";
+import type { Product } from "@/types";
+import { CATEGORIES, SORT_OPTIONS } from "@/lib/constants";
 import {
   Plus,
   Search,
@@ -15,7 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
-} from 'lucide-react';
+} from "lucide-react";
 
 export default function Products() {
   const {
@@ -80,7 +80,7 @@ export default function Products() {
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
-    const { deleteProduct } = await import('@/lib/api');
+    const { deleteProduct } = await import("@/lib/api");
     try {
       await deleteProduct(deleteTarget.slug);
       setDeleteTarget(null);
@@ -91,23 +91,25 @@ export default function Products() {
   };
 
   const handleDuplicate = async (product: Product) => {
-    const { fetchProduct, createProduct } = await import('@/lib/api');
+    const { fetchProduct, createProduct } = await import("@/lib/api");
     try {
       const full = await fetchProduct(product.slug);
       const fd = new FormData();
-      fd.append('name', `${full.name} (копия)`);
-      fd.append('description', full.description);
-      fd.append('brand', full.brand);
-      fd.append('price', String(full.price));
-      fd.append('category_id', String(full.category_id));
-      fd.append('in_stock', String(full.in_stock));
-      fd.append('stock_quantity', String(full.stock_quantity));
-      if (full.color) fd.append('color', full.color);
-      if (full.model) fd.append('model', full.model);
-      if (full.fit) fd.append('fit', full.fit);
-      if (full.material) fd.append('material', full.material);
-      full.sizes.forEach((s) => fd.append('sizes[]', s));
-      full.care_instructions.forEach((c) => fd.append('care_instructions[]', c));
+      fd.append("name", `${full.name} (копия)`);
+      fd.append("description", full.description);
+      fd.append("brand", full.brand);
+      fd.append("price", String(full.price));
+      fd.append("category_id", String(full.category_id));
+      fd.append("in_stock", String(full.in_stock));
+      fd.append("stock_quantity", String(full.stock_quantity));
+      if (full.color) fd.append("color", full.color);
+      if (full.model) fd.append("model", full.model);
+      if (full.fit) fd.append("fit", full.fit);
+      if (full.material) fd.append("material", full.material);
+      full.sizes.forEach((s) => fd.append("sizes[]", s));
+      full.care_instructions.forEach((c) =>
+        fd.append("care_instructions[]", c),
+      );
       full.size_chart.forEach((sc, i) => {
         fd.append(`size_chart[${i}][size]`, sc.size);
         if (sc.chest) fd.append(`size_chart[${i}][chest]`, sc.chest);
@@ -147,7 +149,7 @@ export default function Products() {
             Товары
           </h1>
           <p className="text-sm text-[var(--color-text-secondary)] mt-1">
-            {total} {total === 1 ? 'товар' : total < 5 ? 'товара' : 'товаров'}
+            {total} {total === 1 ? "товар" : total < 5 ? "товара" : "товаров"}
           </p>
         </div>
         <button
@@ -174,7 +176,7 @@ export default function Products() {
               type="text"
               placeholder="Поиск по названию..."
               value={filter.search}
-              onChange={(e) => handleFilterChange('search', e.target.value)}
+              onChange={(e) => handleFilterChange("search", e.target.value)}
               className="w-full rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] pl-10 pr-4 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] transition-colors"
             />
           </div>
@@ -182,18 +184,21 @@ export default function Products() {
           {/* Category filter */}
           <select
             value={filter.category_id}
-            onChange={(e) => handleFilterChange('category_id', e.target.value)}
+            onChange={(e) => handleFilterChange("category_id", e.target.value)}
             className="rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-4 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] transition-colors min-w-[180px]"
           >
             <option value="">Все категории</option>
             {parentCats.map((pc) => (
               <optgroup key={pc.id} label={pc.name}>
-                <option value={String(pc.id)}>{pc.name} (все)</option>
-                {getSubcategories(pc.id).map((sc) => (
-                  <option key={sc.id} value={String(sc.id)}>
-                    {sc.name}
-                  </option>
-                ))}
+                {getSubcategories(pc.id).length > 0 ? (
+                  getSubcategories(pc.id).map((sc) => (
+                    <option key={sc.id} value={String(sc.id)}>
+                      {sc.name}
+                    </option>
+                  ))
+                ) : (
+                  <option value={String(pc.id)}>{pc.name}</option>
+                )}
               </optgroup>
             ))}
           </select>
@@ -203,14 +208,14 @@ export default function Products() {
             type="text"
             placeholder="Бренд..."
             value={filter.brand}
-            onChange={(e) => handleFilterChange('brand', e.target.value)}
+            onChange={(e) => handleFilterChange("brand", e.target.value)}
             className="rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-4 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] transition-colors w-36"
           />
 
           {/* Sort */}
           <select
             value={filter.sort}
-            onChange={(e) => handleFilterChange('sort', e.target.value)}
+            onChange={(e) => handleFilterChange("sort", e.target.value)}
             className="rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-4 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] transition-colors"
           >
             {SORT_OPTIONS.map((opt) => (
@@ -255,9 +260,7 @@ export default function Products() {
           </p>
           <div className="flex items-center gap-2">
             <button
-              onClick={() =>
-                setFilter({ page: Math.max(1, filter.page - 1) })
-              }
+              onClick={() => setFilter({ page: Math.max(1, filter.page - 1) })}
               disabled={filter.page <= 1}
               className="flex items-center gap-1 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-30 transition-colors"
             >
@@ -273,8 +276,7 @@ export default function Products() {
                   return false;
                 })
                 .map((p, idx, arr) => {
-                  const showEllipsis =
-                    idx > 0 && p - arr[idx - 1] > 1;
+                  const showEllipsis = idx > 0 && p - arr[idx - 1] > 1;
                   return (
                     <span key={p} className="flex items-center">
                       {showEllipsis && (
@@ -286,8 +288,8 @@ export default function Products() {
                         onClick={() => setFilter({ page: p })}
                         className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
                           p === filter.page
-                            ? 'bg-[#44944A] text-black'
-                            : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)]'
+                            ? "bg-[#44944A] text-black"
+                            : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)]"
                         }`}
                       >
                         {p}

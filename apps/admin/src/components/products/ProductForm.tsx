@@ -428,12 +428,15 @@ export default function ProductForm({
                   <option value="">Выберите категорию</option>
                   {parentCats.map((pc) => (
                     <optgroup key={pc.id} label={pc.name}>
-                      <option value={String(pc.id)}>{pc.name} (все)</option>
-                      {getSubcategories(pc.id).map((sc) => (
-                        <option key={sc.id} value={String(sc.id)}>
-                          {sc.name}
-                        </option>
-                      ))}
+                      {getSubcategories(pc.id).length > 0 ? (
+                        getSubcategories(pc.id).map((sc) => (
+                          <option key={sc.id} value={String(sc.id)}>
+                            {sc.name}
+                          </option>
+                        ))
+                      ) : (
+                        <option value={String(pc.id)}>{pc.name}</option>
+                      )}
                     </optgroup>
                   ))}
                 </select>
