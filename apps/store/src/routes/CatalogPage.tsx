@@ -239,52 +239,37 @@ export default function CatalogPage() {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="mb-8"
             >
-              {/* Category chips — structured by parent */}
-              <div className="space-y-3 mb-4">
-                {/* 'All' chip */}
-                <div className="flex flex-wrap gap-2 items-center">
-                  <button
-                    onClick={() => setSelectedCategory("all")}
-                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                      selectedCategory === "all"
-                        ? "bg-[#44944A] text-black"
-                        : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
-                    }`}
-                  >
-                    {t("catalog.filters.allCategories")}
-                  </button>
-                </div>
-
-                {/* Parent categories with sub-chips */}
+              {/* Category chips — horizontal scroll */}
+              <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-none">
+                <button
+                  onClick={() => setSelectedCategory("all")}
+                  className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    selectedCategory === "all"
+                      ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]"
+                      : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
+                  }`}
+                >
+                  {t("catalog.filters.allCategories")}
+                </button>
                 {categories
                   .filter((c) => !c.parent_id)
-                  .map((parent) => (
-                    <div
-                      key={parent.id}
-                      className="flex flex-wrap gap-2 items-center"
+                  .map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(cat.slug)}
+                      className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                        selectedCategory === cat.slug
+                          ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]"
+                          : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
+                      }`}
                     >
-                      <span className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mr-1">
-                        {parent.name}
-                      </span>
-                      {parent.children?.map((child) => (
-                        <button
-                          key={child.id}
-                          onClick={() => setSelectedCategory(child.slug)}
-                          className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                            selectedCategory === child.slug
-                              ? "bg-[#44944A] text-black"
-                              : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
-                          }`}
-                        >
-                          {child.name}
-                        </button>
-                      ))}
-                    </div>
+                      {cat.name}
+                    </button>
                   ))}
               </div>
 
               {/* Sort + count row */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 mt-4">
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
