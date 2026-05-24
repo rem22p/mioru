@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import type { Product } from "@/types";
+import { getImageUrl } from "@/lib/api";
 import {
   Pencil,
   Copy,
@@ -157,7 +158,7 @@ export default function ProductTable({
             <div className="col-span-1">
               {product.images?.[0]?.url ? (
                 <img
-                  src={product.images[0].url}
+                  src={getImageUrl(product.images[0].url)}
                   alt={product.name}
                   className="w-10 h-10 rounded-lg object-cover border border-[var(--color-border-custom)]"
                   loading="lazy"

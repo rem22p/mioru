@@ -10,7 +10,12 @@ import {
   SIZE_OPTIONS_SHOES,
   SIZE_OPTIONS_ACCESSORIES,
 } from "@/lib/constants";
-import { createProduct, updateProduct, uploadImage } from "@/lib/api";
+import {
+  createProduct,
+  updateProduct,
+  uploadImage,
+  getImageUrl,
+} from "@/lib/api";
 import {
   X,
   Upload,
@@ -815,7 +820,11 @@ export default function ProductForm({
                       className="relative group rounded-xl overflow-hidden border border-[var(--color-border-custom)] aspect-square"
                     >
                       <img
-                        src={img.file ? URL.createObjectURL(img.file) : img.url}
+                        src={
+                          img.file
+                            ? URL.createObjectURL(img.file)
+                            : getImageUrl(img.url)
+                        }
                         alt={`img-${i}`}
                         className="w-full h-full object-cover"
                       />
