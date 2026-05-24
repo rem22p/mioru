@@ -176,7 +176,7 @@ export default function ProductForm({
         const result = await uploadImage(file);
         setImages((prev) => [
           ...prev,
-          { id: `img-${Date.now()}-${Math.random()}`, url: result.url },
+          { id: `img-${Date.now()}-${Math.random()}`, url: result.url, file },
         ]);
       } catch {
         // ignore
@@ -815,7 +815,7 @@ export default function ProductForm({
                       className="relative group rounded-xl overflow-hidden border border-[var(--color-border-custom)] aspect-square"
                     >
                       <img
-                        src={img.url}
+                        src={img.file ? URL.createObjectURL(img.file) : img.url}
                         alt={`img-${i}`}
                         className="w-full h-full object-cover"
                       />
