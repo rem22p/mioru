@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import type { User } from '@/types';
-import { me as apiMe } from '@/lib/api';
+import { create } from "zustand";
+import type { User } from "@/types";
+import { me as apiMe } from "@/lib/api";
 
 interface AuthStore {
   user: User | null;
@@ -16,19 +16,19 @@ interface AuthStore {
 
 export const useAuthStore = create<AuthStore>((set) => ({
   user: null,
-  isAuthenticated: !!localStorage.getItem('token'),
+  isAuthenticated: !!localStorage.getItem("token"),
   isLoading: false,
   error: null,
 
   setUser: (user) => set({ user, isAuthenticated: !!user }),
 
   login: (token) => {
-    localStorage.setItem('token', token);
+    localStorage.setItem("token", token);
     set({ isAuthenticated: true, error: null });
   },
 
   logout: () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem("token");
     set({ user: null, isAuthenticated: false, error: null });
   },
 
@@ -38,8 +38,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       const user = await apiMe();
       set({ user, isLoading: false });
     } catch {
-      localStorage.removeItem('token');
-      set({ user: null, isAuthenticated: false, isLoading: false, error: 'Failed to fetch user' });
+      set({ isLoading: false, error: "Failed to fetch user" });
     }
   },
 
