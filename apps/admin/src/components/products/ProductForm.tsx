@@ -50,9 +50,8 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
   const [description, setDescription] = useState(product?.description || '');
   const [brand, setBrand] = useState(product?.brand || '');
   const [price, setPrice] = useState(product?.price ? String(product.price) : '');
-  const [compareAtPrice, setCompareAtPrice] = useState(product?.compare_at_price ? String(product.compare_at_price) : '');
+  const [xpReward, setXpReward] = useState(product?.xp_reward ? String(product.xp_reward) : '0');
   const [inStock, setInStock] = useState(product?.in_stock ?? true);
-  const [stockQuantity, setStockQuantity] = useState(product?.stock_quantity ? String(product.stock_quantity) : '0');
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | ''>(product?.category_id || '');
 
   // Dynamic fields
@@ -68,12 +67,12 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
   const [sizeChart, setSizeChart] = useState<SizeChartEntry[]>(
     product?.size_chart && product.size_chart.length > 0
       ? product.size_chart
-      : [{ size: '', chest: '', waist: '', hips: '', length: '', sleeve: '' }],
+      : [{ label: '', chest: '', waist: '', hips: '', length: '', foot_length: '', wrist: '' }],
   );
 
   // Care instructions
   const [careInstructions, setCareInstructions] = useState<string[]>(
-    product?.care_instructions || [''],
+    product?.care || [''],
   );
 
   // Images
@@ -174,8 +173,8 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
 
   // Size chart
   const addSizeChartRow = () => {
-    setSizeChart((prev) => [...prev, { size: '', chest: '', waist: '', hips: '', length: '', sleeve: '' }]);
-  };
+      setSizeChart((prev) => [...prev, { label: '', chest: '', waist: '', hips: '', length: '', foot_length: '', wrist: '' }]);
+    };
 
   const removeSizeChartRow = (index: number) => {
     setSizeChart((prev) => prev.filter((_, i) => i !== index));
@@ -220,10 +219,9 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
       fd.append('description', description);
       if (showBrand || brand) fd.append('brand', brand);
       fd.append('price', price);
-      if (compareAtPrice) fd.append('compare_at_price', compareAtPrice);
+      fd.append('xp_reward', xpReward || '0');
       fd.append('category_id', String(selectedCategoryId));
-      fd.append('in_stock', String(inStock));
-      fd.append('stock_quantity', stockQuantity || '0');
+      fd.append('in_stock', inStock ? '1' : '0');
       if (showColor || color) fd.append('color', color);
       if (model) fd.append('model', model);
       if (fit) fd.append('fit', fit);
@@ -234,28 +232,26 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
 
       // Size chart
       sizeChart
-        .filter((row) => row.size.trim())
+        .filter((row) => row.label.trim())
         .forEach((row, i) => {
-          fd.append(`size_chart[${i}][size]`, row.size);
+          fd.append(`size_chart[${i}][label]`, row.label);
           if (row.chest) fd.append(`size_chart[${i}][chest]`, row.chest);
           if (row.waist) fd.append(`size_chart[${i}][waist]`, row.waist);
           if (row.hips) fd.append(`size_chart[${i}][hips]`, row.hips);
           if (row.length) fd.append(`size_chart[${i}][length]`, row.length);
-          if (row.sleeve) fd.append(`size_chart[${i}][sleeve]`, row.sleeve);
+          if (row.foot_length) fd.append(`size_chart[${i}][foot_length]`, row.foot_length);
+          if (row.wrist) fd.append(`size_chart[${i}][wrist]`, row.wrist);
         });
 
       // Care instructions
       careInstructions
         .filter((c) => c.trim())
-        .forEach((c) => fd.append('care_instructions[]', c));
+        .forEach((c) => fd.append('care[]', c));
 
-      // Images (send existing URLs for edit)
-      images.forEach((img, i) => {
+      // Images — only send new files
+      images.forEach((img) => {
         if (img.file) {
           fd.append('images', img.file);
-        } else {
-          fd.append(`existing_images[${i}][id]`, img.id);
-          fd.append(`existing_images[${i}][url]`, img.url);
         }
       });
 

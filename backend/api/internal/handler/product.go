@@ -69,33 +69,33 @@ func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Create handles POST /api/admin/products
+// Create handles POST /api/admin/products (multipart form)
 func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	username := middleware.Username(r)
 
-	var p model.Product
-	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
-		jsonError(w, "bad request: "+err.Error(), http.StatusBadRequest)
+	r.Body = http.MaxBytesReader(w, r.Body, 32<<20)
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		jsonError(w, "failed to parse form: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Validate required fields
-	p.Slug = strings.TrimSpace(p.Slug)
-	if p.Slug == "" {
-		jsonError(w, "slug is required", http.StatusBadRequest)
-		return
-	}
-	p.Name = strings.TrimSpace(p.Name)
-	if p.Name == "" {
-		jsonError(w, "name is required", http.StatusBadRequest)
-		return
-	}
-	if p.CategoryID <= 0 {
-		jsonError(w, "category_id is required", http.StatusBadRequest)
+	p, err := parseProductFromForm(r)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	p.CreatedBy = username
+
+	// Upload images
+	imageURLs, err := h.saveUploadedImages(r, "images")
+	if err != nil {
+		jsonError(w, "failed to save images: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	for i, url := range imageURLs {
+		p.Images = append(p.Images, model.ProductImage{URL: url, SortOrder: i})
+	}
 
 	id, err := h.store.CreateProduct(p)
 	if err != nil {
@@ -107,7 +107,6 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch the created product to return full data
 	created, err := h.store.GetProduct(p.Slug)
 	if err != nil {
 		jsonError(w, "created but failed to fetch: "+err.Error(), http.StatusInternalServerError)
@@ -144,7 +143,7 @@ func (h *ProductHandler) Get(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(p)
 }
 
-// Update handles PUT /api/admin/products/{slug}
+// Update handles PUT /api/admin/products/{slug} (multipart form)
 func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("slug")
 	if slug == "" {
@@ -152,25 +151,26 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var p model.Product
-	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
-		jsonError(w, "bad request: "+err.Error(), http.StatusBadRequest)
+	r.Body = http.MaxBytesReader(w, r.Body, 32<<20)
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		jsonError(w, "failed to parse form: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	p.Slug = strings.TrimSpace(p.Slug)
-	if p.Slug == "" {
-		jsonError(w, "slug is required", http.StatusBadRequest)
+	p, err := parseProductFromForm(r)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	p.Name = strings.TrimSpace(p.Name)
-	if p.Name == "" {
-		jsonError(w, "name is required", http.StatusBadRequest)
+
+	// Upload new images
+	imageURLs, err := h.saveUploadedImages(r, "images")
+	if err != nil {
+		jsonError(w, "failed to save images: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if p.CategoryID <= 0 {
-		jsonError(w, "category_id is required", http.StatusBadRequest)
-		return
+	for i, url := range imageURLs {
+		p.Images = append(p.Images, model.ProductImage{URL: url, SortOrder: i})
 	}
 
 	if err := h.store.UpdateProduct(slug, p); err != nil {
@@ -186,7 +186,6 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch updated product
 	updated, err := h.store.GetProduct(p.Slug)
 	if err != nil {
 		jsonError(w, "updated but failed to fetch: "+err.Error(), http.StatusInternalServerError)
@@ -294,4 +293,169 @@ func uniquePrefix() string {
 	b := make([]byte, 8)
 	rand.Read(b)
 	return hex.EncodeToString(b) + "_" + fmt.Sprintf("%d", time.Now().UnixNano())
+}
+
+// parseProductFromForm extracts a Product from multipart form values.
+func parseProductFromForm(r *http.Request) (model.Product, error) {
+	p := model.Product{
+		Slug:        strings.TrimSpace(r.FormValue("slug")),
+		Name:        strings.TrimSpace(r.FormValue("name")),
+		Description: strings.TrimSpace(r.FormValue("description")),
+		Brand:       strings.TrimSpace(r.FormValue("brand")),
+		Color:       strings.TrimSpace(r.FormValue("color")),
+		Model:       strings.TrimSpace(r.FormValue("model")),
+		Fit:         strings.TrimSpace(r.FormValue("fit")),
+		Material:    strings.TrimSpace(r.FormValue("material")),
+	}
+
+	if v, err := strconv.Atoi(r.FormValue("price")); err == nil {
+		p.Price = v
+	}
+	if v, err := strconv.Atoi(r.FormValue("xp_reward")); err == nil {
+		p.XPReward = v
+	}
+	if v, err := strconv.ParseInt(r.FormValue("category_id"), 10, 64); err == nil {
+		p.CategoryID = v
+	}
+	p.InStock = r.FormValue("in_stock") == "true" || r.FormValue("in_stock") == "1"
+
+	if p.Slug == "" {
+		return p, fmt.Errorf("slug is required")
+	}
+	if p.Name == "" {
+		return p, fmt.Errorf("name is required")
+	}
+	if p.CategoryID <= 0 {
+		return p, fmt.Errorf("category_id is required")
+	}
+
+	// Sizes
+	if r.Form["sizes[]"] != nil {
+		p.Sizes = r.Form["sizes[]"]
+	} else if r.Form["sizes"] != nil {
+		p.Sizes = r.Form["sizes"]
+	}
+
+	// Care instructions
+	if r.Form["care[]"] != nil {
+		p.Care = r.Form["care[]"]
+	}
+
+	// Size chart — parse indexed fields like size_chart[0][label], size_chart[0][chest], etc.
+	chartMap := make(map[int]*model.SizeChartRow)
+	for key, values := range r.Form {
+		if !strings.HasPrefix(key, "size_chart[") {
+			continue
+		}
+		// Parse "size_chart[0][label]" → index=0, field="label"
+		rest := strings.TrimPrefix(key, "size_chart[")
+		closeBracket := strings.Index(rest, "]")
+		if closeBracket < 0 {
+			continue
+		}
+		idx, err := strconv.Atoi(rest[:closeBracket])
+		if err != nil {
+			continue
+		}
+		fieldPart := rest[closeBracket+1:]
+		if !strings.HasPrefix(fieldPart, "[") || !strings.HasSuffix(fieldPart, "]") {
+			continue
+		}
+		field := fieldPart[1 : len(fieldPart)-1]
+		if len(values) == 0 {
+			continue
+		}
+		val := values[0]
+
+		if chartMap[idx] == nil {
+			chartMap[idx] = &model.SizeChartRow{}
+		}
+		row := chartMap[idx]
+
+		switch field {
+		case "label":
+			row.Label = val
+		case "chest":
+			if f, err := strconv.ParseFloat(val, 64); err == nil {
+				row.Chest = &f
+			}
+		case "waist":
+			if f, err := strconv.ParseFloat(val, 64); err == nil {
+				row.Waist = &f
+			}
+		case "hips":
+			if f, err := strconv.ParseFloat(val, 64); err == nil {
+				row.Hips = &f
+			}
+		case "length":
+			if f, err := strconv.ParseFloat(val, 64); err == nil {
+				row.Length = &f
+			}
+		case "foot_length":
+			if f, err := strconv.ParseFloat(val, 64); err == nil {
+				row.FootLength = &f
+			}
+		case "wrist":
+			if f, err := strconv.ParseFloat(val, 64); err == nil {
+				row.Wrist = &f
+			}
+		}
+	}
+	for i := 0; ; i++ {
+		if row, ok := chartMap[i]; ok {
+			p.SizeChart = append(p.SizeChart, *row)
+		} else {
+			break
+		}
+	}
+
+	return p, nil
+}
+
+// saveUploadedImages saves all files from a multipart form field and returns their URLs.
+func (h *ProductHandler) saveUploadedImages(r *http.Request, fieldName string) ([]string, error) {
+	if r.MultipartForm == nil || r.MultipartForm.File == nil {
+		return nil, nil
+	}
+
+	files := r.MultipartForm.File[fieldName]
+	if len(files) == 0 {
+		return nil, nil
+	}
+
+	if err := os.MkdirAll(h.uploadDir, 0755); err != nil {
+		return nil, err
+	}
+
+	var urls []string
+	for _, fh := range files {
+		ext := strings.ToLower(filepath.Ext(fh.Filename))
+		allowedExt := map[string]bool{
+			".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true, ".svg": true,
+		}
+		if !allowedExt[ext] {
+			continue
+		}
+
+		file, err := fh.Open()
+		if err != nil {
+			continue
+		}
+
+		safeName := uniquePrefix() + ext
+		destPath := filepath.Join(h.uploadDir, safeName)
+		dest, err := os.Create(destPath)
+		if err != nil {
+			file.Close()
+			continue
+		}
+
+		io.Copy(dest, file)
+		file.Close()
+		dest.Close()
+
+		urls = append(urls, "/uploads/"+safeName)
+	}
+
+	return urls, nil
 }

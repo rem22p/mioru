@@ -34,45 +34,47 @@ export interface Category {
   name: string;
   slug: string;
   criteria: string[];
+  children?: Category[];
 }
 
 export interface SizeChartEntry {
-  size: string;
+  label: string;
   chest?: string;
   waist?: string;
   hips?: string;
   length?: string;
-  sleeve?: string;
+  foot_length?: string;
+  wrist?: string;
   [key: string]: string | undefined;
 }
 
 export interface ProductImage {
   id: string;
   url: string;
-  alt: string;
+  file?: File;
   sort_order: number;
 }
 
 export interface Product {
-  id: string;
+  id: number;
   name: string;
   slug: string;
   description: string;
   brand: string;
   price: number;
-  compare_at_price?: number;
+  xp_reward: number;
   in_stock: boolean;
-  stock_quantity: number;
   category_id: number;
-  category?: Category;
+  category_name?: string;
   images: ProductImage[];
   sizes: string[];
-  color?: string;
-  model?: string;
-  fit?: string;
-  material?: string;
+  color: string;
+  model: string;
+  fit: string;
+  material: string;
   size_chart: SizeChartEntry[];
-  care_instructions: string[];
+  care: string[];
+  created_by: string;
   created_at: string;
   updated_at: string;
 }
