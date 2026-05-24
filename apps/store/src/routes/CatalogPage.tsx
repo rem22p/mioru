@@ -3,8 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useCatalogStore } from "@/stores/catalogStore";
 import { useCartStore } from "@/stores/cartStore";
-import { getImageUrl } from "@/lib/api";
-import { ShoppingBag, SlidersHorizontal, X, ImageIcon } from "lucide-react";
+import { ShoppingBag, SlidersHorizontal, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
 
@@ -271,7 +270,11 @@ export default function CatalogPage() {
                           />
                         ) : (
                           <div className="absolute inset-0 flex items-center justify-center">
-                            <ImageIcon className="h-12 w-12 text-[var(--color-text-muted)]" />
+                            <span className="text-3xl sm:text-5xl transition-transform duration-500 group-hover:scale-110">
+                              {categoryEmoji(
+                                categorySlugById.get(product.category_id) || "",
+                              )}
+                            </span>
                           </div>
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-bg-primary)] via-transparent to-transparent opacity-60" />
