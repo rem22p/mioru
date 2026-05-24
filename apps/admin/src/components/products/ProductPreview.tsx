@@ -1,10 +1,23 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  X, Star, Ruler, Check, ShoppingBag, Heart, Share2,
-  ArrowLeft, Info, Shirt, Truck, Droplets, Package,
-  RotateCcw, Sun, Moon,
-} from 'lucide-react';
+  X,
+  Star,
+  Ruler,
+  Check,
+  ShoppingBag,
+  Heart,
+  Share2,
+  ArrowLeft,
+  Info,
+  Shirt,
+  Truck,
+  Droplets,
+  Package,
+  RotateCcw,
+  Sun,
+  Moon,
+} from "lucide-react";
 
 interface ProductPreviewProps {
   data: {
@@ -19,50 +32,68 @@ interface ProductPreviewProps {
     fit: string;
     categoryName: string;
     images: { url: string; file?: File }[];
-    sizeChart: { label: string; chest?: string; waist?: string; hips?: string; length?: string; foot_length?: string; wrist?: string }[];
+    sizeChart: {
+      label: string;
+      chest?: string;
+      waist?: string;
+      hips?: string;
+      length?: string;
+      foot_length?: string;
+      wrist?: string;
+    }[];
     inStock: boolean;
   };
   onClose: () => void;
 }
 
 export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
-  const [previewTheme, setPreviewTheme] = useState<'dark' | 'light'>('dark');
-  const [selectedSize, setSelectedSize] = useState('');
-  const [activeTab, setActiveTab] = useState<'description' | 'material' | 'delivery'>('description');
+  const [previewTheme, setPreviewTheme] = useState<"dark" | "light">("dark");
+  const [selectedSize, setSelectedSize] = useState("");
+  const [activeTab, setActiveTab] = useState<
+    "description" | "material" | "delivery"
+  >("description");
   const [mainImage, setMainImage] = useState(0);
 
-  const isLight = previewTheme === 'light';
+  const isLight = previewTheme === "light";
   const displayPrice = data.price || 0;
 
-  const bg = isLight ? 'bg-[#fafafa]' : 'bg-[#0a0a0a]';
-  const cardBg = isLight ? 'bg-white' : 'bg-[#161616]';
-  const border = isLight ? 'border-[#e0e0e0]' : 'border-[#222222]';
-  const textPrimary = isLight ? 'text-[#0a0a0a]' : 'text-white';
-  const textSecondary = isLight ? 'text-[#666666]' : 'text-[#888888]';
-  const textMuted = isLight ? 'text-[#999999]' : 'text-[#555555]';
-  const accentBg = 'bg-[#44944A]';
-  const accentBg10 = isLight ? 'bg-[#44944A]/10' : 'bg-[#44944A]/10';
-  const accentText = 'text-[#44944A]';
-  const accentBorder = 'border-[#44944A]';
-  const hoverBg = isLight ? 'hover:bg-gray-100' : 'hover:bg-[#222222]';
+  const bg = isLight ? "bg-[#fafafa]" : "bg-[#0a0a0a]";
+  const cardBg = isLight ? "bg-white" : "bg-[#161616]";
+  const border = isLight ? "border-[#e0e0e0]" : "border-[#222222]";
+  const textPrimary = isLight ? "text-[#0a0a0a]" : "text-white";
+  const textSecondary = isLight ? "text-[#666666]" : "text-[#888888]";
+  const textMuted = isLight ? "text-[#999999]" : "text-[#555555]";
+  const accentBg = "bg-[#44944A]";
+  const accentBg10 = isLight ? "bg-[#44944A]/10" : "bg-[#44944A]/10";
+  const accentText = "text-[#44944A]";
+  const accentBorder = "border-[#44944A]";
+  const hoverBg = isLight ? "hover:bg-gray-100" : "hover:bg-[#222222]";
 
-  const images = data.images.filter(img => img.url || img.file);
-  const displayImages = images.length > 0
-    ? images.map(img => img.file ? URL.createObjectURL(img.file) : img.url)
-    : ['data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" fill="none"><rect width="600" height="600" fill="%23161616"/><text x="300" y="310" text-anchor="middle" fill="%23555" font-family="monospace" font-size="24">No image</text></svg>')];
+  const images = data.images.filter((img) => img.url || img.file);
+  const displayImages =
+    images.length > 0
+      ? images.map((img) =>
+          img.file ? URL.createObjectURL(img.file) : img.url,
+        )
+      : [
+          "data:image/svg+xml," +
+            encodeURIComponent(
+              '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" fill="none"><rect width="600" height="600" fill="%23161616"/><text x="300" y="310" text-anchor="middle" fill="%23555" font-family="monospace" font-size="24">No image</text></svg>',
+            ),
+        ];
 
   const fitLabels: Record<string, string> = {
-    slim: 'Облегающий',
-    regular: 'Стандартный',
-    oversized: 'Оверсайз',
-    loose: 'Свободный',
+    slim: "Облегающий",
+    regular: "Стандартный",
+    oversized: "Оверсайз",
+    loose: "Свободный",
   };
 
   const fitDescs: Record<string, string> = {
-    slim: 'Плотно облегает фигуру',
-    regular: 'Классическая посадка',
-    oversized: 'Увеличенный объём и ширина',
-    loose: 'Свободный силуэт без объёма',
+    slim: "Плотно облегает фигуру",
+    regular: "Классическая посадка",
+    oversized: "Увеличенный объём и ширина",
+    loose: "Свободный силуэт без объёма",
   };
 
   return (
@@ -74,19 +105,22 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
       onClick={onClose}
     >
       {/* Theme toggle */}
-      <div className="fixed top-4 right-4 z-[60] flex gap-2">
+      <div
+        className="fixed top-4 right-4 z-[60] flex gap-2"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
-          onClick={() => setPreviewTheme('dark')}
+          onClick={() => setPreviewTheme("dark")}
           className={`h-10 w-10 rounded-xl flex items-center justify-center transition-all ${
-            !isLight ? accentBg + ' text-black' : 'bg-[#222] text-[#888]'
+            !isLight ? accentBg + " text-black" : "bg-[#222] text-[#888]"
           }`}
         >
           <Moon className="h-4 w-4" />
         </button>
         <button
-          onClick={() => setPreviewTheme('light')}
+          onClick={() => setPreviewTheme("light")}
           className={`h-10 w-10 rounded-xl flex items-center justify-center transition-all ${
-            isLight ? 'bg-[#0a0a0a] text-white' : 'bg-[#333] text-[#888]'
+            isLight ? "bg-[#0a0a0a] text-white" : "bg-[#333] text-[#888]"
           }`}
         >
           <Sun className="h-4 w-4" />
@@ -109,7 +143,9 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
       >
         <div className="px-6 py-24 lg:px-8 max-w-7xl mx-auto">
           {/* Breadcrumb */}
-          <div className={`inline-flex items-center gap-2 text-sm ${textSecondary} mb-8`}>
+          <div
+            className={`inline-flex items-center gap-2 text-sm ${textSecondary} mb-8`}
+          >
             <ArrowLeft className="h-4 w-4" />
             Назад в каталог
           </div>
@@ -117,7 +153,9 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
           <div className="grid gap-12 lg:grid-cols-2">
             {/* Left: Gallery */}
             <div>
-              <div className={`aspect-square rounded-2xl ${cardBg} border ${border} overflow-hidden mb-4`}>
+              <div
+                className={`aspect-square rounded-2xl ${cardBg} border ${border} overflow-hidden mb-4`}
+              >
                 <img
                   src={displayImages[mainImage]}
                   alt={data.name}
@@ -133,10 +171,14 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
                       className={`flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all ${
                         i === mainImage
                           ? accentBorder
-                          : 'border-transparent opacity-60 hover:opacity-100'
+                          : "border-transparent opacity-60 hover:opacity-100"
                       }`}
                     >
-                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <img
+                        src={url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
                     </button>
                   ))}
                 </div>
@@ -146,22 +188,28 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
             {/* Right: Info */}
             <div className="flex flex-col">
               {/* Category */}
-              <p className={`text-xs font-mono uppercase tracking-[0.3em] ${accentText}`}>
-                {data.categoryName || 'Категория'}
+              <p
+                className={`text-xs font-mono uppercase tracking-[0.3em] ${accentText}`}
+              >
+                {data.categoryName || "Категория"}
               </p>
-              <h1 className={`mt-3 text-4xl font-bold tracking-tighter ${textPrimary} sm:text-5xl`}>
-                {data.name || 'Название товара'}
+              <h1
+                className={`mt-3 text-4xl font-bold tracking-tighter ${textPrimary} sm:text-5xl`}
+              >
+                {data.name || "Название товара"}
               </h1>
 
               {/* Brand + Price */}
               <div className="mt-6 flex items-center justify-between">
                 {data.brand && (
-                  <span className={`text-sm ${textMuted} uppercase tracking-wider`}>
+                  <span
+                    className={`text-sm ${textMuted} uppercase tracking-wider`}
+                  >
                     {data.brand}
                   </span>
                 )}
                 <p className={`text-3xl font-bold ${accentText}`}>
-                  {displayPrice.toLocaleString('ru-RU')} ₽
+                  {displayPrice.toLocaleString("ru-RU")} ₽
                 </p>
               </div>
 
@@ -183,10 +231,14 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
               {data.sizes.length > 0 && (
                 <div className="mt-8">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className={`text-sm font-semibold uppercase tracking-wider ${textPrimary}`}>
+                    <h3
+                      className={`text-sm font-semibold uppercase tracking-wider ${textPrimary}`}
+                    >
                       Размер
                     </h3>
-                    <button className={`inline-flex items-center gap-1.5 text-xs ${textSecondary} hover:${accentText} transition-colors`}>
+                    <button
+                      className={`inline-flex items-center gap-1.5 text-xs ${textSecondary} hover:${accentText} transition-colors`}
+                    >
                       <Ruler className="h-3.5 w-3.5" />
                       Таблица размеров
                     </button>
@@ -219,18 +271,25 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
                 <button
                   disabled={!selectedSize && data.sizes.length > 0}
                   className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-4 text-sm font-semibold transition-all ${
-                    accentBg + ' text-black hover:shadow-[0_0_30px_rgba(68,148,74,0.3)]'
+                    accentBg +
+                    " text-black hover:shadow-[0_0_30px_rgba(68,148,74,0.3)]"
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   <ShoppingBag className="h-4 w-4" />
                   {data.sizes.length > 0
-                    ? (selectedSize ? 'В корзину' : 'Выберите размер')
-                    : 'В корзину'}
+                    ? selectedSize
+                      ? "В корзину"
+                      : "Выберите размер"
+                    : "В корзину"}
                 </button>
-                <button className={`flex items-center justify-center gap-2 rounded-xl border ${border} ${textSecondary} px-5 py-4`}>
+                <button
+                  className={`flex items-center justify-center gap-2 rounded-xl border ${border} ${textSecondary} px-5 py-4`}
+                >
                   <Heart className="h-4 w-4" />
                 </button>
-                <button className={`flex items-center justify-center gap-2 rounded-xl border ${border} ${textSecondary} px-5 py-4`}>
+                <button
+                  className={`flex items-center justify-center gap-2 rounded-xl border ${border} ${textSecondary} px-5 py-4`}
+                >
                   <Share2 className="h-4 w-4" />
                 </button>
               </div>
@@ -238,13 +297,27 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
               {/* Trust badges */}
               <div className="mt-8 grid grid-cols-3 gap-3">
                 {[
-                  { icon: <Truck className="h-5 w-5" />, label: 'Быстрая доставка' },
-                  { icon: <RotateCcw className="h-5 w-5" />, label: '14 дней на возврат' },
-                  { icon: <Package className="h-5 w-5" />, label: 'Безопасная оплата' },
+                  {
+                    icon: <Truck className="h-5 w-5" />,
+                    label: "Быстрая доставка",
+                  },
+                  {
+                    icon: <RotateCcw className="h-5 w-5" />,
+                    label: "14 дней на возврат",
+                  },
+                  {
+                    icon: <Package className="h-5 w-5" />,
+                    label: "Безопасная оплата",
+                  },
                 ].map((badge, i) => (
-                  <div key={i} className={`flex flex-col items-center gap-2 p-4 rounded-xl ${cardBg} border ${border}`}>
+                  <div
+                    key={i}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl ${cardBg} border ${border}`}
+                  >
                     <div className={accentText}>{badge.icon}</div>
-                    <p className={`text-xs ${textSecondary} text-center`}>{badge.label}</p>
+                    <p className={`text-xs ${textSecondary} text-center`}>
+                      {badge.label}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -255,35 +328,55 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
           <div className="mt-12">
             <div className={`flex border-b ${border}`}>
               {[
-                { id: 'description' as const, label: 'Описание', icon: <Info className="h-4 w-4" /> },
-                { id: 'material' as const, label: 'Состав и уход', icon: <Shirt className="h-4 w-4" /> },
-                { id: 'delivery' as const, label: 'Доставка и возврат', icon: <Truck className="h-4 w-4" /> },
+                {
+                  id: "description" as const,
+                  label: "Описание",
+                  icon: <Info className="h-4 w-4" />,
+                },
+                {
+                  id: "material" as const,
+                  label: "Состав и уход",
+                  icon: <Shirt className="h-4 w-4" />,
+                },
+                {
+                  id: "delivery" as const,
+                  label: "Доставка и возврат",
+                  icon: <Truck className="h-4 w-4" />,
+                },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`relative flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors ${
-                    activeTab === tab.id ? textPrimary : `${textSecondary} hover:${textPrimary}`
+                    activeTab === tab.id
+                      ? textPrimary
+                      : `${textSecondary} hover:${textPrimary}`
                   }`}
                 >
                   {tab.icon}
                   {tab.label}
                   {activeTab === tab.id && (
-                    <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${accentBg}`} />
+                    <div
+                      className={`absolute bottom-0 left-0 right-0 h-0.5 ${accentBg}`}
+                    />
                   )}
                 </button>
               ))}
             </div>
 
             <div className="py-8">
-              {activeTab === 'description' && (
+              {activeTab === "description" && (
                 <div>
                   <p className={`${textSecondary} leading-relaxed text-base`}>
-                    {data.description || 'Описание товара...'}
+                    {data.description || "Описание товара..."}
                   </p>
                   {data.fit && (
-                    <div className={`mt-6 flex items-center gap-3 p-4 rounded-xl ${cardBg} border ${border}`}>
-                      <div className={`w-10 h-10 rounded-lg ${accentBg10} flex items-center justify-center shrink-0`}>
+                    <div
+                      className={`mt-6 flex items-center gap-3 p-4 rounded-xl ${cardBg} border ${border}`}
+                    >
+                      <div
+                        className={`w-10 h-10 rounded-lg ${accentBg10} flex items-center justify-center shrink-0`}
+                      >
                         <Shirt className={`h-5 w-5 ${accentText}`} />
                       </div>
                       <div>
@@ -291,7 +384,7 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
                           Крой: {fitLabels[data.fit] || data.fit}
                         </p>
                         <p className={`text-xs ${textSecondary} mt-0.5`}>
-                          {fitDescs[data.fit] || ''}
+                          {fitDescs[data.fit] || ""}
                         </p>
                       </div>
                     </div>
@@ -299,42 +392,65 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
                 </div>
               )}
 
-              {activeTab === 'material' && (
+              {activeTab === "material" && (
                 <div className="space-y-6">
                   {data.material && (
                     <div>
-                      <h4 className={`text-sm font-semibold uppercase tracking-wider ${textPrimary} mb-3`}>
+                      <h4
+                        className={`text-sm font-semibold uppercase tracking-wider ${textPrimary} mb-3`}
+                      >
                         Материал
                       </h4>
-                      <p className={`${textSecondary} leading-relaxed`}>{data.material}</p>
+                      <p className={`${textSecondary} leading-relaxed`}>
+                        {data.material}
+                      </p>
                     </div>
                   )}
-                  {data.care.length > 0 && data.care[0] !== '' && (
+                  {data.care.length > 0 && data.care[0] !== "" && (
                     <div>
-                      <h4 className={`text-sm font-semibold uppercase tracking-wider ${textPrimary} mb-3`}>
+                      <h4
+                        className={`text-sm font-semibold uppercase tracking-wider ${textPrimary} mb-3`}
+                      >
                         Рекомендации по уходу
                       </h4>
                       <div className="grid gap-3">
-                        {data.care.filter(c => c.trim()).map((item, idx) => (
-                          <div key={idx} className={`flex items-start gap-3 p-4 rounded-xl ${cardBg} border ${border}`}>
-                            <Droplets className={`h-4 w-4 ${accentText} shrink-0 mt-0.5`} />
-                            <p className={`text-sm ${textSecondary}`}>{item}</p>
-                          </div>
-                        ))}
+                        {data.care
+                          .filter((c) => c.trim())
+                          .map((item, idx) => (
+                            <div
+                              key={idx}
+                              className={`flex items-start gap-3 p-4 rounded-xl ${cardBg} border ${border}`}
+                            >
+                              <Droplets
+                                className={`h-4 w-4 ${accentText} shrink-0 mt-0.5`}
+                              />
+                              <p className={`text-sm ${textSecondary}`}>
+                                {item}
+                              </p>
+                            </div>
+                          ))}
                       </div>
                     </div>
                   )}
                 </div>
               )}
 
-              {activeTab === 'delivery' && (
+              {activeTab === "delivery" && (
                 <div className="space-y-6">
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div className={`p-5 rounded-xl ${cardBg} border ${border}`}>
-                      <div className={`w-10 h-10 rounded-lg ${accentBg10} flex items-center justify-center mb-4`}>
+                    <div
+                      className={`p-5 rounded-xl ${cardBg} border ${border}`}
+                    >
+                      <div
+                        className={`w-10 h-10 rounded-lg ${accentBg10} flex items-center justify-center mb-4`}
+                      >
                         <Truck className={`h-5 w-5 ${accentText}`} />
                       </div>
-                      <h4 className={`text-sm font-semibold ${textPrimary} mb-2`}>Доставка</h4>
+                      <h4
+                        className={`text-sm font-semibold ${textPrimary} mb-2`}
+                      >
+                        Доставка
+                      </h4>
                       <ul className={`space-y-2 text-sm ${textSecondary}`}>
                         <li>• СДЭК — 1–3 дня, от 350 ₽</li>
                         <li>• Почта России — 3–7 дней, от 250 ₽</li>
@@ -342,14 +458,24 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
                         <li>• Самовывоз — бесплатно</li>
                       </ul>
                     </div>
-                    <div className={`p-5 rounded-xl ${cardBg} border ${border}`}>
-                      <div className={`w-10 h-10 rounded-lg ${accentBg10} flex items-center justify-center mb-4`}>
+                    <div
+                      className={`p-5 rounded-xl ${cardBg} border ${border}`}
+                    >
+                      <div
+                        className={`w-10 h-10 rounded-lg ${accentBg10} flex items-center justify-center mb-4`}
+                      >
                         <RotateCcw className={`h-5 w-5 ${accentText}`} />
                       </div>
-                      <h4 className={`text-sm font-semibold ${textPrimary} mb-2`}>Возврат</h4>
+                      <h4
+                        className={`text-sm font-semibold ${textPrimary} mb-2`}
+                      >
+                        Возврат
+                      </h4>
                       <ul className={`space-y-2 text-sm ${textSecondary}`}>
                         <li>• 14 дней на возврат без объяснения причин</li>
-                        <li>• Товар должен быть с бирками и без следов носки</li>
+                        <li>
+                          • Товар должен быть с бирками и без следов носки
+                        </li>
                         <li>• Возврат средств в течение 3–5 рабочих дней</li>
                         <li>• Обмен на другой размер — бесплатно</li>
                       </ul>
@@ -357,11 +483,18 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
                   </div>
                   <div className={`p-5 rounded-xl ${cardBg} border ${border}`}>
                     <div className="flex items-start gap-3">
-                      <Package className={`h-5 w-5 ${accentText} shrink-0 mt-0.5`} />
+                      <Package
+                        className={`h-5 w-5 ${accentText} shrink-0 mt-0.5`}
+                      />
                       <div>
-                        <h4 className={`text-sm font-semibold ${textPrimary} mb-1`}>Упаковка</h4>
+                        <h4
+                          className={`text-sm font-semibold ${textPrimary} mb-1`}
+                        >
+                          Упаковка
+                        </h4>
                         <p className={`text-sm ${textSecondary}`}>
-                          Каждый заказ упакован в фирменную коробку MIORU из переработанного картона.
+                          Каждый заказ упакован в фирменную коробку MIORU из
+                          переработанного картона.
                         </p>
                       </div>
                     </div>
