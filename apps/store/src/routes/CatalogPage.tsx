@@ -220,32 +220,48 @@ export default function CatalogPage() {
           </div>
         ) : (
           <div>
-            {/* Filter bar — top, like admin */}
+            {/* Filter bar */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-4 mb-6"
+              className="mb-8"
             >
-              <div className="flex flex-col sm:flex-row gap-3">
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-4 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] transition-colors flex-1 min-w-0"
+              {/* Category chips */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                <button
+                  onClick={() => setSelectedCategory("all")}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                    selectedCategory === "all"
+                      ? "bg-[#44944A] text-black"
+                      : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-text-muted)]"
+                  }`}
                 >
-                  <option value="all">
-                    {t("catalog.filters.allCategories")}
-                  </option>
-                  {flatCategories.map((cat) => (
-                    <option key={cat.id} value={cat.slug}>
+                  {t("catalog.filters.allCategories")}
+                </button>
+                {categories
+                  .filter((c) => !c.parent_id)
+                  .map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(cat.slug)}
+                      className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                        selectedCategory === cat.slug
+                          ? "bg-[#44944A] text-black"
+                          : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-text-muted)]"
+                      }`}
+                    >
                       {cat.name}
-                    </option>
+                    </button>
                   ))}
-                </select>
+              </div>
+
+              {/* Sort + count row */}
+              <div className="flex items-center gap-3">
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                  className="rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-4 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] transition-colors w-full sm:w-48"
+                  className="rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-4 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] transition-colors"
                 >
                   <option value="newest">{t("catalog.sortBy.newest")}</option>
                   <option value="price-asc">
@@ -255,7 +271,7 @@ export default function CatalogPage() {
                     {t("catalog.sortBy.priceDesc")}
                   </option>
                 </select>
-                <p className="text-sm text-[var(--color-text-muted)] self-center ml-auto">
+                <p className="text-sm text-[var(--color-text-muted)] ml-auto">
                   {t("catalog.count", { count: filteredProducts.length })}
                 </p>
               </div>
