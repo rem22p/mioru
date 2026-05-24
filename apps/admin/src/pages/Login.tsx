@@ -27,7 +27,7 @@ export default function Login() {
       const data = await apiLogin(username, password);
       login(data.access_token);
       setSuccess(true);
-      setTimeout(() => nav("/"), 600);
+      setTimeout(() => nav("/"), 150);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       setError(
