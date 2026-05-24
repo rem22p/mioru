@@ -1,5 +1,5 @@
-import { motion } from 'framer-motion';
-import type { Product } from '@/types';
+import { motion } from "framer-motion";
+import type { Product } from "@/types";
 import {
   Pencil,
   Copy,
@@ -8,7 +8,7 @@ import {
   Circle,
   CircleCheck,
   Image as ImageIcon,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface ProductTableProps {
   products: Product[];
@@ -65,16 +65,17 @@ function EmptyProducts() {
         Нет товаров
       </h3>
       <p className="text-sm text-[var(--color-text-secondary)] max-w-md">
-        Здесь будут отображаться товары вашего магазина. Нажмите &laquo;Добавить товар&raquo;, чтобы создать первый.
+        Здесь будут отображаться товары вашего магазина. Нажмите &laquo;Добавить
+        товар&raquo;, чтобы создать первый.
       </p>
     </motion.div>
   );
 }
 
 function formatPrice(price: number): string {
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'MDL',
+  return new Intl.NumberFormat("ru-RU", {
+    style: "currency",
+    currency: "MDL",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(price);
@@ -176,7 +177,7 @@ export default function ProductTable({
               {product.color && (
                 <p className="text-xs text-[var(--color-text-muted)]">
                   {product.color}
-                  {product.model ? ` · ${product.model}` : ''}
+                  {product.model ? ` · ${product.model}` : ""}
                 </p>
               )}
             </div>
@@ -184,14 +185,14 @@ export default function ProductTable({
             {/* Category */}
             <div className="col-span-2">
               <span className="text-sm text-[var(--color-text-secondary)] truncate block">
-                {product.category?.name || '—'}
+                {product.category_name || "—"}
               </span>
             </div>
 
             {/* Brand */}
             <div className="col-span-2">
               <span className="text-sm text-[var(--color-text-secondary)] truncate block">
-                {product.brand || '—'}
+                {product.brand || "—"}
               </span>
             </div>
 
@@ -200,19 +201,19 @@ export default function ProductTable({
               <span className="text-sm font-mono font-medium text-[var(--color-text-primary)]">
                 {formatPrice(product.price)}
               </span>
-              {product.compare_at_price && product.compare_at_price > product.price && (
-                <span className="text-xs font-mono text-[var(--color-text-muted)] line-through block">
-                  {formatPrice(product.compare_at_price)}
-                </span>
-              )}
+              {product.compare_at_price &&
+                product.compare_at_price > product.price && (
+                  <span className="text-xs font-mono text-[var(--color-text-muted)] line-through block">
+                    {formatPrice(product.compare_at_price)}
+                  </span>
+                )}
             </div>
 
             {/* Status */}
             <div className="col-span-1">
               {product.in_stock ? (
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-500 bg-green-500/10 px-2.5 py-1 rounded-full">
-                  <CircleCheck className="h-3 w-3" />
-                  В наличии
+                  <CircleCheck className="h-3 w-3" />В наличии
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 bg-red-500/10 px-2.5 py-1 rounded-full">
