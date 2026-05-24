@@ -1,6 +1,6 @@
 import type { Product, Category } from "@/types";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_URL = import.meta.env.VITE_API_URL || "https://api.mioru.store";
 
 interface ApiError {
   error: string;
