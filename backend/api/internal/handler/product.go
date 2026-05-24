@@ -20,12 +20,12 @@ import (
 
 // ProductHandler handles product CRUD and file uploads.
 type ProductHandler struct {
-	store     *store.SQLiteStore
+	store     *store.PostgresStore
 	uploadDir string
 }
 
 // NewProductHandler creates a new ProductHandler.
-func NewProductHandler(s *store.SQLiteStore, uploadDir string) *ProductHandler {
+func NewProductHandler(s *store.PostgresStore, uploadDir string) *ProductHandler {
 	return &ProductHandler{store: s, uploadDir: uploadDir}
 }
 
@@ -51,7 +51,7 @@ func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 		filter.PerPage = v
 	}
 
-	products, total, err := h.store.ListProducts(filter)
+	products, total, err := h.store.ListProducts(r.Context(), filter)
 	if err != nil {
 		jsonError(w, "internal error: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -97,9 +97,9 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 		p.Images = append(p.Images, model.ProductImage{URL: url, SortOrder: i})
 	}
 
-	id, err := h.store.CreateProduct(p)
+	id, err := h.store.CreateProduct(r.Context(), p)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE") {
+		if strings.Contains(err.Error(), "UNIQUE") || strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {
 			jsonError(w, "product with this slug already exists", http.StatusConflict)
 			return
 		}
@@ -107,7 +107,7 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	created, err := h.store.GetProduct(p.Slug)
+	created, err := h.store.GetProduct(r.Context(), p.Slug)
 	if err != nil {
 		jsonError(w, "created but failed to fetch: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -129,7 +129,7 @@ func (h *ProductHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := h.store.GetProduct(slug)
+	p, err := h.store.GetProduct(r.Context(), slug)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			jsonError(w, "product not found", http.StatusNotFound)
@@ -173,12 +173,12 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 		p.Images = append(p.Images, model.ProductImage{URL: url, SortOrder: i})
 	}
 
-	if err := h.store.UpdateProduct(slug, p); err != nil {
+	if err := h.store.UpdateProduct(r.Context(), slug, p); err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			jsonError(w, "product not found", http.StatusNotFound)
 			return
 		}
-		if strings.Contains(err.Error(), "UNIQUE") {
+		if strings.Contains(err.Error(), "UNIQUE") || strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {
 			jsonError(w, "product with this slug already exists", http.StatusConflict)
 			return
 		}
@@ -186,7 +186,7 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := h.store.GetProduct(p.Slug)
+	updated, err := h.store.GetProduct(r.Context(), p.Slug)
 	if err != nil {
 		jsonError(w, "updated but failed to fetch: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -204,7 +204,7 @@ func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.store.DeleteProduct(slug); err != nil {
+	if err := h.store.DeleteProduct(r.Context(), slug); err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			jsonError(w, "product not found", http.StatusNotFound)
 			return
@@ -225,9 +225,9 @@ func (h *ProductHandler) Categories(w http.ResponseWriter, r *http.Request) {
 	var cats []model.Category
 	var err error
 	if flat {
-		cats, err = h.store.GetCategoriesFlat()
+		cats, err = h.store.GetCategoriesFlat(r.Context())
 	} else {
-		cats, err = h.store.GetCategories()
+		cats, err = h.store.GetCategories(r.Context())
 	}
 	if err != nil {
 		jsonError(w, "internal error: "+err.Error(), http.StatusInternalServerError)

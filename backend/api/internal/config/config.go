@@ -13,7 +13,7 @@ type Config struct {
 	RedisAddr   string
 	RedisPW     string
 	Port        string
-	DBPath      string
+	DatabaseURL string
 	UploadDir   string
 }
 
@@ -46,9 +46,9 @@ func Load() Config {
 		port = "8000"
 	}
 
-	dbPath := os.Getenv("DB_PATH")
-	if dbPath == "" {
-		dbPath = "mioru.db"
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		databaseURL = "postgres://mioru:pass@localhost:5432/mioru?sslmode=disable"
 	}
 
 	uploadDir := os.Getenv("UPLOAD_DIR")
@@ -62,7 +62,7 @@ func Load() Config {
 		RedisAddr:   addr,
 		RedisPW:     pw,
 		Port:        port,
-		DBPath:      dbPath,
+		DatabaseURL: databaseURL,
 		UploadDir:   uploadDir,
 	}
 }

@@ -22,15 +22,15 @@ var emailRe = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{
 var usernameRe = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 
 type AuthHandler struct {
-	store      *store.SQLiteStore
+	store      *store.PostgresStore
 	redisStore *store.Store
 	email      *email.Service
 	secret     string
 	expiry     int
 }
 
-func NewAuthHandler(sqliteStore *store.SQLiteStore, redisStore *store.Store, emailSvc *email.Service, secret string, expiry int) *AuthHandler {
-	return &AuthHandler{store: sqliteStore, redisStore: redisStore, email: emailSvc, secret: secret, expiry: expiry}
+func NewAuthHandler(pgStore *store.PostgresStore, redisStore *store.Store, emailSvc *email.Service, secret string, expiry int) *AuthHandler {
+	return &AuthHandler{store: pgStore, redisStore: redisStore, email: emailSvc, secret: secret, expiry: expiry}
 }
 
 type registerReq struct {
@@ -119,7 +119,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Role:        "admin",
 	}
 
-	if err := h.store.CreateUser(u); err != nil {
+	if err := h.store.CreateUser(r.Context(), u); err != nil {
 		if err.Error() == "username already exists" {
 			jsonError(w, "никнейм занят", http.StatusBadRequest)
 		} else if err.Error() == "email already registered" {
@@ -146,7 +146,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.store.GetUser(req.Username)
+	user, err := h.store.GetUser(r.Context(), req.Username)
 	if err != nil || user == nil {
 		// Constant-time: fake bcrypt call to prevent timing attack
 		auth.CheckPassword(req.Password, "$2a$12$LJ3m4ys3Lk6L0qMqR0qMqO0qMqR0qMqR0qMqR0qMqR0qMqR0qMqR")
@@ -169,7 +169,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	username := middleware.Username(r)
-	user, err := h.store.GetUser(username)
+	user, err := h.store.GetUser(r.Context(), username)
 	if err != nil || user == nil {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
@@ -225,7 +225,7 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "no valid fields", http.StatusBadRequest)
 		return
 	}
-	if err := h.store.UpdateUser(username, updates); err != nil {
+	if err := h.store.UpdateUser(r.Context(), username, updates); err != nil {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -243,7 +243,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	user, err := h.store.GetUser(username)
+	user, err := h.store.GetUser(r.Context(), username)
 	if err != nil || user == nil {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
@@ -269,7 +269,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	if err := h.store.UpdatePassword(username, hash); err != nil {
+	if err := h.store.UpdatePassword(r.Context(), username, hash); err != nil {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -363,7 +363,7 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	if err := h.store.UpdatePassword(username, hash); err != nil {
+	if err := h.store.UpdatePassword(r.Context(), username, hash); err != nil {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -410,14 +410,14 @@ func isCommonPassword(pw string) bool {
 func setupCORS(w http.ResponseWriter, r *http.Request) {
 	origin := r.Header.Get("Origin")
 	allowed := map[string]bool{
-		"http://localhost:5173":             true,
-		"http://127.0.0.1:5173":            true,
-		"http://localhost:5174":             true,
-		"http://127.0.0.1:5174":            true,
-		"http://localhost:8080":             true,
-		"http://127.0.0.1:8080":            true,
-		"https://admin.mioru.store":         true,
-		"https://www.admin.mioru.store":     true,
+		"http://localhost:5173":         true,
+		"http://127.0.0.1:5173":         true,
+		"http://localhost:5174":         true,
+		"http://127.0.0.1:5174":         true,
+		"http://localhost:8080":         true,
+		"http://127.0.0.1:8080":         true,
+		"https://admin.mioru.store":     true,
+		"https://www.admin.mioru.store": true,
 	}
 	if allowed[origin] {
 		w.Header().Set("Access-Control-Allow-Origin", origin)

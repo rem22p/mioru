@@ -37,15 +37,15 @@ func main() {
 		log.Fatal("Redis connection failed:", err)
 	}
 
-	// SQLite store (for users, products, categories)
-	sqliteStore, err := store.NewSQLiteStore(cfg.DBPath)
+	// PostgreSQL store (for users, products, categories)
+	pgStore, err := store.NewPostgresStore(context.Background(), cfg.DatabaseURL)
 	if err != nil {
-		log.Fatal("SQLite initialization failed:", err)
+		log.Fatal("PostgreSQL initialization failed:", err)
 	}
-	defer sqliteStore.Close()
+	defer pgStore.Close()
 
-	// Auto-migrate: if SQLite users table is empty and Redis has users, migrate them
-	autoMigrateUsers(redisStore, sqliteStore)
+	// Auto-migrate: if PostgreSQL users table is empty and Redis has users, migrate them
+	autoMigrateUsers(redisStore, pgStore)
 
 	// Ensure upload directory exists
 	if err := os.MkdirAll(cfg.UploadDir, 0755); err != nil {
@@ -55,10 +55,10 @@ func main() {
 	emailSvc := email.NewService("onboarding@resend.dev")
 
 	// Handlers
-	authH := handler.NewAuthHandler(sqliteStore, redisStore, emailSvc, cfg.SecretKey, cfg.TokenExpiry)
+	authH := handler.NewAuthHandler(pgStore, redisStore, emailSvc, cfg.SecretKey, cfg.TokenExpiry)
 	noteH := handler.NewNoteHandler(redisStore)
 	wsH := handler.NewWSHandler(redisStore, cfg.SecretKey)
-	productH := handler.NewProductHandler(sqliteStore, cfg.UploadDir)
+	productH := handler.NewProductHandler(pgStore, cfg.UploadDir)
 
 	mux := http.NewServeMux()
 
@@ -102,7 +102,7 @@ func main() {
 	mux.Handle("POST /api/admin/upload", middleware.AuthMW(cfg.SecretKey)(http.HandlerFunc(productH.Upload)))
 
 	// Admin: Migration (with auth)
-	mux.Handle("POST /api/admin/migrate-users", middleware.AuthMW(cfg.SecretKey)(handler.MigrateUsersHandler(redisStore, sqliteStore)))
+	mux.Handle("POST /api/admin/migrate-users", middleware.AuthMW(cfg.SecretKey)(handler.MigrateUsersHandler(redisStore, pgStore)))
 
 	// Serve uploaded files
 	fileServer := http.FileServer(http.Dir(cfg.UploadDir))
@@ -122,9 +122,10 @@ func main() {
 	log.Fatal(http.ListenAndServe(addr, securityHeaders(mux)))
 }
 
-// autoMigrateUsers migrates users from Redis to SQLite if the SQLite users table is empty.
-func autoMigrateUsers(redisStore *store.Store, sqliteStore *store.SQLiteStore) {
-	empty, err := sqliteStore.IsUsersTableEmpty()
+// autoMigrateUsers migrates users from Redis to PostgreSQL if the PostgreSQL users table is empty.
+func autoMigrateUsers(redisStore *store.Store, pgStore *store.PostgresStore) {
+	ctx := context.Background()
+	empty, err := pgStore.IsUsersTableEmpty(ctx)
 	if err != nil {
 		log.Printf("WARNING: Failed to check users table: %v", err)
 		return
@@ -133,7 +134,7 @@ func autoMigrateUsers(redisStore *store.Store, sqliteStore *store.SQLiteStore) {
 		return
 	}
 
-	keys, err := redisStore.Keys(context.Background(), "user:*")
+	keys, err := redisStore.Keys(ctx, "user:*")
 	if err != nil {
 		log.Printf("WARNING: Failed to list Redis users: %v", err)
 		return
@@ -142,10 +143,10 @@ func autoMigrateUsers(redisStore *store.Store, sqliteStore *store.SQLiteStore) {
 		return
 	}
 
-	log.Printf("Auto-migrating %d users from Redis to SQLite...", len(keys))
+	log.Printf("Auto-migrating %d users from Redis to PostgreSQL...", len(keys))
 	migrated := 0
 	for _, key := range keys {
-		data, err := redisStore.GetRaw(context.Background(), key)
+		data, err := redisStore.GetRaw(ctx, key)
 		if err != nil {
 			log.Printf("Auto-migrate: failed to get key %s: %v", key, err)
 			continue
@@ -161,7 +162,7 @@ func autoMigrateUsers(redisStore *store.Store, sqliteStore *store.SQLiteStore) {
 			u.Role = "admin"
 		}
 
-		if err := sqliteStore.CreateUser(u); err != nil {
+		if err := pgStore.CreateUser(ctx, u); err != nil {
 			log.Printf("Auto-migrate: failed to insert %s: %v", u.Username, err)
 			continue
 		}
@@ -184,14 +185,14 @@ func cors(next http.HandlerFunc) http.HandlerFunc {
 func corsHeaders(w http.ResponseWriter, r *http.Request) {
 	origin := r.Header.Get("Origin")
 	allowed := map[string]bool{
-		"http://localhost:5173":             true,
-		"http://127.0.0.1:5173":            true,
-		"http://localhost:5174":             true,
-		"http://127.0.0.1:5174":            true,
-		"http://localhost:8080":             true,
-		"http://127.0.0.1:8080":            true,
-		"https://admin.mioru.store":         true,
-		"https://www.admin.mioru.store":     true,
+		"http://localhost:5173":         true,
+		"http://127.0.0.1:5173":         true,
+		"http://localhost:5174":         true,
+		"http://127.0.0.1:5174":         true,
+		"http://localhost:8080":         true,
+		"http://127.0.0.1:8080":         true,
+		"https://admin.mioru.store":     true,
+		"https://www.admin.mioru.store": true,
 	}
 	if allowed[origin] {
 		w.Header().Set("Access-Control-Allow-Origin", origin)

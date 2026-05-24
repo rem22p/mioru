@@ -1,64 +1,56 @@
 package store
 
 import (
-	"database/sql"
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 
-	_ "modernc.org/sqlite"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"mioru/internal/model"
 )
 
-// SQLiteStore provides SQLite-based persistence for users, products, and categories.
-type SQLiteStore struct {
-	db *sql.DB
+// PostgresStore provides PostgreSQL-based persistence for users, products, and categories.
+type PostgresStore struct {
+	pool *pgxpool.Pool
 }
 
-// NewSQLiteStore opens (or creates) the SQLite database at dbPath and runs migrations.
-func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
-	db, err := sql.Open("sqlite", dbPath)
+// NewPostgresStore creates a connection pool and runs migrations.
+func NewPostgresStore(ctx context.Context, databaseURL string) (*PostgresStore, error) {
+	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
-		return nil, fmt.Errorf("sqlite open: %w", err)
+		return nil, fmt.Errorf("pgxpool connect: %w", err)
 	}
 
-	// Enable WAL mode and foreign keys
-	pragmas := []string{
-		"PRAGMA journal_mode=WAL",
-		"PRAGMA foreign_keys=ON",
-		"PRAGMA busy_timeout=5000",
-	}
-	for _, p := range pragmas {
-		if _, err := db.Exec(p); err != nil {
-			db.Close()
-			return nil, fmt.Errorf("pragma %s: %w", p, err)
-		}
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("pgxpool ping: %w", err)
 	}
 
-	s := &SQLiteStore{db: db}
-	if err := s.migrate(); err != nil {
-		db.Close()
+	s := &PostgresStore{pool: pool}
+	if err := s.migrate(ctx); err != nil {
+		pool.Close()
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
 
 	return s, nil
 }
 
-// Close closes the database connection.
-func (s *SQLiteStore) Close() error {
-	return s.db.Close()
+// Close closes the connection pool.
+func (s *PostgresStore) Close() {
+	s.pool.Close()
 }
 
-// DB returns the underlying *sql.DB (used by migration handler).
-func (s *SQLiteStore) DB() *sql.DB {
-	return s.db
+// Pool returns the underlying *pgxpool.Pool (used by migration handler).
+func (s *PostgresStore) Pool() *pgxpool.Pool {
+	return s.pool
 }
 
-func (s *SQLiteStore) migrate() error {
+func (s *PostgresStore) migrate(ctx context.Context) error {
 	schema := `
 	CREATE TABLE IF NOT EXISTS users (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id SERIAL PRIMARY KEY,
 		username TEXT UNIQUE NOT NULL,
 		email TEXT UNIQUE NOT NULL,
 		hashed_password TEXT NOT NULL,
@@ -67,11 +59,11 @@ func (s *SQLiteStore) migrate() error {
 		display_name TEXT NOT NULL DEFAULT '',
 		avatar_color TEXT NOT NULL DEFAULT '#f85149',
 		role TEXT NOT NULL DEFAULT 'admin',
-		created_at TEXT NOT NULL DEFAULT (datetime('now'))
+		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 	);
 
 	CREATE TABLE IF NOT EXISTS categories (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id SERIAL PRIMARY KEY,
 		parent_id INTEGER REFERENCES categories(id),
 		name TEXT NOT NULL,
 		slug TEXT NOT NULL,
@@ -80,7 +72,7 @@ func (s *SQLiteStore) migrate() error {
 	);
 
 	CREATE TABLE IF NOT EXISTS products (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id SERIAL PRIMARY KEY,
 		slug TEXT UNIQUE NOT NULL,
 		category_id INTEGER REFERENCES categories(id),
 		brand TEXT NOT NULL DEFAULT '',
@@ -93,22 +85,22 @@ func (s *SQLiteStore) migrate() error {
 		care TEXT NOT NULL DEFAULT '[]',
 		description TEXT NOT NULL DEFAULT '',
 		xp_reward INTEGER NOT NULL DEFAULT 0,
-		in_stock INTEGER NOT NULL DEFAULT 1,
+		in_stock SMALLINT NOT NULL DEFAULT 1,
 		status TEXT NOT NULL DEFAULT 'in_stock',
 		stock_quantity INTEGER NOT NULL DEFAULT 0,
 		created_by TEXT NOT NULL DEFAULT '',
-		created_at TEXT NOT NULL DEFAULT (datetime('now')),
-		updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 	);
 
 	CREATE TABLE IF NOT EXISTS product_sizes (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id SERIAL PRIMARY KEY,
 		product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
 		size_label TEXT NOT NULL
 	);
 
 	CREATE TABLE IF NOT EXISTS size_chart_rows (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id SERIAL PRIMARY KEY,
 		product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
 		label TEXT NOT NULL,
 		chest REAL,
@@ -121,19 +113,19 @@ func (s *SQLiteStore) migrate() error {
 	);
 
 	CREATE TABLE IF NOT EXISTS product_images (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id SERIAL PRIMARY KEY,
 		product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
 		url TEXT NOT NULL,
 		sort_order INTEGER NOT NULL DEFAULT 0
 	);
 	`
-	if _, err := s.db.Exec(schema); err != nil {
+	if _, err := s.pool.Exec(ctx, schema); err != nil {
 		return fmt.Errorf("create schema: %w", err)
 	}
 
 	// Insert default categories
 	cats := `
-	INSERT OR IGNORE INTO categories (id, parent_id, name, slug, criteria, sort_order) VALUES
+	INSERT INTO categories (id, parent_id, name, slug, criteria, sort_order) VALUES
 	(1, NULL, 'Одежда', 'clothing', '["size","brand","color"]', 1),
 	(2, 1, 'Футболки / поло', 'tshirts-polo', '[]', 1),
 	(3, 1, 'Шорты', 'shorts', '[]', 2),
@@ -157,15 +149,12 @@ func (s *SQLiteStore) migrate() error {
 	(21, 20, 'Браслеты', 'bracelets', '[]', 1),
 	(22, 20, 'Подвески', 'pendants', '[]', 2),
 	(23, 20, 'Кольца', 'rings', '[]', 3),
-	(24, 16, 'Часы', 'watches', '[]', 5);
+	(24, 16, 'Часы', 'watches', '[]', 5)
+	ON CONFLICT (id) DO NOTHING;
 	`
-	if _, err := s.db.Exec(cats); err != nil {
+	if _, err := s.pool.Exec(ctx, cats); err != nil {
 		return fmt.Errorf("insert default categories: %w", err)
 	}
-
-	// Migrations for existing databases
-	s.db.Exec(`ALTER TABLE products ADD COLUMN status TEXT NOT NULL DEFAULT 'in_stock'`)
-	s.db.Exec(`ALTER TABLE products ADD COLUMN stock_quantity INTEGER NOT NULL DEFAULT 0`)
 
 	return nil
 }
@@ -173,8 +162,8 @@ func (s *SQLiteStore) migrate() error {
 // ── Categories ──
 
 // GetCategories returns all categories organized as a tree.
-func (s *SQLiteStore) GetCategories() ([]model.Category, error) {
-	rows, err := s.db.Query(`SELECT id, parent_id, name, slug, criteria, sort_order FROM categories ORDER BY sort_order, id`)
+func (s *PostgresStore) GetCategories(ctx context.Context) ([]model.Category, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id, parent_id, name, slug, criteria, sort_order FROM categories ORDER BY sort_order, id`)
 	if err != nil {
 		return nil, fmt.Errorf("query categories: %w", err)
 	}
@@ -183,15 +172,12 @@ func (s *SQLiteStore) GetCategories() ([]model.Category, error) {
 	var all []model.Category
 	for rows.Next() {
 		var c model.Category
-		var parentID sql.NullInt64
+		var parentID *int
 		var criteriaJSON string
 		if err := rows.Scan(&c.ID, &parentID, &c.Name, &c.Slug, &criteriaJSON, &c.SortOrder); err != nil {
 			return nil, fmt.Errorf("scan category: %w", err)
 		}
-		if parentID.Valid {
-			pid := int(parentID.Int64)
-			c.ParentID = &pid
-		}
+		c.ParentID = parentID
 		json.Unmarshal([]byte(criteriaJSON), &c.Criteria)
 		if c.Criteria == nil {
 			c.Criteria = []string{}
@@ -202,13 +188,12 @@ func (s *SQLiteStore) GetCategories() ([]model.Category, error) {
 		return nil, fmt.Errorf("rows iteration: %w", err)
 	}
 
-	// Build tree
 	return buildCategoryTree(all), nil
 }
 
 // GetCategoriesFlat returns all categories as a flat list with ParentID references.
-func (s *SQLiteStore) GetCategoriesFlat() ([]model.Category, error) {
-	rows, err := s.db.Query(`SELECT id, parent_id, name, slug, criteria, sort_order FROM categories ORDER BY sort_order, id`)
+func (s *PostgresStore) GetCategoriesFlat(ctx context.Context) ([]model.Category, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id, parent_id, name, slug, criteria, sort_order FROM categories ORDER BY sort_order, id`)
 	if err != nil {
 		return nil, fmt.Errorf("query categories: %w", err)
 	}
@@ -217,15 +202,12 @@ func (s *SQLiteStore) GetCategoriesFlat() ([]model.Category, error) {
 	var all []model.Category
 	for rows.Next() {
 		var c model.Category
-		var parentID sql.NullInt64
+		var parentID *int
 		var criteriaJSON string
 		if err := rows.Scan(&c.ID, &parentID, &c.Name, &c.Slug, &criteriaJSON, &c.SortOrder); err != nil {
 			return nil, fmt.Errorf("scan category: %w", err)
 		}
-		if parentID.Valid {
-			pid := int(parentID.Int64)
-			c.ParentID = &pid
-		}
+		c.ParentID = parentID
 		json.Unmarshal([]byte(criteriaJSON), &c.Criteria)
 		if c.Criteria == nil {
 			c.Criteria = []string{}
@@ -255,7 +237,6 @@ func buildCategoryTree(cats []model.Category) []model.Category {
 		}
 	}
 
-	// Remove empty children arrays for cleaner JSON
 	for i := range roots {
 		cleanEmptyChildren(&roots[i])
 	}
@@ -275,45 +256,42 @@ func cleanEmptyChildren(c *model.Category) {
 // ── Products ──
 
 // CreateProduct inserts a new product with sizes, size chart, and images in a transaction.
-func (s *SQLiteStore) CreateProduct(p model.Product) (int64, error) {
-	tx, err := s.db.Begin()
+func (s *PostgresStore) CreateProduct(ctx context.Context, p model.Product) (int64, error) {
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer tx.Rollback(ctx)
 
 	careJSON, _ := json.Marshal(p.Care)
-	inStock := 0
+	inStock := int16(0)
 	if p.InStock {
 		inStock = 1
 	}
 
-	res, err := tx.Exec(`
+	var productID int64
+	err = tx.QueryRow(ctx, `
 		INSERT INTO products (slug, category_id, brand, name, price, color, model, fit, material, care, description, xp_reward, in_stock, status, stock_quantity, created_by)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+		RETURNING id`,
 		p.Slug, p.CategoryID, p.Brand, p.Name, p.Price, p.Color, p.Model, p.Fit, p.Material, string(careJSON), p.Description, p.XPReward, inStock, p.Status, p.StockQty, p.CreatedBy,
-	)
+	).Scan(&productID)
 	if err != nil {
 		return 0, fmt.Errorf("insert product: %w", err)
 	}
 
-	productID, err := res.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("last insert id: %w", err)
-	}
-
 	// Insert sizes
 	for _, size := range p.Sizes {
-		if _, err := tx.Exec(`INSERT INTO product_sizes (product_id, size_label) VALUES (?, ?)`, productID, size); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO product_sizes (product_id, size_label) VALUES ($1, $2)`, productID, size); err != nil {
 			return 0, fmt.Errorf("insert size: %w", err)
 		}
 	}
 
 	// Insert size chart rows
 	for i, row := range p.SizeChart {
-		if _, err := tx.Exec(`
+		if _, err := tx.Exec(ctx, `
 			INSERT INTO size_chart_rows (product_id, label, chest, waist, hips, length, foot_length, wrist, sort_order)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 			productID, row.Label, row.Chest, row.Waist, row.Hips, row.Length, row.FootLength, row.Wrist, i,
 		); err != nil {
 			return 0, fmt.Errorf("insert size chart: %w", err)
@@ -322,12 +300,12 @@ func (s *SQLiteStore) CreateProduct(p model.Product) (int64, error) {
 
 	// Insert images
 	for i, img := range p.Images {
-		if _, err := tx.Exec(`INSERT INTO product_images (product_id, url, sort_order) VALUES (?, ?, ?)`, productID, img.URL, i); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO product_images (product_id, url, sort_order) VALUES ($1, $2, $3)`, productID, img.URL, i); err != nil {
 			return 0, fmt.Errorf("insert image: %w", err)
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("commit: %w", err)
 	}
 
@@ -335,31 +313,31 @@ func (s *SQLiteStore) CreateProduct(p model.Product) (int64, error) {
 }
 
 // UpdateProduct updates a product and replaces its sizes, size chart rows, and images in a transaction.
-func (s *SQLiteStore) UpdateProduct(slug string, p model.Product) error {
-	tx, err := s.db.Begin()
+func (s *PostgresStore) UpdateProduct(ctx context.Context, slug string, p model.Product) error {
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer tx.Rollback(ctx)
 
 	// Get product ID
 	var productID int64
-	if err := tx.QueryRow(`SELECT id FROM products WHERE slug = ?`, slug).Scan(&productID); err != nil {
-		if err == sql.ErrNoRows {
+	if err := tx.QueryRow(ctx, `SELECT id FROM products WHERE slug = $1`, slug).Scan(&productID); err != nil {
+		if strings.Contains(err.Error(), "no rows") {
 			return fmt.Errorf("product not found: %s", slug)
 		}
 		return fmt.Errorf("find product: %w", err)
 	}
 
 	careJSON, _ := json.Marshal(p.Care)
-	inStock := 0
+	inStock := int16(0)
 	if p.InStock {
 		inStock = 1
 	}
 
-	_, err = tx.Exec(`
-		UPDATE products SET slug=?, category_id=?, brand=?, name=?, price=?, color=?, model=?, fit=?, material=?, care=?, description=?, xp_reward=?, in_stock=?, status=?, stock_quantity=?, updated_at=datetime('now')
-		WHERE id=?`,
+	_, err = tx.Exec(ctx, `
+		UPDATE products SET slug=$1, category_id=$2, brand=$3, name=$4, price=$5, color=$6, model=$7, fit=$8, material=$9, care=$10, description=$11, xp_reward=$12, in_stock=$13, status=$14, stock_quantity=$15, updated_at=NOW()
+		WHERE id=$16`,
 		p.Slug, p.CategoryID, p.Brand, p.Name, p.Price, p.Color, p.Model, p.Fit, p.Material, string(careJSON), p.Description, p.XPReward, inStock, p.Status, p.StockQty, productID,
 	)
 	if err != nil {
@@ -367,28 +345,28 @@ func (s *SQLiteStore) UpdateProduct(slug string, p model.Product) error {
 	}
 
 	// Delete existing children
-	if _, err := tx.Exec(`DELETE FROM product_sizes WHERE product_id = ?`, productID); err != nil {
+	if _, err := tx.Exec(ctx, `DELETE FROM product_sizes WHERE product_id = $1`, productID); err != nil {
 		return fmt.Errorf("delete sizes: %w", err)
 	}
-	if _, err := tx.Exec(`DELETE FROM size_chart_rows WHERE product_id = ?`, productID); err != nil {
+	if _, err := tx.Exec(ctx, `DELETE FROM size_chart_rows WHERE product_id = $1`, productID); err != nil {
 		return fmt.Errorf("delete size chart: %w", err)
 	}
-	if _, err := tx.Exec(`DELETE FROM product_images WHERE product_id = ?`, productID); err != nil {
+	if _, err := tx.Exec(ctx, `DELETE FROM product_images WHERE product_id = $1`, productID); err != nil {
 		return fmt.Errorf("delete images: %w", err)
 	}
 
 	// Re-insert sizes
 	for _, size := range p.Sizes {
-		if _, err := tx.Exec(`INSERT INTO product_sizes (product_id, size_label) VALUES (?, ?)`, productID, size); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO product_sizes (product_id, size_label) VALUES ($1, $2)`, productID, size); err != nil {
 			return fmt.Errorf("insert size: %w", err)
 		}
 	}
 
 	// Re-insert size chart rows
 	for i, row := range p.SizeChart {
-		if _, err := tx.Exec(`
+		if _, err := tx.Exec(ctx, `
 			INSERT INTO size_chart_rows (product_id, label, chest, waist, hips, length, foot_length, wrist, sort_order)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 			productID, row.Label, row.Chest, row.Waist, row.Hips, row.Length, row.FootLength, row.Wrist, i,
 		); err != nil {
 			return fmt.Errorf("insert size chart: %w", err)
@@ -397,30 +375,29 @@ func (s *SQLiteStore) UpdateProduct(slug string, p model.Product) error {
 
 	// Re-insert images
 	for i, img := range p.Images {
-		if _, err := tx.Exec(`INSERT INTO product_images (product_id, url, sort_order) VALUES (?, ?, ?)`, productID, img.URL, i); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO product_images (product_id, url, sort_order) VALUES ($1, $2, $3)`, productID, img.URL, i); err != nil {
 			return fmt.Errorf("insert image: %w", err)
 		}
 	}
 
-	return tx.Commit()
+	return tx.Commit(ctx)
 }
 
 // DeleteProduct deletes a product by slug. CASCADE handles related rows.
-func (s *SQLiteStore) DeleteProduct(slug string) error {
-	res, err := s.db.Exec(`DELETE FROM products WHERE slug = ?`, slug)
+func (s *PostgresStore) DeleteProduct(ctx context.Context, slug string) error {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM products WHERE slug = $1`, slug)
 	if err != nil {
 		return fmt.Errorf("delete product: %w", err)
 	}
-	n, _ := res.RowsAffected()
-	if n == 0 {
+	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("product not found: %s", slug)
 	}
 	return nil
 }
 
 // GetProduct retrieves a single product with all related data.
-func (s *SQLiteStore) GetProduct(slug string) (*model.Product, error) {
-	p, err := s.queryProduct(`WHERE p.slug = ?`, slug)
+func (s *PostgresStore) GetProduct(ctx context.Context, slug string) (*model.Product, error) {
+	p, err := s.queryProduct(ctx, `WHERE p.slug = $1`, slug)
 	if err != nil {
 		return nil, err
 	}
@@ -431,29 +408,32 @@ func (s *SQLiteStore) GetProduct(slug string) (*model.Product, error) {
 }
 
 // ListProducts retrieves products with filtering, sorting, and pagination.
-// Returns products, total count, and error.
-func (s *SQLiteStore) ListProducts(filter model.ProductFilter) ([]model.Product, int, error) {
+func (s *PostgresStore) ListProducts(ctx context.Context, filter model.ProductFilter) ([]model.Product, int, error) {
 	where := "WHERE 1=1"
 	args := []interface{}{}
+	argIdx := 1
 
 	if filter.CategoryID > 0 {
-		where += " AND p.category_id = ?"
+		where += fmt.Sprintf(" AND p.category_id = $%d", argIdx)
 		args = append(args, filter.CategoryID)
+		argIdx++
 	}
 	if filter.Search != "" {
-		where += " AND (p.name LIKE ? OR p.brand LIKE ? OR p.slug LIKE ?)"
+		where += fmt.Sprintf(" AND (p.name LIKE $%d OR p.brand LIKE $%d OR p.slug LIKE $%d)", argIdx, argIdx+1, argIdx+2)
 		s := "%" + filter.Search + "%"
 		args = append(args, s, s, s)
+		argIdx += 3
 	}
 	if filter.Brand != "" {
-		where += " AND p.brand = ?"
+		where += fmt.Sprintf(" AND p.brand = $%d", argIdx)
 		args = append(args, filter.Brand)
+		argIdx++
 	}
 
 	// Count total
 	var total int
 	countQuery := `SELECT COUNT(*) FROM products p ` + where
-	if err := s.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
+	if err := s.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count products: %w", err)
 	}
 
@@ -490,10 +470,10 @@ func (s *SQLiteStore) ListProducts(filter model.ProductFilter) ([]model.Product,
 	}
 	offset := (page - 1) * perPage
 
-	query := `SELECT p.id FROM products p ` + where + ` ORDER BY ` + order + ` LIMIT ? OFFSET ?`
+	query := `SELECT p.id FROM products p ` + where + ` ORDER BY ` + order + fmt.Sprintf(` LIMIT $%d OFFSET $%d`, argIdx, argIdx+1)
 	args = append(args, perPage, offset)
 
-	rows, err := s.db.Query(query, args...)
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("query products: %w", err)
 	}
@@ -514,7 +494,7 @@ func (s *SQLiteStore) ListProducts(filter model.ProductFilter) ([]model.Product,
 	// Fetch full products
 	products := make([]model.Product, 0, len(ids))
 	for _, id := range ids {
-		p, err := s.queryProduct(`WHERE p.id = ?`, id)
+		p, err := s.queryProduct(ctx, `WHERE p.id = $1`, id)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -527,22 +507,23 @@ func (s *SQLiteStore) ListProducts(filter model.ProductFilter) ([]model.Product,
 }
 
 // queryProduct is a helper that fetches a full product with all related data.
-func (s *SQLiteStore) queryProduct(whereClause string, arg interface{}) (*model.Product, error) {
+func (s *PostgresStore) queryProduct(ctx context.Context, whereClause string, arg interface{}) (*model.Product, error) {
 	query := `SELECT p.id, p.slug, p.category_id, COALESCE(c.name, '') as category_name,
 		p.brand, p.name, p.price, p.color, p.model, p.fit, p.material, p.care,
-		p.description, p.xp_reward, p.in_stock, p.status, p.stock_quantity, p.created_by, p.created_at, p.updated_at
+		p.description, p.xp_reward, p.in_stock, p.status, p.stock_quantity, p.created_by,
+		COALESCE(p.created_at::text, '') as created_at, COALESCE(p.updated_at::text, '') as updated_at
 		FROM products p
 		LEFT JOIN categories c ON c.id = p.category_id ` + whereClause
 
 	var p model.Product
 	var careJSON string
-	var inStock int
-	if err := s.db.QueryRow(query, arg).Scan(
+	var inStock int16
+	if err := s.pool.QueryRow(ctx, query, arg).Scan(
 		&p.ID, &p.Slug, &p.CategoryID, &p.CategoryName,
 		&p.Brand, &p.Name, &p.Price, &p.Color, &p.Model, &p.Fit, &p.Material, &careJSON,
 		&p.Description, &p.XPReward, &inStock, &p.Status, &p.StockQty, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
 	); err != nil {
-		if err == sql.ErrNoRows {
+		if strings.Contains(err.Error(), "no rows") {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("query product: %w", err)
@@ -555,21 +536,21 @@ func (s *SQLiteStore) queryProduct(whereClause string, arg interface{}) (*model.
 	}
 
 	// Load sizes
-	sizes, err := s.getProductSizes(p.ID)
+	sizes, err := s.getProductSizes(ctx, p.ID)
 	if err != nil {
 		return nil, err
 	}
 	p.Sizes = sizes
 
 	// Load size chart
-	chart, err := s.getProductSizeChart(p.ID)
+	chart, err := s.getProductSizeChart(ctx, p.ID)
 	if err != nil {
 		return nil, err
 	}
 	p.SizeChart = chart
 
 	// Load images
-	images, err := s.getProductImages(p.ID)
+	images, err := s.getProductImages(ctx, p.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -578,8 +559,8 @@ func (s *SQLiteStore) queryProduct(whereClause string, arg interface{}) (*model.
 	return &p, nil
 }
 
-func (s *SQLiteStore) getProductSizes(productID int64) ([]string, error) {
-	rows, err := s.db.Query(`SELECT size_label FROM product_sizes WHERE product_id = ? ORDER BY id`, productID)
+func (s *PostgresStore) getProductSizes(ctx context.Context, productID int64) ([]string, error) {
+	rows, err := s.pool.Query(ctx, `SELECT size_label FROM product_sizes WHERE product_id = $1 ORDER BY id`, productID)
 	if err != nil {
 		return nil, fmt.Errorf("query sizes: %w", err)
 	}
@@ -599,8 +580,8 @@ func (s *SQLiteStore) getProductSizes(productID int64) ([]string, error) {
 	return sizes, rows.Err()
 }
 
-func (s *SQLiteStore) getProductSizeChart(productID int64) ([]model.SizeChartRow, error) {
-	rows, err := s.db.Query(`SELECT label, chest, waist, hips, length, foot_length, wrist, sort_order FROM size_chart_rows WHERE product_id = ? ORDER BY sort_order, id`, productID)
+func (s *PostgresStore) getProductSizeChart(ctx context.Context, productID int64) ([]model.SizeChartRow, error) {
+	rows, err := s.pool.Query(ctx, `SELECT label, chest, waist, hips, length, foot_length, wrist, sort_order FROM size_chart_rows WHERE product_id = $1 ORDER BY sort_order, id`, productID)
 	if err != nil {
 		return nil, fmt.Errorf("query size chart: %w", err)
 	}
@@ -620,8 +601,8 @@ func (s *SQLiteStore) getProductSizeChart(productID int64) ([]model.SizeChartRow
 	return chart, rows.Err()
 }
 
-func (s *SQLiteStore) getProductImages(productID int64) ([]model.ProductImage, error) {
-	rows, err := s.db.Query(`SELECT id, url, sort_order FROM product_images WHERE product_id = ? ORDER BY sort_order, id`, productID)
+func (s *PostgresStore) getProductImages(ctx context.Context, productID int64) ([]model.ProductImage, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id, url, sort_order FROM product_images WHERE product_id = $1 ORDER BY sort_order, id`, productID)
 	if err != nil {
 		return nil, fmt.Errorf("query images: %w", err)
 	}

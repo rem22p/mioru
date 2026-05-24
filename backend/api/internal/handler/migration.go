@@ -9,14 +9,14 @@ import (
 	"mioru/internal/store"
 )
 
-// MigrateUsersHandler returns an http.HandlerFunc that migrates users from Redis to SQLite.
+// MigrateUsersHandler returns an http.HandlerFunc that migrates users from Redis to PostgreSQL.
 // POST /api/admin/migrate-users
-func MigrateUsersHandler(redisStore *store.Store, sqliteStore *store.SQLiteStore) http.HandlerFunc {
+func MigrateUsersHandler(redisStore *store.Store, pgStore *store.PostgresStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
-		// Check if SQLite users table is empty
-		empty, err := sqliteStore.IsUsersTableEmpty()
+		// Check if PostgreSQL users table is empty
+		empty, err := pgStore.IsUsersTableEmpty(ctx)
 		if err != nil {
 			jsonError(w, "failed to check users table: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -60,7 +60,7 @@ func MigrateUsersHandler(redisStore *store.Store, sqliteStore *store.SQLiteStore
 				u.Role = "admin"
 			}
 
-			if err := sqliteStore.CreateUser(u); err != nil {
+			if err := pgStore.CreateUser(ctx, u); err != nil {
 				errors = append(errors, "failed to insert "+u.Username+": "+err.Error())
 				log.Printf("[MIGRATE] Error inserting user %s: %v", u.Username, err)
 				continue
@@ -73,9 +73,9 @@ func MigrateUsersHandler(redisStore *store.Store, sqliteStore *store.SQLiteStore
 		log.Printf("[MIGRATE] Migration complete: %d users migrated, %d errors", migrated, len(errors))
 
 		resp := map[string]interface{}{
-			"ok":        true,
-			"migrated":  migrated,
-			"total":     len(keys),
+			"ok":       true,
+			"migrated": migrated,
+			"total":    len(keys),
 		}
 		if len(errors) > 0 {
 			resp["errors"] = errors
