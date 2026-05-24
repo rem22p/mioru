@@ -1,14 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import type { Product, Category, SizeChartEntry } from '@/types';
-import { useProductStore } from '@/stores/productStore';
+import { useState, useEffect, useRef, useCallback } from "react";
+import { motion } from "framer-motion";
+import type { Product, Category, SizeChartEntry } from "@/types";
+import { useProductStore } from "@/stores/productStore";
+import ProductPreview from "./ProductPreview";
 import {
   CATEGORIES,
   SIZE_OPTIONS_CLOTHING,
   SIZE_OPTIONS_SHOES,
   SIZE_OPTIONS_ACCESSORIES,
-} from '@/lib/constants';
-import { createProduct, updateProduct, uploadImage } from '@/lib/api';
+} from "@/lib/constants";
+import { createProduct, updateProduct, uploadImage } from "@/lib/api";
 import {
   X,
   Upload,
@@ -16,9 +17,10 @@ import {
   Trash2,
   Image as ImageIcon,
   Save,
+  Eye,
   GripVertical,
   ChevronDown,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface ProductFormProps {
   product: Product | null;
@@ -26,7 +28,10 @@ interface ProductFormProps {
   onSaved: () => void;
 }
 
-function getCategoryPath(categoryId: number, cats: readonly Category[]): number[] {
+function getCategoryPath(
+  categoryId: number,
+  cats: readonly Category[],
+): number[] {
   const cat = cats.find((c) => c.id === categoryId);
   if (!cat) return [];
   if (cat.parent_id) {
@@ -36,69 +41,93 @@ function getCategoryPath(categoryId: number, cats: readonly Category[]): number[
 }
 
 const TEXT_FIELD_STYLE =
-  'w-full rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-4 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] transition-colors';
+  "w-full rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-4 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] transition-colors";
 
-export default function ProductForm({ product, onClose, onSaved }: ProductFormProps) {
+export default function ProductForm({
+  product,
+  onClose,
+  onSaved,
+}: ProductFormProps) {
   const { categories } = useProductStore();
   const cats = categories.length > 0 ? categories : CATEGORIES;
 
   const isEdit = !!product;
 
   // Basic fields
-  const [name, setName] = useState(product?.name || '');
-  const [slug, setSlug] = useState(product?.slug || '');
-  const [description, setDescription] = useState(product?.description || '');
-  const [brand, setBrand] = useState(product?.brand || '');
-  const [price, setPrice] = useState(product?.price ? String(product.price) : '');
-  const [xpReward, setXpReward] = useState(product?.xp_reward ? String(product.xp_reward) : '0');
+  const [name, setName] = useState(product?.name || "");
+  const [slug, setSlug] = useState(product?.slug || "");
+  const [description, setDescription] = useState(product?.description || "");
+  const [brand, setBrand] = useState(product?.brand || "");
+  const [price, setPrice] = useState(
+    product?.price ? String(product.price) : "",
+  );
+  const [xpReward, setXpReward] = useState(
+    product?.xp_reward ? String(product.xp_reward) : "0",
+  );
   const [inStock, setInStock] = useState(product?.in_stock ?? true);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | ''>(product?.category_id || '');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | "">(
+    product?.category_id || "",
+  );
 
   // Dynamic fields
-  const [color, setColor] = useState(product?.color || '');
-  const [model, setModel] = useState(product?.model || '');
-  const [fit, setFit] = useState(product?.fit || '');
-  const [material, setMaterial] = useState(product?.material || '');
+  const [color, setColor] = useState(product?.color || "");
+  const [model, setModel] = useState(product?.model || "");
+  const [fit, setFit] = useState(product?.fit || "");
+  const [material, setMaterial] = useState(product?.material || "");
 
   // Sizes
-  const [selectedSizes, setSelectedSizes] = useState<string[]>(product?.sizes || []);
+  const [selectedSizes, setSelectedSizes] = useState<string[]>(
+    product?.sizes || [],
+  );
 
   // Size chart
   const [sizeChart, setSizeChart] = useState<SizeChartEntry[]>(
     product?.size_chart && product.size_chart.length > 0
       ? product.size_chart
-      : [{ label: '', chest: '', waist: '', hips: '', length: '', foot_length: '', wrist: '' }],
+      : [
+          {
+            label: "",
+            chest: "",
+            waist: "",
+            hips: "",
+            length: "",
+            foot_length: "",
+            wrist: "",
+          },
+        ],
   );
 
   // Care instructions
   const [careInstructions, setCareInstructions] = useState<string[]>(
-    product?.care || [''],
+    product?.care || [""],
   );
 
   // Images
-  const [images, setImages] = useState<{ id: string; url: string; file?: File }[]>(
-    product?.images?.map((img) => ({ id: img.id, url: img.url })) || [],
-  );
+  const [images, setImages] = useState<
+    { id: string; url: string; file?: File }[]
+  >(product?.images?.map((img) => ({ id: img.id, url: img.url })) || []);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
   // State
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
+  const [previewOpen, setPreviewOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Derive which criteria to show
-  const selectedCategory = typeof selectedCategoryId === 'number'
-    ? cats.find((c) => c.id === selectedCategoryId)
-    : null;
+  const selectedCategory =
+    typeof selectedCategoryId === "number"
+      ? cats.find((c) => c.id === selectedCategoryId)
+      : null;
   const parentCategory = selectedCategory?.parent_id
     ? cats.find((c) => c.id === selectedCategory.parent_id)
     : selectedCategory;
   const criteria = parentCategory?.criteria || [];
 
-  const showSize = criteria.includes('size');
-  const showBrand = criteria.includes('brand');
-  const showColor = criteria.includes('color');
+  const showSize = criteria.includes("size");
+  const showBrand = criteria.includes("brand");
+  const showColor = criteria.includes("color");
 
   // Determine size options
   const getSizeOptions = (): readonly string[] => {
@@ -118,9 +147,9 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
   const generateSlug = (val: string) => {
     return val
       .toLowerCase()
-      .replace(/[^a-zа-яё0-9\s-]/g, '')
-      .replace(/[\s]+/g, '-')
-      .replace(/-+/g, '-')
+      .replace(/[^a-zа-яё0-9\s-]/g, "")
+      .replace(/[\s]+/g, "-")
+      .replace(/-+/g, "-")
       .trim();
   };
 
@@ -136,7 +165,7 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
     if (!files) return;
     setUploading(true);
     for (const file of Array.from(files)) {
-      if (!file.type.startsWith('image/')) continue;
+      if (!file.type.startsWith("image/")) continue;
       try {
         const result = await uploadImage(file);
         setImages((prev) => [
@@ -173,62 +202,79 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
 
   // Size chart
   const addSizeChartRow = () => {
-      setSizeChart((prev) => [...prev, { label: '', chest: '', waist: '', hips: '', length: '', foot_length: '', wrist: '' }]);
-    };
+    setSizeChart((prev) => [
+      ...prev,
+      {
+        label: "",
+        chest: "",
+        waist: "",
+        hips: "",
+        length: "",
+        foot_length: "",
+        wrist: "",
+      },
+    ]);
+  };
 
   const removeSizeChartRow = (index: number) => {
     setSizeChart((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const updateSizeChartRow = (index: number, field: keyof SizeChartEntry, value: string) => {
+  const updateSizeChartRow = (
+    index: number,
+    field: keyof SizeChartEntry,
+    value: string,
+  ) => {
     setSizeChart((prev) =>
       prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
     );
   };
 
   // Care instructions
-  const addCareInstruction = () => setCareInstructions((prev) => [...prev, '']);
+  const addCareInstruction = () => setCareInstructions((prev) => [...prev, ""]);
   const removeCareInstruction = (index: number) =>
     setCareInstructions((prev) => prev.filter((_, i) => i !== index));
   const updateCareInstruction = (index: number, value: string) =>
-    setCareInstructions((prev) => prev.map((c, i) => (i === index ? value : c)));
+    setCareInstructions((prev) =>
+      prev.map((c, i) => (i === index ? value : c)),
+    );
 
   // Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     if (!name.trim()) {
-      setError('Введите название товара');
+      setError("Введите название товара");
       return;
     }
     if (!selectedCategoryId) {
-      setError('Выберите категорию');
+      setError("Выберите категорию");
       return;
     }
     if (!price || isNaN(Number(price)) || Number(price) < 0) {
-      setError('Введите корректную цену');
+      setError("Введите корректную цену");
       return;
     }
 
     setSaving(true);
     try {
       const fd = new FormData();
-      fd.append('name', name.trim());
-      fd.append('slug', slug || generateSlug(name));
-      fd.append('description', description);
-      if (showBrand || brand) fd.append('brand', brand);
-      fd.append('price', price);
-      fd.append('xp_reward', xpReward || '0');
-      fd.append('category_id', String(selectedCategoryId));
-      fd.append('in_stock', inStock ? '1' : '0');
-      if (showColor || color) fd.append('color', color);
-      if (model) fd.append('model', model);
-      if (fit) fd.append('fit', fit);
-      if (material) fd.append('material', material);
+      fd.append("name", name.trim());
+      fd.append("slug", slug || generateSlug(name));
+      fd.append("description", description);
+      if (showBrand || brand) fd.append("brand", brand);
+      fd.append("price", price);
+      fd.append("xp_reward", xpReward || "0");
+      fd.append("category_id", String(selectedCategoryId));
+      fd.append("in_stock", inStock ? "1" : "0");
+      if (showColor || color) fd.append("color", color);
+      if (model) fd.append("model", model);
+      if (fit) fd.append("fit", fit);
+      if (material) fd.append("material", material);
 
       // Sizes
-      selectedSizes.forEach((s) => fd.append('sizes[]', s));
+      selectedSizes.forEach((s) => fd.append("sizes[]", s));
 
       // Size chart
       sizeChart
@@ -239,19 +285,20 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
           if (row.waist) fd.append(`size_chart[${i}][waist]`, row.waist);
           if (row.hips) fd.append(`size_chart[${i}][hips]`, row.hips);
           if (row.length) fd.append(`size_chart[${i}][length]`, row.length);
-          if (row.foot_length) fd.append(`size_chart[${i}][foot_length]`, row.foot_length);
+          if (row.foot_length)
+            fd.append(`size_chart[${i}][foot_length]`, row.foot_length);
           if (row.wrist) fd.append(`size_chart[${i}][wrist]`, row.wrist);
         });
 
       // Care instructions
       careInstructions
         .filter((c) => c.trim())
-        .forEach((c) => fd.append('care[]', c));
+        .forEach((c) => fd.append("care[]", c));
 
       // Images — only send new files
       images.forEach((img) => {
         if (img.file) {
-          fd.append('images', img.file);
+          fd.append("images", img.file);
         }
       });
 
@@ -262,7 +309,7 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
       }
       onSaved();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Ошибка сохранения';
+      const msg = err instanceof Error ? err.message : "Ошибка сохранения";
       setError(msg);
     } finally {
       setSaving(false);
@@ -271,7 +318,8 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
 
   // Build category tree for select
   const parentCats = cats.filter((c) => c.parent_id === null);
-  const getSubcategories = (parentId: number) => cats.filter((c) => c.parent_id === parentId);
+  const getSubcategories = (parentId: number) =>
+    cats.filter((c) => c.parent_id === parentId);
 
   return (
     <motion.div
@@ -293,14 +341,24 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-[var(--color-border-custom)] sticky top-0 bg-[var(--color-bg-card)] rounded-t-2xl z-10">
           <h2 className="text-xl font-bold tracking-tighter text-[var(--color-text-primary)]">
-            {isEdit ? 'Редактировать товар' : 'Новый товар'}
+            {isEdit ? "Редактировать товар" : "Новый товар"}
           </h2>
-          <button
-            onClick={onClose}
-            className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPreviewOpen(true)}
+              className="flex items-center gap-1.5 h-9 px-3 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-bg-secondary)] transition-colors text-sm"
+            >
+              <Eye className="h-4 w-4" />
+              Предпросмотр
+            </button>
+            <button
+              onClick={onClose}
+              className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Form */}
@@ -358,7 +416,11 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
               </label>
               <select
                 value={String(selectedCategoryId)}
-                onChange={(e) => setSelectedCategoryId(e.target.value ? Number(e.target.value) : '')}
+                onChange={(e) =>
+                  setSelectedCategoryId(
+                    e.target.value ? Number(e.target.value) : "",
+                  )
+                }
                 className={TEXT_FIELD_STYLE}
               >
                 <option value="">Выберите категорию</option>
@@ -496,7 +558,9 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
                     onChange={(e) => setInStock(e.target.checked)}
                     className="w-4 h-4 rounded accent-[#44944A]"
                   />
-                  <span className="text-sm text-[var(--color-text-primary)]">В наличии</span>
+                  <span className="text-sm text-[var(--color-text-primary)]">
+                    В наличии
+                  </span>
                 </label>
               </div>
             </div>
@@ -518,8 +582,8 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
                       onClick={() => toggleSize(size)}
                       className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
                         isSelected
-                          ? 'bg-[#44944A] text-black border-[#44944A]'
-                          : 'bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)]'
+                          ? "bg-[#44944A] text-black border-[#44944A]"
+                          : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)]"
                       }`}
                     >
                       {size}
@@ -575,12 +639,17 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
                 </thead>
                 <tbody>
                   {sizeChart.map((row, i) => (
-                    <tr key={i} className="border-b border-[var(--color-border-custom)] last:border-b-0">
+                    <tr
+                      key={i}
+                      className="border-b border-[var(--color-border-custom)] last:border-b-0"
+                    >
                       <td className="py-1.5 px-1">
                         <input
                           type="text"
-                          value={row.label || ''}
-                          onChange={(e) => updateSizeChartRow(i, 'label', e.target.value)}
+                          value={row.label || ""}
+                          onChange={(e) =>
+                            updateSizeChartRow(i, "label", e.target.value)
+                          }
                           placeholder="M"
                           className="w-full rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-2 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#44944A]"
                         />
@@ -588,8 +657,10 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
                       <td className="py-1.5 px-1">
                         <input
                           type="text"
-                          value={row.chest || ''}
-                          onChange={(e) => updateSizeChartRow(i, 'chest', e.target.value)}
+                          value={row.chest || ""}
+                          onChange={(e) =>
+                            updateSizeChartRow(i, "chest", e.target.value)
+                          }
                           placeholder="96"
                           className="w-full rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-2 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#44944A] font-mono"
                         />
@@ -597,8 +668,10 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
                       <td className="py-1.5 px-1">
                         <input
                           type="text"
-                          value={row.waist || ''}
-                          onChange={(e) => updateSizeChartRow(i, 'waist', e.target.value)}
+                          value={row.waist || ""}
+                          onChange={(e) =>
+                            updateSizeChartRow(i, "waist", e.target.value)
+                          }
                           placeholder="76"
                           className="w-full rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-2 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#44944A] font-mono"
                         />
@@ -606,8 +679,10 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
                       <td className="py-1.5 px-1">
                         <input
                           type="text"
-                          value={row.hips || ''}
-                          onChange={(e) => updateSizeChartRow(i, 'hips', e.target.value)}
+                          value={row.hips || ""}
+                          onChange={(e) =>
+                            updateSizeChartRow(i, "hips", e.target.value)
+                          }
                           placeholder="100"
                           className="w-full rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-2 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#44944A] font-mono"
                         />
@@ -615,8 +690,10 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
                       <td className="py-1.5 px-1">
                         <input
                           type="text"
-                          value={row.length || ''}
-                          onChange={(e) => updateSizeChartRow(i, 'length', e.target.value)}
+                          value={row.length || ""}
+                          onChange={(e) =>
+                            updateSizeChartRow(i, "length", e.target.value)
+                          }
                           placeholder="72"
                           className="w-full rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-2 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#44944A] font-mono"
                         />
@@ -624,8 +701,10 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
                       <td className="py-1.5 px-1">
                         <input
                           type="text"
-                          value={row.foot_length || ''}
-                          onChange={(e) => updateSizeChartRow(i, 'foot_length', e.target.value)}
+                          value={row.foot_length || ""}
+                          onChange={(e) =>
+                            updateSizeChartRow(i, "foot_length", e.target.value)
+                          }
                           placeholder="26.5"
                           className="w-full rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-2 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#44944A] font-mono"
                         />
@@ -633,8 +712,10 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
                       <td className="py-1.5 px-1">
                         <input
                           type="text"
-                          value={row.wrist || ''}
-                          onChange={(e) => updateSizeChartRow(i, 'wrist', e.target.value)}
+                          value={row.wrist || ""}
+                          onChange={(e) =>
+                            updateSizeChartRow(i, "wrist", e.target.value)
+                          }
                           placeholder="17"
                           className="w-full rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-2 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#44944A] font-mono"
                         />
@@ -667,8 +748,8 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
               onDrop={handleDrop}
               className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-colors cursor-pointer ${
                 dragOver
-                  ? 'border-[#44944A] bg-[#44944A]/5'
-                  : 'border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)]'
+                  ? "border-[#44944A] bg-[#44944A]/5"
+                  : "border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)]"
               }`}
               onClick={() => fileInputRef.current?.click()}
             >
@@ -783,11 +864,37 @@ export default function ProductForm({ product, onClose, onSaved }: ProductFormPr
               className="flex items-center gap-2 rounded-xl bg-[#44944A] px-5 py-2.5 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(68,148,74,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="h-4 w-4" />
-              {saving ? 'Сохранение...' : isEdit ? 'Сохранить' : 'Создать товар'}
+              {saving
+                ? "Сохранение..."
+                : isEdit
+                  ? "Сохранить"
+                  : "Создать товар"}
             </button>
           </div>
         </form>
       </motion.div>
+
+      {/* Preview modal */}
+      {previewOpen && (
+        <ProductPreview
+          data={{
+            name,
+            price: Number(price) || 0,
+            description,
+            brand,
+            material,
+            care: careInstructions,
+            sizes: selectedSizes,
+            color,
+            fit,
+            categoryName: selectedCategory?.name || "",
+            images,
+            sizeChart,
+            inStock,
+          }}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
     </motion.div>
   );
 }
