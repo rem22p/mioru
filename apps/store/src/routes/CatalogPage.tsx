@@ -40,6 +40,8 @@ export default function CatalogPage() {
     "newest",
   );
   const [filtersOpen, setFiltersOpen] = useState(true);
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 20;
   const addItem = useCartStore((state) => state.addItem);
 
   // Reset filters when category changes
@@ -50,6 +52,7 @@ export default function CatalogPage() {
     setSelectedSizes(new Set());
     setPriceMin("");
     setPriceMax("");
+    setPage(1);
   };
 
   const resetFilters = () => {
@@ -58,6 +61,7 @@ export default function CatalogPage() {
     setSelectedSizes(new Set());
     setPriceMin("");
     setPriceMax("");
+    setPage(1);
   };
 
   // Fetch data on mount
@@ -173,6 +177,16 @@ export default function CatalogPage() {
     selectedColors,
     selectedSizes,
   ]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PER_PAGE));
+  const paginatedProducts = filteredProducts.slice(
+    (page - 1) * PER_PAGE,
+    page * PER_PAGE,
+  );
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [totalPages, page]);
 
   return (
     <div className="px-6 py-24 lg:px-8">
@@ -476,7 +490,7 @@ export default function CatalogPage() {
 
             {/* Product grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {filteredProducts.map((product, index) => (
+              {paginatedProducts.map((product, index) => (
                 <motion.div
                   key={product.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -529,6 +543,52 @@ export default function CatalogPage() {
                 </motion.div>
               ))}
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-8">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="px-3 py-2 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-40 transition-colors"
+                >
+                  ←
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => {
+                    if (totalPages <= 7) return true;
+                    if (p === 1 || p === totalPages) return true;
+                    if (Math.abs(p - page) <= 1) return true;
+                    return false;
+                  })
+                  .map((p, idx, arr) => (
+                    <span key={p}>
+                      {idx > 0 && p - (arr[idx - 1] ?? 0) > 1 && (
+                        <span className="px-1 text-[var(--color-text-muted)] text-sm">
+                          …
+                        </span>
+                      )}
+                      <button
+                        onClick={() => setPage(p)}
+                        className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
+                          p === page
+                            ? "bg-[#44944A] text-black"
+                            : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    </span>
+                  ))}
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="px-3 py-2 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-40 transition-colors"
+                >
+                  →
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
