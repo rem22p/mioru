@@ -1,48 +1,13 @@
 # AGENTS.md — Mioru
 
-## Repository layout (monorepo)
+This file is intentionally thin. The single source of truth for agents — repository
+layout, workflow rules, priorities, development principles, backend/frontend
+architecture, security posture, env vars, and deployment — lives in **[CLAUDE.md](./CLAUDE.md)**.
 
-```
-apps/store/       — E-commerce store (React 19 + Vite + shadcn/ui)
-backend/api/      — Go API (REST + WebSocket + JWT + Redis)
-packages/shared/  — Shared types/utilities (future)
-docs/             — Documentation
-```
+Read `CLAUDE.md` first.
 
-Old projects (`mioru-admin/`, `mioru-store/`, `mioru-site/`) are kept for reference but excluded from git.
+## The non-negotiables (full detail in CLAUDE.md)
 
-## Workflow rules
-
-**Every change follows this sequence:**
-1. Agent analyzes the problem and presents a plan
-2. User approves the plan
-3. Agent makes changes
-4. User checks the result
-5. User gives command to commit
-6. Agent commits with description of what was done
-
-**No commits without user approval. No changes without a plan first.**
-
-## Store frontend
-
-- **Entrypoint:** `apps/store/src/main.tsx`
-- **Dev:** `cd apps/store && npm run dev` → port `5173`
-- **Build:** `npm run build` → `dist/`
-- **Tests:** `npm test` (Vitest), `npm run test:e2e` (Playwright)
-- **Colors:** Accent `#44944A`, theme-aware via CSS variables `--color-*`
-- **i18n:** 3 languages (RU, EN, RO), keys in `src/i18n/locales/`
-- **Theme:** Dark/light via class on `<html>`, CSS variables in `index.css`
-- **3D Avatar:** GLB loader with procedural fallback in `src/avatar/AvatarManager.ts`
-- **State:** Zustand stores in `src/stores/`
-
-## Backend
-
-- **Entrypoint:** `backend/api/cmd/server/main.go`
-- **Hard dependency:** Redis
-- **Port:** `8000` (default)
-
-## Git
-
-- Remote: `git@github.com:rem22p/mioru.git`
-- User pushes; agent cannot push (SSH passphrase)
-- Agent can commit, create branches, etc.
+- **Workflow:** plan → user approves → make change → user checks → user says commit → agent commits. No commits without approval. The agent commits/branches but **cannot push** (SSH passphrase); the user pushes. Remote: `git@github.com:rem22p/mioru.git`.
+- **Priorities (in order):** 1) reliability of financial operations, 2) safety of user data, 3) speed/performance.
+- **Principles:** TDD, YAGNI, DRY, OWASP / security-by-default, modular decomposition, architectural integrity.
