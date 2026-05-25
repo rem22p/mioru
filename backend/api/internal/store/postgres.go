@@ -552,29 +552,153 @@ func (s *PostgresStore) ListProducts(ctx context.Context, filter model.ProductFi
 		return nil, 0, fmt.Errorf("rows iteration: %w", err)
 	}
 
-	// Fetch full products
-	products := make([]model.Product, 0, len(ids))
-	for _, id := range ids {
-		p, err := s.queryProduct(ctx, `WHERE p.id = $1`, id)
-		if err != nil {
-			return nil, 0, err
-		}
-		if p != nil {
-			products = append(products, *p)
-		}
+	// Fetch the full products for this page in a fixed number of queries
+	// (instead of one-per-id), preserving the paginated order above.
+	products, err := s.listProductsByIDs(ctx, ids)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	return products, total, nil
 }
 
+// listProductsByIDs loads full products for the given ids using a fixed number
+// of queries regardless of len(ids): one for the products, plus one each for
+// sizes, size charts, and images (batched via = ANY($1)). Results are returned
+// in the same order as ids; ids not found are skipped.
+func (s *PostgresStore) listProductsByIDs(ctx context.Context, ids []int64) ([]model.Product, error) {
+	if len(ids) == 0 {
+		return []model.Product{}, nil
+	}
+
+	rows, err := s.pool.Query(ctx, productSelectBase+`WHERE p.id = ANY($1)`, ids)
+	if err != nil {
+		return nil, fmt.Errorf("query products: %w", err)
+	}
+	defer rows.Close()
+
+	byID := make(map[int64]*model.Product, len(ids))
+	for rows.Next() {
+		var p model.Product
+		var careJSON string
+		var inStock int16
+		if err := rows.Scan(
+			&p.ID, &p.Slug, &p.CategoryID, &p.CategoryName,
+			&p.Brand, &p.Name, &p.Price, &p.Color, &p.Model, &p.Fit, &p.Material, &careJSON,
+			&p.Description, &p.XPReward, &inStock, &p.Status, &p.StockQty, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan product: %w", err)
+		}
+		p.InStock = inStock == 1
+		json.Unmarshal([]byte(careJSON), &p.Care)
+		if p.Care == nil {
+			p.Care = []string{}
+		}
+		// Initialise related slices so absent rows serialise as [] not null.
+		p.Sizes = []string{}
+		p.SizeChart = []model.SizeChartRow{}
+		p.Images = []model.ProductImage{}
+		byID[p.ID] = &p
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+
+	if err := s.attachSizes(ctx, byID, ids); err != nil {
+		return nil, err
+	}
+	if err := s.attachSizeCharts(ctx, byID, ids); err != nil {
+		return nil, err
+	}
+	if err := s.attachImages(ctx, byID, ids); err != nil {
+		return nil, err
+	}
+
+	out := make([]model.Product, 0, len(ids))
+	for _, id := range ids {
+		if p, ok := byID[id]; ok {
+			out = append(out, *p)
+		}
+	}
+	return out, nil
+}
+
+// attachSizes loads sizes for all products in one query and appends them to the
+// matching product. Ordered by (product_id, id) so each product's sizes keep
+// their insertion order.
+func (s *PostgresStore) attachSizes(ctx context.Context, byID map[int64]*model.Product, ids []int64) error {
+	rows, err := s.pool.Query(ctx, `SELECT product_id, size_label FROM product_sizes WHERE product_id = ANY($1) ORDER BY product_id, id`, ids)
+	if err != nil {
+		return fmt.Errorf("query sizes: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var pid int64
+		var label string
+		if err := rows.Scan(&pid, &label); err != nil {
+			return fmt.Errorf("scan size: %w", err)
+		}
+		if p, ok := byID[pid]; ok {
+			p.Sizes = append(p.Sizes, label)
+		}
+	}
+	return rows.Err()
+}
+
+// attachSizeCharts loads size chart rows for all products in one query and
+// appends them to the matching product, ordered by (sort_order, id) within each.
+func (s *PostgresStore) attachSizeCharts(ctx context.Context, byID map[int64]*model.Product, ids []int64) error {
+	rows, err := s.pool.Query(ctx, `SELECT product_id, label, chest, waist, hips, length, foot_length, wrist, sort_order FROM size_chart_rows WHERE product_id = ANY($1) ORDER BY product_id, sort_order, id`, ids)
+	if err != nil {
+		return fmt.Errorf("query size charts: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var pid int64
+		var r model.SizeChartRow
+		if err := rows.Scan(&pid, &r.Label, &r.Chest, &r.Waist, &r.Hips, &r.Length, &r.FootLength, &r.Wrist, &r.SortOrder); err != nil {
+			return fmt.Errorf("scan chart row: %w", err)
+		}
+		if p, ok := byID[pid]; ok {
+			p.SizeChart = append(p.SizeChart, r)
+		}
+	}
+	return rows.Err()
+}
+
+// attachImages loads images for all products in one query and appends them to
+// the matching product, ordered by (sort_order, id) within each.
+func (s *PostgresStore) attachImages(ctx context.Context, byID map[int64]*model.Product, ids []int64) error {
+	rows, err := s.pool.Query(ctx, `SELECT product_id, id, url, sort_order FROM product_images WHERE product_id = ANY($1) ORDER BY product_id, sort_order, id`, ids)
+	if err != nil {
+		return fmt.Errorf("query images: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var pid int64
+		var img model.ProductImage
+		if err := rows.Scan(&pid, &img.ID, &img.URL, &img.SortOrder); err != nil {
+			return fmt.Errorf("scan image: %w", err)
+		}
+		if p, ok := byID[pid]; ok {
+			p.Images = append(p.Images, img)
+		}
+	}
+	return rows.Err()
+}
+
+// productSelectBase is the shared SELECT (with category name joined) for reading
+// products. Append a WHERE clause to it. Column order matches scanProduct.
+const productSelectBase = `SELECT p.id, p.slug, p.category_id, COALESCE(c.name, '') as category_name,
+	p.brand, p.name, p.price, p.color, p.model, p.fit, p.material, p.care,
+	p.description, p.xp_reward, p.in_stock, p.status, p.stock_quantity, p.created_by,
+	COALESCE(p.created_at::text, '') as created_at, COALESCE(p.updated_at::text, '') as updated_at
+	FROM products p
+	LEFT JOIN categories c ON c.id = p.category_id `
+
 // queryProduct is a helper that fetches a full product with all related data.
 func (s *PostgresStore) queryProduct(ctx context.Context, whereClause string, arg interface{}) (*model.Product, error) {
-	query := `SELECT p.id, p.slug, p.category_id, COALESCE(c.name, '') as category_name,
-		p.brand, p.name, p.price, p.color, p.model, p.fit, p.material, p.care,
-		p.description, p.xp_reward, p.in_stock, p.status, p.stock_quantity, p.created_by,
-		COALESCE(p.created_at::text, '') as created_at, COALESCE(p.updated_at::text, '') as updated_at
-		FROM products p
-		LEFT JOIN categories c ON c.id = p.category_id ` + whereClause
+	query := productSelectBase + whereClause
 
 	var p model.Product
 	var careJSON string
