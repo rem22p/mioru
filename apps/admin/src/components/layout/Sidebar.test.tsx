@@ -35,7 +35,7 @@ describe('Sidebar', () => {
         <Sidebar collapsed={false} onToggle={vi.fn()} />
       </BrowserRouter>
     );
-    expect(screen.getByText('Доска заметок')).toBeDefined();
+    expect(screen.getByText('Товары')).toBeDefined();
     expect(screen.getByText('Бухгалтерия')).toBeDefined();
   });
 
@@ -54,6 +54,6 @@ describe('Sidebar', () => {
         <Sidebar collapsed={true} onToggle={vi.fn()} />
       </BrowserRouter>
     );
-    expect(screen.queryByText('Доска заметок')).toBeNull();
+    expect(screen.queryByText('Товары')).toBeNull();
   });
 });
