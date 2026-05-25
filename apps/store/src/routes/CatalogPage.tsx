@@ -42,6 +42,24 @@ export default function CatalogPage() {
   const [filtersOpen, setFiltersOpen] = useState(true);
   const addItem = useCartStore((state) => state.addItem);
 
+  // Reset filters when category changes
+  const handleCategoryChange = (slug: string) => {
+    setSelectedCategory(slug);
+    setSelectedBrands(new Set());
+    setSelectedColors(new Set());
+    setSelectedSizes(new Set());
+    setPriceMin("");
+    setPriceMax("");
+  };
+
+  const resetFilters = () => {
+    setSelectedBrands(new Set());
+    setSelectedColors(new Set());
+    setSelectedSizes(new Set());
+    setPriceMin("");
+    setPriceMax("");
+  };
+
   // Fetch data on mount
   useEffect(() => {
     fetchProducts();
@@ -213,7 +231,7 @@ export default function CatalogPage() {
               {/* Category chips — horizontal scroll */}
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
                 <button
-                  onClick={() => setSelectedCategory("all")}
+                  onClick={() => handleCategoryChange("all")}
                   className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
                     selectedCategory === "all"
                       ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]"
@@ -231,7 +249,7 @@ export default function CatalogPage() {
                     return (
                       <button
                         key={cat.id}
-                        onClick={() => setSelectedCategory(cat.slug)}
+                        onClick={() => handleCategoryChange(cat.slug)}
                         className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
                           isActive
                             ? "bg-[#44944A] text-black shadow-[0_0_20px_rgba(68,148,74,0.4)]"
@@ -264,7 +282,7 @@ export default function CatalogPage() {
                         Подкатегории:
                       </span>
                       <button
-                        onClick={() => setSelectedCategory(parent!.slug)}
+                        onClick={() => handleCategoryChange(parent!.slug)}
                         className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                           selectedCategory === parent!.slug
                             ? "bg-[#44944A] text-black shadow-[0_0_15px_rgba(68,148,74,0.3)]"
@@ -276,7 +294,7 @@ export default function CatalogPage() {
                       {subCats.map((ch) => (
                         <button
                           key={ch.id}
-                          onClick={() => setSelectedCategory(ch.slug)}
+                          onClick={() => handleCategoryChange(ch.slug)}
                           className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                             selectedCategory === ch.slug
                               ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)] shadow-[0_0_15px_rgba(255,255,255,0.12)]"
@@ -397,6 +415,20 @@ export default function CatalogPage() {
                                   ))}
                                 </div>
                               </div>
+                            )}
+
+                            {(selectedBrands.size > 0 ||
+                              selectedColors.size > 0 ||
+                              selectedSizes.size > 0 ||
+                              priceMin ||
+                              priceMax) && (
+                              <button
+                                type="button"
+                                onClick={resetFilters}
+                                className="w-full text-center text-xs text-[var(--color-text-muted)] hover:text-red-500 transition-colors py-1"
+                              >
+                                Сбросить все фильтры
+                              </button>
                             )}
                           </div>
                         )}
