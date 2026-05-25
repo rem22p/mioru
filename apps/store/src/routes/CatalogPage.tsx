@@ -64,9 +64,9 @@ export default function CatalogPage() {
     setPage(1);
   };
 
-  // Fetch data on mount
+  // Fetch data on mount — load up to 100 products for client-side pagination
   useEffect(() => {
-    fetchProducts();
+    fetchProducts({ per_page: "100" });
     fetchCategories();
   }, [fetchProducts, fetchCategories]);
 
