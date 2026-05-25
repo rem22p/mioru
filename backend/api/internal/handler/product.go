@@ -270,27 +270,15 @@ func (h *ProductHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// Validate file extension. SVG is intentionally excluded: it is an XML
-	// document that can embed <script>, so a stored SVG becomes stored XSS.
+	// Validate the extension, then sniff the real bytes — never trust the
+	// client-supplied filename or Content-Type (allowlist + sniff in image.go;
+	// SVG excluded as a stored-XSS vector). Rewind before saving.
 	ext := strings.ToLower(filepath.Ext(header.Filename))
-	allowedExt := map[string]bool{
-		".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
-	}
-	if !allowedExt[ext] {
+	if !allowedImageExt(ext) {
 		jsonError(w, "only image files allowed (jpg, jpeg, png, gif, webp)", http.StatusBadRequest)
 		return
 	}
-
-	// Sniff the real content type from the file bytes — never trust the
-	// client-supplied filename or Content-Type. Reject anything that does not
-	// sniff as a supported raster image (blocks SVG/HTML payloads renamed .png).
-	sniff := make([]byte, 512)
-	n, _ := io.ReadFull(file, sniff)
-	contentType := http.DetectContentType(sniff[:n])
-	allowedMIME := map[string]bool{
-		"image/jpeg": true, "image/png": true, "image/gif": true, "image/webp": true,
-	}
-	if !allowedMIME[contentType] {
+	if err := validateImageContent(file); err != nil {
 		jsonError(w, "file content is not a supported image", http.StatusBadRequest)
 		return
 	}
@@ -481,15 +469,26 @@ func (h *ProductHandler) saveUploadedImages(r *http.Request, fieldName string) (
 	var urls []string
 	for _, fh := range files {
 		ext := strings.ToLower(filepath.Ext(fh.Filename))
-		allowedExt := map[string]bool{
-			".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true, ".svg": true,
-		}
-		if !allowedExt[ext] {
+		if !allowedImageExt(ext) {
+			log.Printf("saveUploadedImages: %q skipped: extension %q not allowed", fh.Filename, ext)
 			continue
 		}
 
 		file, err := fh.Open()
 		if err != nil {
+			log.Printf("saveUploadedImages: open %q: %v", fh.Filename, err)
+			continue
+		}
+
+		// Sniff the real bytes (blocks SVG/HTML renamed to .png), then rewind.
+		if err := validateImageContent(file); err != nil {
+			log.Printf("saveUploadedImages: %q rejected: %v", fh.Filename, err)
+			file.Close()
+			continue
+		}
+		if _, err := file.Seek(0, io.SeekStart); err != nil {
+			log.Printf("saveUploadedImages: seek %q: %v", fh.Filename, err)
+			file.Close()
 			continue
 		}
 
@@ -497,13 +496,21 @@ func (h *ProductHandler) saveUploadedImages(r *http.Request, fieldName string) (
 		destPath := filepath.Join(h.uploadDir, safeName)
 		dest, err := os.Create(destPath)
 		if err != nil {
+			log.Printf("saveUploadedImages: create %q: %v", destPath, err)
 			file.Close()
 			continue
 		}
 
-		io.Copy(dest, file)
-		file.Close()
+		if _, err := io.Copy(dest, file); err != nil {
+			// Don't return a URL for a partially written file; clean it up.
+			log.Printf("saveUploadedImages: write %q: %v", destPath, err)
+			dest.Close()
+			file.Close()
+			os.Remove(destPath)
+			continue
+		}
 		dest.Close()
+		file.Close()
 
 		urls = append(urls, "/uploads/"+safeName)
 	}
