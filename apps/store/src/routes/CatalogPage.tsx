@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { useCatalogStore } from "@/stores/catalogStore";
 import { useCartStore } from "@/stores/cartStore";
 import { getImageUrl } from "@/lib/api";
-import { ShoppingBag } from "lucide-react";
+import { ShoppingBag, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
 
@@ -39,6 +39,7 @@ export default function CatalogPage() {
   const [sortBy, setSortBy] = useState<"price-asc" | "price-desc" | "newest">(
     "newest",
   );
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const addItem = useCartStore((state) => state.addItem);
 
   // Fetch data on mount
@@ -309,85 +310,94 @@ export default function CatalogPage() {
                       className="mb-6 overflow-hidden"
                     >
                       <div className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-5 space-y-5">
-                        <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                        <button
+                          onClick={() => setFiltersOpen(!filtersOpen)}
+                          className="w-full flex items-center justify-between text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+                        >
                           Фильтры
-                        </h3>
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform duration-300 ${filtersOpen ? "rotate-180" : ""}`}
+                          />
+                        </button>
+                        {filtersOpen && (
+                          <div className="space-y-5">
+                            {/* Sizes */}
+                            {availableFilters.sizes.length > 0 && (
+                              <div>
+                                <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
+                                  Размер
+                                </h4>
+                                <div className="flex flex-wrap gap-2">
+                                  {availableFilters.sizes.map((s) => (
+                                    <button
+                                      key={s}
+                                      onClick={() =>
+                                        toggleFilter(setSelectedSizes, s)
+                                      }
+                                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                                        selectedSizes.has(s)
+                                          ? "bg-[#44944A] text-black border-[#44944A]"
+                                          : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                                      }`}
+                                    >
+                                      {s}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
 
-                        {/* Sizes */}
-                        {availableFilters.sizes.length > 0 && (
-                          <div>
-                            <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
-                              Размер
-                            </h4>
-                            <div className="flex flex-wrap gap-2">
-                              {availableFilters.sizes.map((s) => (
-                                <button
-                                  key={s}
-                                  onClick={() =>
-                                    toggleFilter(setSelectedSizes, s)
-                                  }
-                                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-                                    selectedSizes.has(s)
-                                      ? "bg-[#44944A] text-black border-[#44944A]"
-                                      : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
-                                  }`}
-                                >
-                                  {s}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                            {/* Brands */}
+                            {availableFilters.brands.length > 0 && (
+                              <div>
+                                <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
+                                  Бренд
+                                </h4>
+                                <div className="flex flex-wrap gap-2">
+                                  {availableFilters.brands.map((b) => (
+                                    <button
+                                      key={b}
+                                      onClick={() =>
+                                        toggleFilter(setSelectedBrands, b)
+                                      }
+                                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                                        selectedBrands.has(b)
+                                          ? "bg-[#44944A] text-black border-[#44944A]"
+                                          : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                                      }`}
+                                    >
+                                      {b}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
 
-                        {/* Brands */}
-                        {availableFilters.brands.length > 0 && (
-                          <div>
-                            <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
-                              Бренд
-                            </h4>
-                            <div className="flex flex-wrap gap-2">
-                              {availableFilters.brands.map((b) => (
-                                <button
-                                  key={b}
-                                  onClick={() =>
-                                    toggleFilter(setSelectedBrands, b)
-                                  }
-                                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-                                    selectedBrands.has(b)
-                                      ? "bg-[#44944A] text-black border-[#44944A]"
-                                      : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
-                                  }`}
-                                >
-                                  {b}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Colors */}
-                        {availableFilters.colors.length > 0 && (
-                          <div>
-                            <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
-                              Цвет
-                            </h4>
-                            <div className="flex flex-wrap gap-2">
-                              {availableFilters.colors.map((c) => (
-                                <button
-                                  key={c}
-                                  onClick={() =>
-                                    toggleFilter(setSelectedColors, c)
-                                  }
-                                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-                                    selectedColors.has(c)
-                                      ? "bg-[#44944A] text-black border-[#44944A]"
-                                      : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
-                                  }`}
-                                >
-                                  {c}
-                                </button>
-                              ))}
-                            </div>
+                            {/* Colors */}
+                            {availableFilters.colors.length > 0 && (
+                              <div>
+                                <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
+                                  Цвет
+                                </h4>
+                                <div className="flex flex-wrap gap-2">
+                                  {availableFilters.colors.map((c) => (
+                                    <button
+                                      key={c}
+                                      onClick={() =>
+                                        toggleFilter(setSelectedColors, c)
+                                      }
+                                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                                        selectedColors.has(c)
+                                          ? "bg-[#44944A] text-black border-[#44944A]"
+                                          : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                                      }`}
+                                    >
+                                      {c}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
