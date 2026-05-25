@@ -1,22 +1,31 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
 
 	"mioru/internal/model"
-	"mioru/internal/store"
 )
+
+// storeReader is the subset of the store consumed by the public storefront
+// handlers. Defined here (where it is used) to keep the seam small and let tests
+// supply a fake; *store.PostgresStore satisfies it.
+type storeReader interface {
+	ListProducts(ctx context.Context, filter model.ProductFilter) ([]model.Product, int, error)
+	GetProduct(ctx context.Context, slug string) (*model.Product, error)
+	GetCategories(ctx context.Context) ([]model.Category, error)
+}
 
 // StoreHandler handles public (no-auth) storefront endpoints.
 type StoreHandler struct {
-	store *store.PostgresStore
+	store storeReader
 }
 
 // NewStoreHandler creates a new StoreHandler.
-func NewStoreHandler(s *store.PostgresStore) *StoreHandler {
+func NewStoreHandler(s storeReader) *StoreHandler {
 	return &StoreHandler{store: s}
 }
 

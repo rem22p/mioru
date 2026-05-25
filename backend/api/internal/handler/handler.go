@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -13,20 +14,32 @@ import (
 	"mioru/internal/email"
 	"mioru/internal/middleware"
 	"mioru/internal/model"
-	"mioru/internal/store"
 )
 
 var emailRe = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 var usernameRe = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 
+// userStore is the subset of the store consumed by the admin auth handlers.
+// Defined here (where it is used) to keep the seam small and let tests supply a
+// fake; *store.PostgresStore satisfies it.
+type userStore interface {
+	CreateUser(ctx context.Context, u model.User) error
+	GetUser(ctx context.Context, username string) (*model.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
+	UpdateUser(ctx context.Context, username string, updates map[string]string) error
+	UpdatePassword(ctx context.Context, username, hashedPW string) error
+	CreateResetToken(ctx context.Context, username, token string) error
+	ConsumeResetToken(ctx context.Context, token string) (string, error)
+}
+
 type AuthHandler struct {
-	store  *store.PostgresStore
+	store  userStore
 	email  *email.Service
 	secret string
 	expiry int
 }
 
-func NewAuthHandler(pgStore *store.PostgresStore, emailSvc *email.Service, secret string, expiry int) *AuthHandler {
+func NewAuthHandler(pgStore userStore, emailSvc *email.Service, secret string, expiry int) *AuthHandler {
 	return &AuthHandler{store: pgStore, email: emailSvc, secret: secret, expiry: expiry}
 }
 

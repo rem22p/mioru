@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,19 +11,29 @@ import (
 	"mioru/internal/auth"
 	"mioru/internal/middleware"
 	"mioru/internal/model"
-	"mioru/internal/store"
 )
 
 var customerEmailRe = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 
+// customerStore is the subset of the store consumed by the storefront customer
+// handlers. Defined here (where it is used) to keep the seam small and let tests
+// supply a fake; *store.PostgresStore satisfies it.
+type customerStore interface {
+	CreateCustomer(ctx context.Context, c model.Customer) error
+	GetCustomer(ctx context.Context, id int64) (*model.Customer, error)
+	GetCustomerByEmail(ctx context.Context, email string) (*model.Customer, error)
+	UpdateCustomer(ctx context.Context, id int64, updates map[string]string) error
+	UpdateCustomerPassword(ctx context.Context, id int64, hashedPW string) error
+}
+
 // CustomerHandler handles store customer auth & profile.
 type CustomerHandler struct {
-	store  *store.PostgresStore
+	store  customerStore
 	secret string
 	expiry int
 }
 
-func NewCustomerHandler(s *store.PostgresStore, secret string, expiry int) *CustomerHandler {
+func NewCustomerHandler(s customerStore, secret string, expiry int) *CustomerHandler {
 	return &CustomerHandler{store: s, secret: secret, expiry: expiry}
 }
 

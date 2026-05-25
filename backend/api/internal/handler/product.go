@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -16,17 +17,29 @@ import (
 
 	"mioru/internal/middleware"
 	"mioru/internal/model"
-	"mioru/internal/store"
 )
+
+// productStore is the subset of the store consumed by the admin product
+// handlers. Defined here (where it is used) to keep the seam small and let tests
+// supply a fake; *store.PostgresStore satisfies it.
+type productStore interface {
+	ListProducts(ctx context.Context, filter model.ProductFilter) ([]model.Product, int, error)
+	GetProduct(ctx context.Context, slug string) (*model.Product, error)
+	CreateProduct(ctx context.Context, p model.Product) (int64, error)
+	UpdateProduct(ctx context.Context, slug string, p model.Product) error
+	DeleteProduct(ctx context.Context, slug string) error
+	GetCategories(ctx context.Context) ([]model.Category, error)
+	GetCategoriesFlat(ctx context.Context) ([]model.Category, error)
+}
 
 // ProductHandler handles product CRUD and file uploads.
 type ProductHandler struct {
-	store     *store.PostgresStore
+	store     productStore
 	uploadDir string
 }
 
 // NewProductHandler creates a new ProductHandler.
-func NewProductHandler(s *store.PostgresStore, uploadDir string) *ProductHandler {
+func NewProductHandler(s productStore, uploadDir string) *ProductHandler {
 	return &ProductHandler{store: s, uploadDir: uploadDir}
 }
 
