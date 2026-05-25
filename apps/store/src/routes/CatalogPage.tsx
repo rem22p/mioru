@@ -233,7 +233,7 @@ export default function CatalogPage() {
                         onClick={() => setSelectedCategory(cat.slug)}
                         className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
                           isActive
-                            ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]"
+                            ? "bg-[#44944A] text-black shadow-[0_0_20px_rgba(68,148,74,0.4)]"
                             : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
                         }`}
                       >
@@ -269,7 +269,7 @@ export default function CatalogPage() {
                         onClick={() => setSelectedCategory(parent!.slug)}
                         className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                           selectedCategory === parent!.slug
-                            ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]"
+                            ? "bg-[#44944A] text-black shadow-[0_0_15px_rgba(68,148,74,0.3)]"
                             : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
                         }`}
                       >
@@ -281,7 +281,7 @@ export default function CatalogPage() {
                           onClick={() => setSelectedCategory(ch.slug)}
                           className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                             selectedCategory === ch.slug
-                              ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]"
+                              ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)] shadow-[0_0_15px_rgba(255,255,255,0.12)]"
                               : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
                           }`}
                         >
