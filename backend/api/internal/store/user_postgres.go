@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"mioru/internal/model"
 )
@@ -124,11 +125,38 @@ func (s *PostgresStore) UpdatePassword(ctx context.Context, username, hashedPW s
 	return nil
 }
 
-// IsUsersTableEmpty returns true if the users table has no rows (used for auto-migration).
-func (s *PostgresStore) IsUsersTableEmpty(ctx context.Context) (bool, error) {
-	var count int
-	if err := s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM users`).Scan(&count); err != nil {
-		return false, fmt.Errorf("count users: %w", err)
+// ── Password reset tokens ──
+
+// CreateResetToken stores a one-time password-reset token for username with a
+// one-hour TTL. Expired tokens are opportunistically purged on each write.
+func (s *PostgresStore) CreateResetToken(ctx context.Context, username, token string) error {
+	if _, err := s.pool.Exec(ctx, `DELETE FROM password_reset_tokens WHERE expires_at < NOW()`); err != nil {
+		return fmt.Errorf("purge expired reset tokens: %w", err)
 	}
-	return count == 0, nil
+	if _, err := s.pool.Exec(ctx, `
+		INSERT INTO password_reset_tokens (token, username, expires_at)
+		VALUES ($1, $2, $3)`,
+		token, username, time.Now().Add(time.Hour),
+	); err != nil {
+		return fmt.Errorf("create reset token: %w", err)
+	}
+	return nil
+}
+
+// ConsumeResetToken atomically deletes the token and returns its username. It
+// fails if the token is unknown or expired (one-time use).
+func (s *PostgresStore) ConsumeResetToken(ctx context.Context, token string) (string, error) {
+	var username string
+	err := s.pool.QueryRow(ctx, `
+		DELETE FROM password_reset_tokens
+		WHERE token = $1 AND expires_at > NOW()
+		RETURNING username`, token,
+	).Scan(&username)
+	if err != nil {
+		if strings.Contains(err.Error(), "no rows") {
+			return "", fmt.Errorf("invalid or expired token")
+		}
+		return "", fmt.Errorf("consume reset token: %w", err)
+	}
+	return username, nil
 }

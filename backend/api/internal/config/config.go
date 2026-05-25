@@ -10,8 +10,6 @@ import (
 type Config struct {
 	SecretKey   string
 	TokenExpiry int
-	RedisAddr   string
-	RedisPW     string
 	Port        string
 	DatabaseURL string
 	UploadDir   string
@@ -33,14 +31,6 @@ func Load() Config {
 		log.Fatal("SECRET_KEY must be at least 32 characters")
 	}
 
-	addr := os.Getenv("REDIS_URL")
-	if addr == "" {
-		addr = os.Getenv("REDIS_ADDR")
-	}
-	if addr == "" {
-		addr = "localhost:6379"
-	}
-	pw := os.Getenv("REDIS_PASSWORD")
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8000"
@@ -59,8 +49,6 @@ func Load() Config {
 	return Config{
 		SecretKey:   secret,
 		TokenExpiry: 1440,
-		RedisAddr:   addr,
-		RedisPW:     pw,
 		Port:        port,
 		DatabaseURL: databaseURL,
 		UploadDir:   uploadDir,

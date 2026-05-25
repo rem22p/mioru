@@ -1,15 +1,10 @@
 export const WORKSPACES = [
   { id: 'products', label: 'Товары', icon: 'Package', active: true },
-  { id: 'notes', label: 'Доска заметок', icon: 'StickyNote', active: false },
   { id: 'accounting', label: 'Бухгалтерия', icon: 'Banknote', active: false },
   { id: 'analytics', label: 'Аналитика', icon: 'BarChart3', active: false },
   { id: 'chatbot', label: 'Чат-бот', icon: 'Bot', active: false },
   { id: 'tinder', label: 'Тиндер', icon: 'Flame', active: false },
   { id: 'ideas', label: 'Идеи', icon: 'Lightbulb', active: false },
-] as const;
-
-export const NOTE_COLORS = [
-  '#ffffff', '#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff', '#5f27cd', '#01a3a4',
 ] as const;
 
 export const AVATAR_COLORS = [

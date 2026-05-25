@@ -15,17 +15,6 @@ export interface Workspace {
   active: boolean;
 }
 
-export interface Note {
-  id: string;
-  content: string;
-  color: string;
-  author: string;
-  position_x: number;
-  position_y: number;
-  created_at: string;
-  updated_at: string;
-}
-
 // ── Product types ──
 
 export interface Category {

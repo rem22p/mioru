@@ -53,10 +53,6 @@
     "selectDesc": "Choose a section from the menu to get started",
     "inDevelopment": "Module in development"
   },
-  "notes": {
-    "newNote": "New note...",
-    "addNote": "Add"
-  },
   "profile": {
     "title": "Profile",
     "displayName": "Display name",

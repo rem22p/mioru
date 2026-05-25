@@ -1,6 +1,6 @@
 package model
 
-// User stored in SQLite (was Redis)
+// User is an admin / staff account.
 type User struct {
 	ID          int64  `json:"id"`
 	Username    string `json:"username"`
@@ -12,28 +12,6 @@ type User struct {
 	AvatarColor string `json:"avatar_color"`
 	Role        string `json:"role"`
 	CreatedAt   string `json:"created_at"`
-}
-
-// Note stored individually in Redis
-type Note struct {
-	ID        string `json:"id"`
-	Content   string `json:"content"`
-	Color     string `json:"color"`
-	Author    string `json:"author"`
-	PosX      int    `json:"position_x"`
-	PosY      int    `json:"position_y"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
-}
-
-// WebSocket message
-type WSMessage struct {
-	Action string `json:"action,omitempty"`
-	Note   *Note  `json:"note,omitempty"`
-	Type   string `json:"type,omitempty"`
-	NoteID string `json:"noteId,omitempty"`
-	X      int    `json:"x,omitempty"`
-	Y      int    `json:"y,omitempty"`
 }
 
 // Category represents a product category with tree structure

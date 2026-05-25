@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"mioru/internal/auth"
 	"mioru/internal/model"
 )
 
@@ -130,6 +133,12 @@ func (s *PostgresStore) migrate(ctx context.Context) error {
 		url TEXT NOT NULL,
 		sort_order INTEGER NOT NULL DEFAULT 0
 	);
+
+	CREATE TABLE IF NOT EXISTS password_reset_tokens (
+		token TEXT PRIMARY KEY,
+		username TEXT NOT NULL,
+		expires_at TIMESTAMPTZ NOT NULL
+	);
 	`
 	if _, err := s.pool.Exec(ctx, schema); err != nil {
 		return fmt.Errorf("create schema: %w", err)
@@ -168,6 +177,45 @@ func (s *PostgresStore) migrate(ctx context.Context) error {
 		return fmt.Errorf("insert default categories: %w", err)
 	}
 
+	// Seed the first admin from BOOTSTRAP_ADMIN_* env. Registration is
+	// invite-only (admins create admins), so this resolves the chicken-and-egg
+	// for the very first admin on a clean database.
+	if err := s.seedAdmin(ctx); err != nil {
+		return fmt.Errorf("seed admin: %w", err)
+	}
+
+	return nil
+}
+
+// seedAdmin inserts the bootstrap admin defined by BOOTSTRAP_ADMIN_USERNAME,
+// BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD. It is a no-op when any of
+// those vars is unset, and idempotent via ON CONFLICT DO NOTHING so repeated
+// boots never duplicate or overwrite an existing admin.
+func (s *PostgresStore) seedAdmin(ctx context.Context) error {
+	username := os.Getenv("BOOTSTRAP_ADMIN_USERNAME")
+	emailAddr := os.Getenv("BOOTSTRAP_ADMIN_EMAIL")
+	password := os.Getenv("BOOTSTRAP_ADMIN_PASSWORD")
+	if username == "" || emailAddr == "" || password == "" {
+		return nil
+	}
+
+	hash, err := auth.HashPassword(password)
+	if err != nil {
+		return fmt.Errorf("hash bootstrap admin password: %w", err)
+	}
+
+	tag, err := s.pool.Exec(ctx, `
+		INSERT INTO users (username, email, hashed_password, display_name, avatar_color, role)
+		VALUES ($1, $2, $3, $1, '#44944A', 'admin')
+		ON CONFLICT DO NOTHING`,
+		username, strings.ToLower(emailAddr), hash,
+	)
+	if err != nil {
+		return fmt.Errorf("insert bootstrap admin: %w", err)
+	}
+	if tag.RowsAffected() > 0 {
+		log.Printf("Seeded bootstrap admin %q from BOOTSTRAP_ADMIN_* env", username)
+	}
 	return nil
 }
 

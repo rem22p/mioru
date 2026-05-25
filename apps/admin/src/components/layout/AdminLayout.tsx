@@ -8,7 +8,6 @@ import Products from "@/workspaces/Products";
 import Profile from "@/workspaces/Profile";
 import Settings from "@/workspaces/Settings";
 import {
-  StickyNote,
   Banknote,
   BarChart3,
   Bot,
@@ -50,16 +49,6 @@ export default function AdminLayout() {
         <Routes>
           <Route path="/" element={<Navigate to="/products" replace />} />
           <Route path="/products" element={<Products />} />
-          <Route
-            path="/notes"
-            element={
-              <Placeholder
-                icon={StickyNote}
-                title="Доска заметок"
-                desc="Модуль в разработке"
-              />
-            }
-          />
           <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />
           <Route

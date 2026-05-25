@@ -4,12 +4,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"html"
 	"log"
 	"net/http"
 	"regexp"
 	"strings"
-	"time"
 
 	"mioru/internal/auth"
 	"mioru/internal/email"
@@ -22,15 +20,14 @@ var emailRe = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{
 var usernameRe = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 
 type AuthHandler struct {
-	store      *store.PostgresStore
-	redisStore *store.Store
-	email      *email.Service
-	secret     string
-	expiry     int
+	store  *store.PostgresStore
+	email  *email.Service
+	secret string
+	expiry int
 }
 
-func NewAuthHandler(pgStore *store.PostgresStore, redisStore *store.Store, emailSvc *email.Service, secret string, expiry int) *AuthHandler {
-	return &AuthHandler{store: pgStore, redisStore: redisStore, email: emailSvc, secret: secret, expiry: expiry}
+func NewAuthHandler(pgStore *store.PostgresStore, emailSvc *email.Service, secret string, expiry int) *AuthHandler {
+	return &AuthHandler{store: pgStore, email: emailSvc, secret: secret, expiry: expiry}
 }
 
 type registerReq struct {
@@ -301,7 +298,7 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	token := hex.EncodeToString(tokenBytes)
 
-	// Resolve the account from PostgreSQL (users live there, not the Redis index).
+	// Resolve the account from PostgreSQL.
 	user, err := h.store.GetUserByEmail(r.Context(), body.Email)
 	if err != nil {
 		log.Printf("ForgotPassword GetUserByEmail: %v", err)
@@ -309,8 +306,8 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if user != nil {
-		// Store token in Redis (1 hour TTL) only for a real account.
-		if err := h.redisStore.CreateResetTokenForUser(r.Context(), user.Username, token); err != nil {
+		// Persist the token (1 hour TTL) only for a real account.
+		if err := h.store.CreateResetToken(r.Context(), user.Username, token); err != nil {
 			log.Printf("ForgotPassword CreateResetToken: %v", err)
 			jsonError(w, "internal error", http.StatusInternalServerError)
 			return
@@ -361,7 +358,7 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Consume token (one-time use)
-	username, err := h.redisStore.ConsumeResetToken(r.Context(), body.Token)
+	username, err := h.store.ConsumeResetToken(r.Context(), body.Token)
 	if err != nil {
 		jsonError(w, "недействительная или истёкшая ссылка", http.StatusBadRequest)
 		return
@@ -415,171 +412,4 @@ func isCommonPassword(pw string) bool {
 		"123456789": true, "1234567890": true, "abcdefgh": true,
 	}
 	return common[strings.ToLower(pw)]
-}
-
-func setupCORS(w http.ResponseWriter, r *http.Request) {
-	origin := r.Header.Get("Origin")
-	allowed := map[string]bool{
-		"http://localhost:5173":         true,
-		"http://127.0.0.1:5173":         true,
-		"http://localhost:5174":         true,
-		"http://127.0.0.1:5174":         true,
-		"http://localhost:8080":         true,
-		"http://127.0.0.1:8080":         true,
-		"https://admin.mioru.store":     true,
-		"https://www.admin.mioru.store": true,
-	}
-	if allowed[origin] {
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-	}
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-}
-
-// ── Notes ──
-
-type NoteHandler struct {
-	store *store.Store
-}
-
-func NewNoteHandler(s *store.Store) *NoteHandler {
-	return &NoteHandler{store: s}
-}
-
-func (h *NoteHandler) List(w http.ResponseWriter, r *http.Request) {
-	username := middleware.Username(r)
-	notes, err := h.store.GetUserNotes(r.Context(), username)
-	if err != nil {
-		jsonError(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-	if notes == nil {
-		notes = []model.Note{}
-	}
-	setupCORS(w, r)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(notes)
-}
-
-type createNoteReq struct {
-	Content string `json:"content"`
-	Color   string `json:"color"`
-	PosX    int    `json:"position_x"`
-	PosY    int    `json:"position_y"`
-}
-
-func (h *NoteHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var req createNoteReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonError(w, "bad request", http.StatusBadRequest)
-		return
-	}
-	// Sanitize content to prevent XSS
-	req.Content = html.EscapeString(strings.TrimSpace(req.Content))
-	if req.Content == "" {
-		jsonError(w, "content is required", http.StatusBadRequest)
-		return
-	}
-	if len(req.Content) > 2000 {
-		jsonError(w, "content max 2000 characters", http.StatusBadRequest)
-		return
-	}
-	now := time.Now().UTC().Format(time.RFC3339)
-	n := model.Note{
-		ID:        generateID(),
-		Content:   req.Content,
-		Color:     req.Color,
-		Author:    middleware.Username(r),
-		PosX:      req.PosX,
-		PosY:      req.PosY,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	if n.Color == "" {
-		n.Color = "#ffffff"
-	}
-	if err := h.store.CreateNote(r.Context(), n); err != nil {
-		jsonError(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-	setupCORS(w, r)
-	w.WriteHeader(http.StatusCreated)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(n)
-}
-
-func (h *NoteHandler) Update(w http.ResponseWriter, r *http.Request) {
-	username := middleware.Username(r)
-	id := r.PathValue("id")
-
-	// Get note and verify ownership
-	note, err := h.store.GetNote(r.Context(), id)
-	if err != nil || note == nil {
-		jsonError(w, "not found", http.StatusNotFound)
-		return
-	}
-	if note.Author != username {
-		jsonError(w, "forbidden", http.StatusForbidden)
-		return
-	}
-
-	var body map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		jsonError(w, "bad request", http.StatusBadRequest)
-		return
-	}
-
-	// Sanitize content if being updated
-	if content, ok := body["content"]; ok {
-		if s, ok := content.(string); ok {
-			body["content"] = html.EscapeString(strings.TrimSpace(s))
-			if len(body["content"].(string)) > 2000 {
-				jsonError(w, "content max 2000 characters", http.StatusBadRequest)
-				return
-			}
-		}
-	}
-
-	body["updated_at"] = time.Now().UTC().Format(time.RFC3339)
-	note, err = h.store.UpdateNote(r.Context(), id, body)
-	if err != nil || note == nil {
-		jsonError(w, "not found", http.StatusNotFound)
-		return
-	}
-	setupCORS(w, r)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(note)
-}
-
-func (h *NoteHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	username := middleware.Username(r)
-	id := r.PathValue("id")
-
-	// Verify ownership
-	note, err := h.store.GetNote(r.Context(), id)
-	if err != nil || note == nil {
-		jsonError(w, "not found", http.StatusNotFound)
-		return
-	}
-	if note.Author != username {
-		jsonError(w, "forbidden", http.StatusForbidden)
-		return
-	}
-
-	if err := h.store.DeleteNote(r.Context(), id); err != nil {
-		jsonError(w, "not found", http.StatusNotFound)
-		return
-	}
-	setupCORS(w, r)
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func generateID() string {
-	b := make([]byte, 16)
-	_, err := rand.Read(b)
-	if err != nil {
-		panic("failed to generate ID: " + err.Error())
-	}
-	return hex.EncodeToString(b)
 }

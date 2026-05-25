@@ -1,6 +1,5 @@
 import type {
   User,
-  Note,
   Product,
   Category,
   ProductFilter,
@@ -95,19 +94,6 @@ export const changePassword = (
     method: "PUT",
     body: JSON.stringify({ current_password, new_password }),
   });
-
-// ── Notes ──
-
-export const fetchNotes = () => api<Note[]>("/api/notes");
-export const createNote = (content: string, color: string) =>
-  api<Note>("/api/notes", {
-    method: "POST",
-    body: JSON.stringify({ content, color }),
-  });
-export const updateNote = (id: string, body: Record<string, unknown>) =>
-  api<Note>(`/api/notes/${id}`, { method: "PUT", body: JSON.stringify(body) });
-export const deleteNote = (id: string) =>
-  api<void>(`/api/notes/${id}`, { method: "DELETE" });
 
 // ── Products ──
 

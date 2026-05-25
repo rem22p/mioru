@@ -13,25 +13,152 @@
 ## Что внутри
 
 ```
-apps/store/       Магазин (React + Vite) — SPA, статика, CDN
-backend/api/      Бэкенд (Go) — заказы, клиенты, авторизация
-packages/shared/  Общие типы и утилиты
+apps/store/    Магазин (React 19 + Vite) — публичный SPA, порт 5173
+apps/admin/    Админка (React 19 + Vite) — управление товарами, порт 5174
+backend/api/   Бэкенд (Go) — товары, клиенты, авторизация, порт 8000
+scripts/       Провижининг VPS и сиды БД
 ```
 
-Магазин отдаётся как статика — быстрая загрузка, дёшево хостить. Бэкенд — отдельный сервис, общается с магазином по REST API.
+Магазин отдаётся как статика — быстрая загрузка, дёшево хостить. Бэкенд — отдельный сервис, общается с фронтами по REST API. Единственное хранилище — **PostgreSQL**.
 
 ## Языки и регионы
 
 Русский, English, Română — три языка из коробки. Тёмная и светлая темы.
 
-## Разработка
+---
+
+# Первый запуск
+
+## Что нужно установить
+
+| Инструмент | Версия | Зачем |
+|---|---|---|
+| **Go** | 1.22+ | бэкенд |
+| **PostgreSQL** | 14+ (в проде 16) | единственное хранилище данных |
+| **Node.js** | 18+ (проверено на 20/24) | оба фронта |
+
+> Бэкенд требует запущенный **PostgreSQL** — без него сервер падает на старте.
+
+## 1. Backend
+
+### 1.1. Поднять PostgreSQL
+
+Локально это любой запущенный экземпляр. Затем создать БД и пользователя:
 
 ```bash
-# Магазин
-cd apps/store && npm install && npm run dev
-
-# Бэкенд
-cd backend/api && go run ./cmd/server
+sudo -u postgres psql -c "CREATE USER mioru WITH PASSWORD 'localdev';"
+sudo -u postgres psql -c "CREATE DATABASE mioru OWNER mioru;"
 ```
 
-Тесты: `npm test` (юнит), `npm run test:e2e` (скриншотные).
+Таблицы создаются автоматически при старте сервера (миграции встроены в код, `CREATE TABLE IF NOT EXISTS`) — вручную ничего накатывать не нужно.
+
+### 1.2. Настроить окружение
+
+Создать `backend/api/.env`:
+
+```env
+DATABASE_URL=postgres://mioru:localdev@localhost:5432/mioru?sslmode=disable
+SECRET_KEY=<любая-строка-минимум-32-символа>
+PORT=8000
+UPLOAD_DIR=uploads
+```
+
+Все переменные:
+
+| Переменная | Назначение | По умолчанию |
+|---|---|---|
+| `SECRET_KEY` | Ключ подписи JWT, ≥32 символов | генерируется случайно (токены сбрасываются при рестарте) |
+| `DATABASE_URL` | Подключение к PostgreSQL | — (обязательна) |
+| `PORT` | Порт API | `8000` |
+| `UPLOAD_DIR` | Каталог загрузок | `uploads` |
+| `CORS_ORIGINS` | Разрешённые origin'ы фронтов (через запятую) | dev-порты + прод-домены |
+| `BOOTSTRAP_ADMIN_USERNAME` | Логин первого админа (см. ниже) | — |
+| `BOOTSTRAP_ADMIN_EMAIL` | Email первого админа | — |
+| `BOOTSTRAP_ADMIN_PASSWORD` | Пароль первого админа | — |
+
+### 1.3. Первый админ (обязательно при чистой БД)
+
+Регистрация админов — **invite-only**: создать нового админа может только действующий. Первый админ заводится миграцией из `BOOTSTRAP_ADMIN_*` — идемпотентно (`INSERT ... ON CONFLICT DO NOTHING`): существующий админ не перезаписывается, повторные запуски безопасны. Без этих переменных на чистой БД в админку не зайти.
+
+```bash
+cd backend/api
+BOOTSTRAP_ADMIN_USERNAME=admin \
+BOOTSTRAP_ADMIN_EMAIL=admin@example.com \
+BOOTSTRAP_ADMIN_PASSWORD='<сильный-пароль>' \
+go run ./cmd/server
+```
+
+После первого запуска `BOOTSTRAP_ADMIN_*` можно убрать.
+
+### 1.4. Обычный запуск
+
+```bash
+cd backend/api
+go run ./cmd/server      # http://localhost:8000
+```
+
+Проверка:
+
+```bash
+curl http://localhost:8000/api/health      # {"status":"ok"}
+```
+
+### 1.5. Тестовые товары (опционально)
+
+`seed-300.sh` генерирует SQL на stdout — отправить в psql:
+
+```bash
+bash scripts/seed-300.sh | psql "postgres://mioru:localdev@localhost:5432/mioru?sslmode=disable"
+```
+
+## 2. Фронтенды
+
+Магазин и админка — независимые npm-проекты. Каждому нужен адрес API.
+
+### 2.1. Магазин (порт 5173)
+
+```bash
+cd apps/store
+echo 'VITE_API_URL=http://localhost:8000' > .env
+npm install
+npm run dev        # http://localhost:5173
+```
+
+### 2.2. Админка (порт 5174)
+
+```bash
+cd apps/admin
+echo 'VITE_API_URL=http://localhost:8000' > .env
+npm install
+npm run dev        # http://localhost:5174
+```
+
+Войти в админку логином/паролем первого админа (шаг 1.3).
+
+> Без `VITE_API_URL` магазин по умолчанию бьёт в прод (`https://api.mioru.store`), а админка — в свой origin. Для локальной разработки переменная обязательна.
+
+## Тесты
+
+```bash
+# фронт (из apps/store или apps/admin)
+npm test                       # юнит (Vitest)
+
+# E2E магазина (скриншотные)
+cd apps/store && npm run test:e2e
+```
+
+Бэкенд-тестов пока нет.
+
+---
+
+# Деплой
+
+`scripts/setup-vps.sh` поднимает Ubuntu 22.04 VPS целиком: Go 1.22, PostgreSQL 16, Nginx, swap 2GB, отдельный системный пользователь `mioru` и systemd-сервис. Секреты (БД, `SECRET_KEY`) генерируются случайно при первом запуске и сохраняются в `/opt/mioru/.env`.
+
+```bash
+# на VPS под root
+bash scripts/setup-vps.sh
+# дальше — по инструкции, которую печатает скрипт в конце
+```
+
+TLS на внешнем периметре — через certbot/nginx (последний шаг скрипта).

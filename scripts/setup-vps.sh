@@ -3,7 +3,7 @@ set -e
 
 echo "================================================"
 echo " MIORU Backend VPS Setup"
-echo " Ubuntu 22.04 | Go 1.22 | PostgreSQL 16 | Redis | Nginx"
+echo " Ubuntu 22.04 | Go 1.22 | PostgreSQL 16 | Nginx"
 echo "================================================"
 
 # ── System ──
@@ -45,11 +45,9 @@ if [ -f /opt/mioru/.env ]; then
     echo "Existing /opt/mioru/.env found — reusing its secrets"
     set -a; . /opt/mioru/.env; set +a
     DB_PASS=$(printf '%s' "$DATABASE_URL" | sed -n 's#.*//mioru:\([^@]*\)@.*#\1#p')
-    REDIS_PASS="$REDIS_PASSWORD"
     NEW_SECRETS=0
 else
     DB_PASS=$(openssl rand -hex 24)
-    REDIS_PASS=$(openssl rand -hex 24)
     SECRET_KEY=$(openssl rand -base64 48 | tr -d '\n/+=')
     NEW_SECRETS=1
 fi
@@ -61,21 +59,6 @@ su - postgres -c "psql -tc \"SELECT 1 FROM pg_database WHERE datname='mioru'\"" 
     su - postgres -c "psql -c \"CREATE DATABASE mioru OWNER mioru;\""
 su - postgres -c "psql -c \"GRANT ALL ON DATABASE mioru TO mioru;\""
 su - postgres -c "psql -c \"ALTER USER mioru CREATEDB;\""
-
-# ── Redis ──
-if ! command -v redis-server &>/dev/null; then
-    apt install -y redis-server
-    systemctl enable redis-server
-    systemctl start redis-server
-    echo "Redis installed"
-fi
-
-# Require authentication on Redis (it listens on localhost, but defense-in-depth)
-if ! grep -q "^requirepass " /etc/redis/redis.conf; then
-    echo "requirepass ${REDIS_PASS}" >> /etc/redis/redis.conf
-    systemctl restart redis-server
-    echo "Redis password set"
-fi
 
 # ── Nginx ──
 if ! command -v nginx &>/dev/null; then
@@ -106,10 +89,6 @@ cat > /opt/mioru/.env << ENVEOF
 # Database (DB is on loopback; sslmode=disable is acceptable over localhost)
 DATABASE_URL=postgres://mioru:${DB_PASS}@localhost:5432/mioru?sslmode=disable
 
-# Redis
-REDIS_ADDR=localhost:6379
-REDIS_PASSWORD=${REDIS_PASS}
-
 # JWT
 SECRET_KEY=${SECRET_KEY}
 
@@ -134,7 +113,7 @@ chown mioru:mioru /opt/mioru/.env
 cat > /etc/systemd/system/mioru.service << 'UNITEOF'
 [Unit]
 Description=MIORU Backend API
-After=network.target postgresql.service redis-server.service
+After=network.target postgresql.service
 
 [Service]
 Type=simple
@@ -181,11 +160,6 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-
-        # WebSocket support
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
     }
 }
 NGXEOF

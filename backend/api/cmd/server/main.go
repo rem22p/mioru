@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -11,12 +10,10 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"mioru/internal/auth"
 	"mioru/internal/config"
 	"mioru/internal/email"
 	"mioru/internal/handler"
 	"mioru/internal/middleware"
-	"mioru/internal/model"
 	"mioru/internal/store"
 )
 
@@ -34,27 +31,13 @@ func main() {
 
 	cfg := config.Load()
 
-	// Redis store (for notes, WebSocket, reset tokens)
-	redisStore := store.New(cfg.RedisAddr, cfg.RedisPW)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := redisStore.Ping(ctx); err != nil {
-		log.Fatal("Redis connection failed:", err)
-	}
-
-	// PostgreSQL store (for users, products, categories)
+	// PostgreSQL store (users, products, categories, reset tokens). The first
+	// admin is seeded from BOOTSTRAP_ADMIN_* inside migrate() on a clean DB.
 	pgStore, err := store.NewPostgresStore(context.Background(), cfg.DatabaseURL)
 	if err != nil {
 		log.Fatal("PostgreSQL initialization failed:", err)
 	}
 	defer pgStore.Close()
-
-	// Auto-migrate: if PostgreSQL users table is empty and Redis has users, migrate them
-	autoMigrateUsers(redisStore, pgStore)
-
-	// Bootstrap the first admin from env when the users table is empty
-	// (registration is invite-only, so this solves the first-admin chicken-and-egg).
-	bootstrapAdmin(pgStore)
 
 	// Ensure upload directory exists
 	if err := os.MkdirAll(cfg.UploadDir, 0755); err != nil {
@@ -64,9 +47,7 @@ func main() {
 	emailSvc := email.NewService("onboarding@resend.dev")
 
 	// Handlers
-	authH := handler.NewAuthHandler(pgStore, redisStore, emailSvc, cfg.SecretKey, cfg.TokenExpiry)
-	noteH := handler.NewNoteHandler(redisStore)
-	wsH := handler.NewWSHandler(redisStore, cfg.SecretKey)
+	authH := handler.NewAuthHandler(pgStore, emailSvc, cfg.SecretKey, cfg.TokenExpiry)
 	productH := handler.NewProductHandler(pgStore, cfg.UploadDir)
 	customerH := handler.NewCustomerHandler(pgStore, cfg.SecretKey, cfg.TokenExpiry)
 
@@ -82,13 +63,11 @@ func main() {
 		return u.Role, nil
 	}
 
-	// rl builds a per-IP, 1-minute fixed-window rate limiter (Redis-backed) for an
+	// rl builds a per-IP, 1-minute fixed-window rate limiter (in-process) for an
 	// endpoint, used to throttle credential-guessing on auth routes.
-	rateIncr := func(ctx context.Context, key string) (int, error) {
-		return redisStore.RateLimit(ctx, key, time.Minute)
-	}
+	rateLimiter := middleware.NewMemoryRateLimiter(time.Minute)
 	rl := func(name string, limit int) func(http.HandlerFunc) http.HandlerFunc {
-		return middleware.RateLimit(name, limit, rateIncr)
+		return middleware.RateLimit(name, limit, rateLimiter.Incr)
 	}
 
 	mux := http.NewServeMux()
@@ -110,15 +89,6 @@ func main() {
 	mux.Handle("GET /api/users/me", middleware.AuthMW(cfg.SecretKey)(http.HandlerFunc(authH.Me)))
 	mux.Handle("PUT /api/users/me/profile", middleware.AuthMW(cfg.SecretKey)(http.HandlerFunc(authH.UpdateProfile)))
 	mux.Handle("PUT /api/users/me/password", middleware.AuthMW(cfg.SecretKey)(http.HandlerFunc(authH.ChangePassword)))
-
-	// Notes (with auth)
-	mux.Handle("GET /api/notes", middleware.AuthMW(cfg.SecretKey)(http.HandlerFunc(noteH.List)))
-	mux.Handle("POST /api/notes", middleware.AuthMW(cfg.SecretKey)(http.HandlerFunc(noteH.Create)))
-	mux.Handle("PUT /api/notes/{id}", middleware.AuthMW(cfg.SecretKey)(http.HandlerFunc(noteH.Update)))
-	mux.Handle("DELETE /api/notes/{id}", middleware.AuthMW(cfg.SecretKey)(http.HandlerFunc(noteH.Delete)))
-
-	// WebSocket
-	mux.HandleFunc("/ws/notes", wsH.HandleNotes)
 
 	// Store: Customer auth & profile (separate namespace, separate JWT)
 	mux.HandleFunc("POST /api/store/auth/register", cors(rl("cust-register", 5)(customerH.Register)))
@@ -151,9 +121,6 @@ func main() {
 	// Admin: Upload (admin only)
 	mux.Handle("POST /api/admin/upload", adminOnly(http.HandlerFunc(productH.Upload)))
 
-	// Admin: Migration (admin only)
-	mux.Handle("POST /api/admin/migrate-users", adminOnly(handler.MigrateUsersHandler(redisStore, pgStore)))
-
 	// Serve uploaded files (hardened: no script execution, no MIME sniffing)
 	fileServer := http.FileServer(http.Dir(cfg.UploadDir))
 	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", uploadsSecurity(fileServer)))
@@ -164,103 +131,9 @@ func main() {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	// Start Redis broadcast goroutine
-	go wsH.BroadcastRedis()
-
 	addr := ":" + cfg.Port
 	log.Printf("Server starting on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, securityHeaders(mux)))
-}
-
-// autoMigrateUsers migrates users from Redis to PostgreSQL if the PostgreSQL users table is empty.
-func autoMigrateUsers(redisStore *store.Store, pgStore *store.PostgresStore) {
-	ctx := context.Background()
-	empty, err := pgStore.IsUsersTableEmpty(ctx)
-	if err != nil {
-		log.Printf("WARNING: Failed to check users table: %v", err)
-		return
-	}
-	if !empty {
-		return
-	}
-
-	keys, err := redisStore.Keys(ctx, "user:*")
-	if err != nil {
-		log.Printf("WARNING: Failed to list Redis users: %v", err)
-		return
-	}
-	if len(keys) == 0 {
-		return
-	}
-
-	log.Printf("Auto-migrating %d users from Redis to PostgreSQL...", len(keys))
-	migrated := 0
-	for _, key := range keys {
-		data, err := redisStore.GetRaw(ctx, key)
-		if err != nil {
-			log.Printf("Auto-migrate: failed to get key %s: %v", key, err)
-			continue
-		}
-
-		var u model.User
-		if err := json.Unmarshal(data, &u); err != nil {
-			log.Printf("Auto-migrate: failed to unmarshal %s: %v", key, err)
-			continue
-		}
-
-		if u.Role == "" {
-			u.Role = "admin"
-		}
-
-		if err := pgStore.CreateUser(ctx, u); err != nil {
-			log.Printf("Auto-migrate: failed to insert %s: %v", u.Username, err)
-			continue
-		}
-		migrated++
-	}
-	log.Printf("Auto-migration complete: %d/%d users migrated", migrated, len(keys))
-}
-
-// bootstrapAdmin creates the first admin from BOOTSTRAP_ADMIN_* env vars when the
-// users table is empty. Registration is invite-only (admins create admins), so
-// this resolves the chicken-and-egg for the very first admin.
-func bootstrapAdmin(pgStore *store.PostgresStore) {
-	username := os.Getenv("BOOTSTRAP_ADMIN_USERNAME")
-	emailAddr := os.Getenv("BOOTSTRAP_ADMIN_EMAIL")
-	password := os.Getenv("BOOTSTRAP_ADMIN_PASSWORD")
-	if username == "" || emailAddr == "" || password == "" {
-		return
-	}
-
-	ctx := context.Background()
-	empty, err := pgStore.IsUsersTableEmpty(ctx)
-	if err != nil {
-		log.Printf("WARNING: bootstrap admin — failed to check users table: %v", err)
-		return
-	}
-	if !empty {
-		return
-	}
-
-	hash, err := auth.HashPassword(password)
-	if err != nil {
-		log.Printf("WARNING: bootstrap admin — failed to hash password: %v", err)
-		return
-	}
-
-	u := model.User{
-		Username:    username,
-		Email:       emailAddr,
-		HashedPW:    hash,
-		DisplayName: username,
-		AvatarColor: "#44944A",
-		Role:        "admin",
-	}
-	if err := pgStore.CreateUser(ctx, u); err != nil {
-		log.Printf("WARNING: bootstrap admin — failed to create admin %q: %v", username, err)
-		return
-	}
-	log.Printf("Bootstrapped first admin user %q from BOOTSTRAP_ADMIN_* env", username)
 }
 
 func cors(next http.HandlerFunc) http.HandlerFunc {

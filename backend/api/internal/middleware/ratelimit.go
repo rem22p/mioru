@@ -17,7 +17,7 @@ type IncrFunc func(ctx context.Context, key string) (int, error)
 // maximum number of requests allowed per window. On exceedance it responds 429.
 //
 // If the backing store errors, the request is allowed through (fail-open) so a
-// transient Redis blip cannot lock everyone out of authentication.
+// transient store hiccup cannot lock everyone out of authentication.
 func RateLimit(name string, limit int, incr IncrFunc) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {

@@ -53,10 +53,6 @@
     "selectDesc": "Alege o secțiune din meniul din stânga pentru a începe",
     "inDevelopment": "Modul în dezvoltare"
   },
-  "notes": {
-    "newNote": "Notiță nouă...",
-    "addNote": "Adaugă"
-  },
   "profile": {
     "title": "Profil",
     "displayName": "Nume afișat",
