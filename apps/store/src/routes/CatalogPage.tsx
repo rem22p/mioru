@@ -292,11 +292,17 @@ export default function CatalogPage() {
                   );
                 })()}
 
-              {/* Dynamic filters — only after subcategory selected */}
+              {/* Dynamic filters — after any category selected */}
               {selectedCategory !== "all" &&
-                categories.some((c) =>
-                  c.children?.some((ch) => ch.slug === selectedCategory),
-                ) && (
+                (() => {
+                  const catHasChildren = categories.some((c) =>
+                    c.children?.some((ch) => ch.slug === selectedCategory),
+                  );
+                  const parentWithoutChildren = categories.some(
+                    (c) => !c.children?.length && c.slug === selectedCategory,
+                  );
+                  return catHasChildren || parentWithoutChildren;
+                })() && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
