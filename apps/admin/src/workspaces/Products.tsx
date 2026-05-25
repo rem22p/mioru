@@ -107,16 +107,16 @@ export default function Products() {
       if (full.fit) fd.append("fit", full.fit);
       if (full.material) fd.append("material", full.material);
       full.sizes.forEach((s) => fd.append("sizes[]", s));
-      full.care_instructions.forEach((c) =>
-        fd.append("care_instructions[]", c),
-      );
+      full.care.forEach((c) => fd.append("care[]", c));
       full.size_chart.forEach((sc, i) => {
-        fd.append(`size_chart[${i}][size]`, sc.size);
+        fd.append(`size_chart[${i}][label]`, sc.label);
         if (sc.chest) fd.append(`size_chart[${i}][chest]`, sc.chest);
         if (sc.waist) fd.append(`size_chart[${i}][waist]`, sc.waist);
         if (sc.hips) fd.append(`size_chart[${i}][hips]`, sc.hips);
         if (sc.length) fd.append(`size_chart[${i}][length]`, sc.length);
-        if (sc.sleeve) fd.append(`size_chart[${i}][sleeve]`, sc.sleeve);
+        if (sc.foot_length)
+          fd.append(`size_chart[${i}][foot_length]`, sc.foot_length);
+        if (sc.wrist) fd.append(`size_chart[${i}][wrist]`, sc.wrist);
       });
       await createProduct(fd);
       fetchProducts();

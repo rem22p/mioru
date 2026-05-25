@@ -202,12 +202,6 @@ export default function ProductTable({
               <span className="text-sm font-mono font-medium text-[var(--color-text-primary)]">
                 {formatPrice(product.price)}
               </span>
-              {product.compare_at_price &&
-                product.compare_at_price > product.price && (
-                  <span className="text-xs font-mono text-[var(--color-text-muted)] line-through block">
-                    {formatPrice(product.compare_at_price)}
-                  </span>
-                )}
             </div>
 
             {/* Status */}

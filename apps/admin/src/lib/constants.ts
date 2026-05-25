@@ -1,3 +1,5 @@
+import type { Category } from '@/types';
+
 export const WORKSPACES = [
   { id: 'products', label: 'Товары', icon: 'Package', active: true },
   { id: 'accounting', label: 'Бухгалтерия', icon: 'Banknote', active: false },
@@ -11,8 +13,8 @@ export const AVATAR_COLORS = [
   '#f85149', '#58a6ff', '#3fb950', '#f0883e', '#bc8cff', '#79c0ff', '#f778ba', '#7ee787',
 ] as const;
 
-// Categories matching backend SQLite seeds
-export const CATEGORIES = [
+// Category tree — must stay in sync with the inline seeds in backend postgres.go migrate()
+export const CATEGORIES: Category[] = [
   { id: 1, parent_id: null, name: 'Одежда', slug: 'clothing', criteria: ['size', 'brand', 'color'] },
   { id: 2, parent_id: 1, name: 'Футболки / поло', slug: 'tshirts-polo', criteria: [] },
   { id: 3, parent_id: 1, name: 'Шорты', slug: 'shorts', criteria: [] },
@@ -37,7 +39,7 @@ export const CATEGORIES = [
   { id: 22, parent_id: 20, name: 'Подвески', slug: 'pendants', criteria: [] },
   { id: 23, parent_id: 20, name: 'Кольца', slug: 'rings', criteria: [] },
   { id: 24, parent_id: 16, name: 'Часы', slug: 'watches', criteria: [] },
-] as const;
+];
 
 export const SIZE_OPTIONS_CLOTHING = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'] as const;
 export const SIZE_OPTIONS_SHOES = ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46'] as const;

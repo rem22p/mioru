@@ -18,15 +18,23 @@ type Service struct {
 	apiKey  string
 }
 
-func NewService(sender string) *Service {
+// NewService reads its config from the environment: APP_BASE_URL (base for the
+// reset link — the admin app hosts /reset, so it defaults to the admin dev
+// port), EMAIL_SENDER (the From address), and RESEND_API_KEY (the Resend API
+// key; when empty, emails are logged instead of sent).
+func NewService() *Service {
 	baseURL := os.Getenv("APP_BASE_URL")
 	if baseURL == "" {
-		baseURL = "http://localhost:5173"
+		baseURL = "http://localhost:5174"
+	}
+	sender := os.Getenv("EMAIL_SENDER")
+	if sender == "" {
+		sender = "onboarding@resend.dev"
 	}
 	return &Service{
 		Sender:  sender,
 		BaseURL: baseURL,
-		apiKey:  os.Getenv("SMTP_PASSWORD"),
+		apiKey:  os.Getenv("RESEND_API_KEY"),
 	}
 }
 

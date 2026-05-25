@@ -99,6 +99,13 @@ UPLOAD_DIR=/opt/mioru/uploads
 # CORS (comma-separated origins — must list every allowed front-end origin)
 CORS_ORIGINS=https://mioru.store,https://www.mioru.store,https://admin.mioru.store,https://www.admin.mioru.store
 
+# Email (password-reset links + delivery via Resend)
+# Reset links point at the admin app, which hosts /reset/{token}.
+APP_BASE_URL=https://admin.mioru.store
+# RESEND_API_KEY left blank => reset emails are logged, not sent. Set to enable.
+# RESEND_API_KEY=
+# EMAIL_SENDER=onboarding@resend.dev
+
 # First admin bootstrap — set on first run, then remove (see README)
 # BOOTSTRAP_ADMIN_USERNAME=admin
 # BOOTSTRAP_ADMIN_EMAIL=admin@example.com

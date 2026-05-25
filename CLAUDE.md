@@ -16,6 +16,7 @@ When trade-offs collide, resolve them top-down:
 - **YAGNI** — build what the current task needs, not speculative abstractions.
 - **DRY** — one source of truth per fact (config, types, the category tree). Reference, don't duplicate.
 - **OWASP / security-by-default** — validate all input, parameterize all SQL, never reflect internal errors to clients, enforce authz on every privileged route. See "Security posture".
+- **Input validation** — validate every incoming argument before use: type, presence, and bounds. For strings, always enforce a maximum length (and minimum/format where it matters) — never persist or process unbounded user-supplied strings. Fail early with a generic 4xx; never rely on client-side validation as the enforcement point.
 - **Modular decomposition** — keep concerns in their package (`auth`, `store`, `handler`, `middleware`, `config`, `model`); one responsibility per file/handler.
 - **Architectural integrity** — respect layer boundaries (handler → store → DB; handlers never touch the pool directly). No import cycles. When a change crosses a boundary, flag it before doing it.
 
@@ -84,13 +85,54 @@ bash scripts/seed-300.sh | psql "$DATABASE_URL"   # 300 random products
 - **Handlers** (`internal/handler/`): `handler.go` (admin auth + profile), `customer.go` (storefront customer auth + profile), `store.go` (public storefront read), `product.go` (admin product CRUD + image upload).
 - **Uploads** saved to `UPLOAD_DIR` (default `uploads/`), served at `GET /uploads/` (hardened: nosniff + locked-down CSP).
 
+### Go naming conventions (enforced)
+
+Canonical Go style — Effective Go, *Go Code Review Comments*, and the Google Go Style Guide. This is the standard regardless of any current drift in the code: bring the code into line, not the reverse.
+
+- **MixedCaps, never underscores** — identifiers are `MixedCaps` (exported) / `mixedCaps` (unexported). No `snake_case`, no `SCREAMING_SNAKE` — even for constants (`MaxTokenLen`, not `MAX_TOKEN_LEN`). Underscores appear only in *file* names (`user_postgres.go`, `*_test.go`).
+- **Initialisms keep uniform case** — `ID`, `URL`, `HTTP`, `API`, `JSON`, `JWT`: write `userID`, `ServeHTTP`, `JWTConfig` — never `userId`, `ServeHttp`, `JwtConfig`.
+- **Packages** — short, lowercase, single word, no plurals/underscores. The name is a namespace prefix: avoid stutter (`store.New`, not `store.NewStore`) and grab-bag names (`util`, `common`, `helpers`, `base`). Drop redundant context inside a package (`user.Count`, not `user.UserCount`).
+- **Getters/setters** — no `Get` prefix: `o.Owner()`, not `o.GetOwner()`; mutator is `o.SetOwner(v)`.
+- **Interfaces** — single-method interfaces are named method + `-er` (`Reader`, `Validator`); define them where consumed, not where implemented; keep them small.
+- **Constructors** — `New` when a package builds one main type (`store.New`), `NewT` when several (`NewClient`); return the concrete `*T`.
+- **Receivers** — short (1–2 letters), identical on every method of a type, reflecting the type (`c *Client`); never `this`/`self`/`me`. Be consistent about pointer vs value.
+- **Errors** — sentinel vars `ErrNotFound` / `errFoo`; error *types* `FooError`. Error strings are lowercase, no trailing punctuation, so they compose (`"invalid token"`). Wrap with `fmt.Errorf("load user: %w", err)`.
+- **Scope-proportional length** — terse names in tight scopes (`i`, `r`, `buf`, `ctx`), descriptive names at package scope. `context.Context` is always the first parameter, named `ctx`.
+
+### Concurrency, timeouts & transactions (enforced)
+
+Serves priority #1 (reliability of financial operations) — money / stock / XP must never partially apply, double-count, or hang.
+
+**Transactions**
+- Any multi-statement write that must be all-or-nothing runs in one `pgx` transaction (`pool.BeginTx` → `defer tx.Rollback(ctx)` → explicit `tx.Commit(ctx)`). Mandatory for orders, payments, stock changes, and XP/VIP accrual.
+- Mutating a shared counter is atomic: a conditional `UPDATE … SET stock = stock - $1 WHERE stock >= $1` (check `RowsAffected`) or `SELECT … FOR UPDATE` inside the tx — never read-then-write across two round-trips.
+- Keep transactions short; no external/network calls while one is open.
+
+**Timeouts**
+- Every DB / HTTP / external call takes a `context.Context` with a deadline derived from the request context — never `context.Background()` on a request path.
+- `http.Server` sets `ReadTimeout` / `WriteTimeout` / `IdleTimeout` (Slowloris guard).
+
+**Retries**
+- Retry only idempotent operations and only on transient errors (serialization failure `40001`, deadlock `40P01`, transient network): bounded attempts + exponential backoff with jitter.
+- Never auto-retry a non-idempotent financial write — guard it with an idempotency key so a client retry can't double-charge or double-decrement stock.
+
+**Asynchronous work**
+- Background goroutines must be bounded and leak-free, recover from panics, and use a long-lived context (not the request's — that's cancelled when the handler returns).
+- Shared state touched by goroutines is synchronised (mutex / channels); keep `go test -race` and `go vet` clean.
+- Background jobs updating shared state use compare-and-swap (write only if the current value still matches) to avoid stale overwrites.
+
 ### API contract (how the frontends talk to it)
 - **Store public (no auth):** `GET /api/products` (query: `category_id, search, brand, sort, page, per_page`), `GET /api/products/{slug}`, `GET /api/categories` (returns the category **tree**, not flat).
 - **Store customers (JWT typ=customer):** `POST /api/store/auth/{register,login}`, `/api/store/customers/me*`.
 - **Admin (JWT typ=user):** `POST /api/auth/{register,login,forgot-password,reset-password}` (**register is invite-only** — admin-only), `/api/users/me*`, `/api/admin/products*`, `/api/admin/upload`, `/api/admin/categories`.
 
-### Backend env vars (`internal/config/config.go`)
-`SECRET_KEY` (≥32 chars, else generated + warns), `DATABASE_URL`, `PORT` (8000), `UPLOAD_DIR`, `CORS_ORIGINS` (comma-separated allowlist; when set it **replaces** the built-in defaults), `BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` (first-admin seed). Loaded from `.env` via godotenv. Token expiry hardcoded to 1440 min.
+### Backend env vars
+All loaded from `.env` via `godotenv.Load()` in `cmd/server/main.go`. They are read in three places, not one — don't assume `config.go` owns them all:
+
+- **`config.Load()` (`internal/config/config.go`):** `SECRET_KEY` (≥32 chars, else a random one is generated + warns), `DATABASE_URL`, `PORT` (8000), `UPLOAD_DIR`. Token expiry is hardcoded to 1440 min.
+- **`main.go`:** `CORS_ORIGINS` (comma-separated allowlist; when set it **replaces** the built-in defaults).
+- **`seedAdmin()` (`internal/store/postgres.go`):** `BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` (first-admin seed).
+- **`email.NewService()` (`internal/email/email.go`):** `APP_BASE_URL` (base for password-reset links — the **admin** app hosts `/reset/{token}`, so it defaults to `http://localhost:5174`; set it to the admin domain in prod), `EMAIL_SENDER` (From address, default `onboarding@resend.dev`), `RESEND_API_KEY` (Resend API key; **when empty the reset email is only logged, not sent**).
 
 ### Security posture
 - Admin registration is **invite-only** (an existing admin creates admins); `RequireAdmin` re-checks the role from the DB on every privileged route.
@@ -110,7 +152,7 @@ bash scripts/seed-300.sh | psql "$DATABASE_URL"   # 300 random products
 - **API layer:** all HTTP in `src/lib/api.ts`. Base URL from `VITE_API_URL` (store defaults to `https://api.mioru.store`, admin defaults to `""`). JWT read from `localStorage.getItem("token")`. `getImageUrl()` prefixes relative upload paths.
 - **i18n:** i18next, three locales RU/EN/RO in `src/i18n/locales/`.
 - **Theme:** dark/light toggled by adding/removing the `light` class on `<html>`; colors are CSS variables `--color-*` in `index.css` — **CSS variables are the source of truth**, not the `COLORS` object in `src/lib/constants.ts` (that object is legacy/stale).
-- **Tests:** colocated `*.test.ts(x)` next to source, Vitest + Testing Library, jsdom, setup in `src/test/setup.ts`.
+- **Tests:** colocated `*.test.ts(x)` next to source — framework and conventions in **Testing standard**.
 
 ### Store app specifics
 - Routing in `App.tsx` — all pages `lazy()`-loaded, `react-router-dom` v6. Pages in `src/routes/`.
@@ -121,6 +163,13 @@ bash scripts/seed-300.sh | psql "$DATABASE_URL"   # 300 random products
 - `App.tsx` routes only auth pages; everything else (`/*`) goes to `AdminLayout`, which performs the auth check (no duplicate auth logic in routes).
 - UI organized as **workspaces** (`src/workspaces/`, declared in `src/lib/constants.ts WORKSPACES`); only `products` is active, the rest are placeholders.
 - The category tree is **hardcoded** in `apps/admin/src/lib/constants.ts CATEGORIES` and must stay in sync with what's seeded into the DB (the inline categories in `postgres.go migrate()`).
+
+## Testing standard
+
+- **Frontend:** Vitest + Testing Library (unit/component), colocated `*.test.tsx`, jsdom setup in `src/test/setup.ts`; store also has Playwright E2E (`apps/store/e2e/*.spec.ts`).
+- **Go:** stdlib `testing`, **table-driven** tests, colocated `*_test.go` in-package (white-box); use a black-box `_test` package only for public-API surface tests. Assertions are plain `if got != want { t.Errorf(...) }`; `testify/require` is allowed but not required. Run `go test ./... -race`. (The auth package is the worked example — see `internal/auth/auth_test.go`.)
+- **DB-touching logic:** test the `store` layer against a real PostgreSQL (throwaway test DB / testcontainers), not mocks — money/stock correctness depends on real SQL semantics (constraints, `FOR UPDATE`, serialization).
+- **Priority #1 paths** (orders, payments, stock, XP/VIP) ship with tests covering the atomic/transactional behaviour before merge — TDD is non-negotiable here.
 
 ## Deployment
 

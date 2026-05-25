@@ -44,7 +44,7 @@ func main() {
 		log.Printf("WARNING: Failed to create upload dir %s: %v", cfg.UploadDir, err)
 	}
 
-	emailSvc := email.NewService("onboarding@resend.dev")
+	emailSvc := email.NewService()
 
 	// Handlers
 	authH := handler.NewAuthHandler(pgStore, emailSvc, cfg.SecretKey, cfg.TokenExpiry)
