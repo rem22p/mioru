@@ -62,6 +62,18 @@ func (s *PostgresStore) migrate(ctx context.Context) error {
 		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 	);
 
+	CREATE TABLE IF NOT EXISTS customers (
+		id SERIAL PRIMARY KEY,
+		email TEXT UNIQUE NOT NULL,
+		hashed_password TEXT NOT NULL,
+		first_name TEXT NOT NULL DEFAULT '',
+		last_name TEXT NOT NULL DEFAULT '',
+		phone TEXT NOT NULL DEFAULT '',
+		avatar_color TEXT NOT NULL DEFAULT '#44944A',
+		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+	);
+
 	CREATE TABLE IF NOT EXISTS categories (
 		id SERIAL PRIMARY KEY,
 		parent_id INTEGER REFERENCES categories(id),

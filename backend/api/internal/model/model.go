@@ -102,3 +102,16 @@ type ProductFilter struct {
 	Page       int
 	PerPage    int
 }
+
+// Customer represents a store customer (separate from admin users)
+type Customer struct {
+	ID          int64  `json:"id"`
+	Email       string `json:"email"`
+	HashedPW    string `json:"hashed_password"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+	Phone       string `json:"phone"`
+	AvatarColor string `json:"avatar_color"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+}

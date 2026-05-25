@@ -59,6 +59,7 @@ func main() {
 	noteH := handler.NewNoteHandler(redisStore)
 	wsH := handler.NewWSHandler(redisStore, cfg.SecretKey)
 	productH := handler.NewProductHandler(pgStore, cfg.UploadDir)
+	customerH := handler.NewCustomerHandler(pgStore, cfg.SecretKey, cfg.TokenExpiry)
 
 	mux := http.NewServeMux()
 
@@ -87,6 +88,13 @@ func main() {
 
 	// WebSocket
 	mux.HandleFunc("/ws/notes", wsH.HandleNotes)
+
+	// Store: Customer auth & profile (separate namespace, separate JWT)
+	mux.HandleFunc("POST /api/store/auth/register", cors(customerH.Register))
+	mux.HandleFunc("POST /api/store/auth/login", cors(customerH.Login))
+	mux.Handle("GET /api/store/customers/me", middleware.CustomerAuthMW(cfg.SecretKey)(http.HandlerFunc(customerH.Me)))
+	mux.Handle("PUT /api/store/customers/me", middleware.CustomerAuthMW(cfg.SecretKey)(http.HandlerFunc(customerH.UpdateProfile)))
+	mux.Handle("PUT /api/store/customers/me/password", middleware.CustomerAuthMW(cfg.SecretKey)(http.HandlerFunc(customerH.ChangePassword)))
 
 	// Store: Public product & category endpoints (no auth)
 	storeH := handler.NewStoreHandler(pgStore)
