@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useCatalogStore } from "@/stores/catalogStore";
 import { useCartStore } from "@/stores/cartStore";
@@ -303,95 +303,99 @@ export default function CatalogPage() {
                   );
                   return catHasChildren || parentWithoutChildren;
                 })() && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    className="mb-6 overflow-hidden"
-                  >
-                    <div className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-5 space-y-5">
-                      <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                        Фильтры
-                      </h3>
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={selectedCategory}
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mb-6 overflow-hidden"
+                    >
+                      <div className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-5 space-y-5">
+                        <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                          Фильтры
+                        </h3>
 
-                      {/* Sizes */}
-                      {availableFilters.sizes.length > 0 && (
-                        <div>
-                          <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
-                            Размер
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {availableFilters.sizes.map((s) => (
-                              <button
-                                key={s}
-                                onClick={() =>
-                                  toggleFilter(setSelectedSizes, s)
-                                }
-                                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-                                  selectedSizes.has(s)
-                                    ? "bg-[#44944A] text-black border-[#44944A]"
-                                    : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
-                                }`}
-                              >
-                                {s}
-                              </button>
-                            ))}
+                        {/* Sizes */}
+                        {availableFilters.sizes.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
+                              Размер
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                              {availableFilters.sizes.map((s) => (
+                                <button
+                                  key={s}
+                                  onClick={() =>
+                                    toggleFilter(setSelectedSizes, s)
+                                  }
+                                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                                    selectedSizes.has(s)
+                                      ? "bg-[#44944A] text-black border-[#44944A]"
+                                      : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                                  }`}
+                                >
+                                  {s}
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Brands */}
-                      {availableFilters.brands.length > 0 && (
-                        <div>
-                          <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
-                            Бренд
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {availableFilters.brands.map((b) => (
-                              <button
-                                key={b}
-                                onClick={() =>
-                                  toggleFilter(setSelectedBrands, b)
-                                }
-                                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-                                  selectedBrands.has(b)
-                                    ? "bg-[#44944A] text-black border-[#44944A]"
-                                    : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
-                                }`}
-                              >
-                                {b}
-                              </button>
-                            ))}
+                        {/* Brands */}
+                        {availableFilters.brands.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
+                              Бренд
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                              {availableFilters.brands.map((b) => (
+                                <button
+                                  key={b}
+                                  onClick={() =>
+                                    toggleFilter(setSelectedBrands, b)
+                                  }
+                                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                                    selectedBrands.has(b)
+                                      ? "bg-[#44944A] text-black border-[#44944A]"
+                                      : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                                  }`}
+                                >
+                                  {b}
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Colors */}
-                      {availableFilters.colors.length > 0 && (
-                        <div>
-                          <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
-                            Цвет
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {availableFilters.colors.map((c) => (
-                              <button
-                                key={c}
-                                onClick={() =>
-                                  toggleFilter(setSelectedColors, c)
-                                }
-                                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-                                  selectedColors.has(c)
-                                    ? "bg-[#44944A] text-black border-[#44944A]"
-                                    : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
-                                }`}
-                              >
-                                {c}
-                              </button>
-                            ))}
+                        {/* Colors */}
+                        {availableFilters.colors.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
+                              Цвет
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                              {availableFilters.colors.map((c) => (
+                                <button
+                                  key={c}
+                                  onClick={() =>
+                                    toggleFilter(setSelectedColors, c)
+                                  }
+                                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                                    selectedColors.has(c)
+                                      ? "bg-[#44944A] text-black border-[#44944A]"
+                                      : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                                  }`}
+                                >
+                                  {c}
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
+                        )}
+                      </div>
+                    </motion.div>
+                  </AnimatePresence>
                 )}
 
               {/* Sort + price row */}
