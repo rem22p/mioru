@@ -5,7 +5,6 @@ import type { Product, Category, SizeChartEntry } from "@/types";
 import { useProductStore } from "@/stores/productStore";
 import ProductPreview from "./ProductPreview";
 import {
-  CATEGORIES,
   SIZE_OPTIONS_CLOTHING,
   SIZE_OPTIONS_SHOES,
   SIZE_OPTIONS_ACCESSORIES,
@@ -54,8 +53,9 @@ export default function ProductForm({
   onClose,
   onSaved,
 }: ProductFormProps) {
-  const { categories } = useProductStore();
-  const cats = categories.length > 0 ? categories : CATEGORIES;
+  const { categories, categoriesLoading } = useProductStore();
+  const cats = categories;
+  const categoriesUnavailable = !categoriesLoading && cats.length === 0;
 
   const isEdit = !!product;
 
@@ -435,6 +435,7 @@ export default function ProductForm({
                       e.target.value ? Number(e.target.value) : "",
                     )
                   }
+                  disabled={categoriesUnavailable}
                   className={TEXT_FIELD_STYLE}
                 >
                   <option value="">Выберите категорию</option>
@@ -452,6 +453,11 @@ export default function ProductForm({
                     </optgroup>
                   ))}
                 </select>
+                {categoriesUnavailable && (
+                  <p className="mt-1.5 text-sm text-[var(--color-danger,#f85149)]">
+                    Не удалось загрузить категории — обновите страницу.
+                  </p>
+                )}
               </div>
 
               {/* Dynamic: Brand */}

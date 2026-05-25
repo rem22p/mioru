@@ -1,5 +1,3 @@
-import type { Category } from '@/types';
-
 export const WORKSPACES = [
   { id: 'products', label: 'Товары', icon: 'Package', active: true },
   { id: 'accounting', label: 'Бухгалтерия', icon: 'Banknote', active: false },
@@ -13,33 +11,9 @@ export const AVATAR_COLORS = [
   '#f85149', '#58a6ff', '#3fb950', '#f0883e', '#bc8cff', '#79c0ff', '#f778ba', '#7ee787',
 ] as const;
 
-// Category tree — must stay in sync with the inline seeds in backend postgres.go migrate()
-export const CATEGORIES: Category[] = [
-  { id: 1, parent_id: null, name: 'Одежда', slug: 'clothing', criteria: ['size', 'brand', 'color'] },
-  { id: 2, parent_id: 1, name: 'Футболки / поло', slug: 'tshirts-polo', criteria: [] },
-  { id: 3, parent_id: 1, name: 'Шорты', slug: 'shorts', criteria: [] },
-  { id: 4, parent_id: 1, name: 'Худи / зип-худи', slug: 'hoodies-zip', criteria: [] },
-  { id: 5, parent_id: 1, name: 'Свитшоты / свитера', slug: 'sweatshirts-sweaters', criteria: [] },
-  { id: 6, parent_id: 1, name: 'Джинсы', slug: 'jeans', criteria: [] },
-  { id: 7, parent_id: 1, name: 'Штаны', slug: 'pants', criteria: [] },
-  { id: 8, parent_id: 1, name: 'Куртки', slug: 'jackets', criteria: [] },
-  { id: 9, parent_id: 1, name: 'Жилетки', slug: 'vests', criteria: [] },
-  { id: 10, parent_id: 1, name: 'Нижнее бельё', slug: 'underwear', criteria: [] },
-  { id: 11, parent_id: null, name: 'Обувь', slug: 'shoes', criteria: ['size', 'brand', 'model', 'color'] },
-  { id: 12, parent_id: 11, name: 'Кроссовки', slug: 'sneakers', criteria: [] },
-  { id: 13, parent_id: 11, name: 'Тапки', slug: 'slides', criteria: [] },
-  { id: 14, parent_id: 11, name: 'Ботинки', slug: 'boots', criteria: [] },
-  { id: 15, parent_id: null, name: 'Сумки', slug: 'bags', criteria: ['brand', 'color'] },
-  { id: 16, parent_id: null, name: 'Аксессуары', slug: 'accessories', criteria: ['size', 'brand'] },
-  { id: 17, parent_id: 16, name: 'Кошельки / кардхолдеры', slug: 'wallets-cardholders', criteria: [] },
-  { id: 18, parent_id: 16, name: 'Ремни', slug: 'belts', criteria: [] },
-  { id: 19, parent_id: 16, name: 'Головные уборы', slug: 'headwear', criteria: [] },
-  { id: 20, parent_id: 16, name: 'Ювелирные украшения', slug: 'jewelry', criteria: [] },
-  { id: 21, parent_id: 20, name: 'Браслеты', slug: 'bracelets', criteria: [] },
-  { id: 22, parent_id: 20, name: 'Подвески', slug: 'pendants', criteria: [] },
-  { id: 23, parent_id: 20, name: 'Кольца', slug: 'rings', criteria: [] },
-  { id: 24, parent_id: 16, name: 'Часы', slug: 'watches', criteria: [] },
-];
+// The category tree is owned by the backend (seeded in postgres.go migrate()).
+// The admin fetches it via /api/admin/categories into productStore.categories —
+// there is intentionally no hardcoded copy here to keep a single source.
 
 export const SIZE_OPTIONS_CLOTHING = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'] as const;
 export const SIZE_OPTIONS_SHOES = ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46'] as const;

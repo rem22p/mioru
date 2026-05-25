@@ -62,7 +62,10 @@ export const useProductStore = create<ProductStore>((set, get) => ({
     try {
       const categories = await apiFetchCategories();
       set({ categories, categoriesLoading: false });
-    } catch {
+    } catch (err) {
+      // Backend is the single source of categories; on failure leave the list
+      // empty (the UI shows an error state) but never swallow the cause.
+      console.error('Failed to load categories:', err);
       set({ categoriesLoading: false });
     }
   },

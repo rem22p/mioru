@@ -5,7 +5,7 @@ import ProductTable from "@/components/products/ProductTable";
 import ProductForm from "@/components/products/ProductForm";
 import DeleteDialog from "@/components/products/DeleteDialog";
 import type { Product } from "@/types";
-import { CATEGORIES, SORT_OPTIONS } from "@/lib/constants";
+import { SORT_OPTIONS } from "@/lib/constants";
 import {
   Plus,
   Search,
@@ -125,15 +125,11 @@ export default function Products() {
     }
   };
 
-  // Build category tree for select
-  const parentCats = (categories.length > 0 ? categories : CATEGORIES).filter(
-    (c) => c.parent_id === null,
-  );
+  // Build category tree for select (categories come from the backend).
+  const parentCats = categories.filter((c) => c.parent_id === null);
 
   const getSubcategories = (parentId: number) =>
-    (categories.length > 0 ? categories : CATEGORIES).filter(
-      (c) => c.parent_id === parentId,
-    );
+    categories.filter((c) => c.parent_id === parentId);
 
   return (
     <div className="p-6 lg:p-8">

@@ -162,7 +162,7 @@ All loaded from `.env` via `godotenv.Load()` in `cmd/server/main.go`. They are r
 ### Admin app specifics
 - `App.tsx` routes only auth pages; everything else (`/*`) goes to `AdminLayout`, which performs the auth check (no duplicate auth logic in routes).
 - UI organized as **workspaces** (`src/workspaces/`, declared in `src/lib/constants.ts WORKSPACES`); only `products` is active, the rest are placeholders.
-- The category tree is **hardcoded** in `apps/admin/src/lib/constants.ts CATEGORIES` and must stay in sync with what's seeded into the DB (the inline categories in `postgres.go migrate()`).
+- The category tree is **owned by the backend**: the admin fetches it from `/api/admin/categories` into `productStore.categories` (no hardcoded copy in the frontend). The single source is the inline seed in `postgres.go migrate()`, pinned by `TestSeededCategoryTree` in the `store` package.
 
 ## Testing standard
 
