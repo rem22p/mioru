@@ -185,6 +185,7 @@ echo " 1. Copy the Go binary: scp backend/api/mioru root@92.246.137.159:/opt/mio
 echo " 2. Fix ownership: chown mioru:mioru /opt/mioru/mioru"
 echo "    (Secrets in /opt/mioru/.env are auto-generated — no manual passwords needed.)"
 echo " 3. First admin: uncomment BOOTSTRAP_ADMIN_* in /opt/mioru/.env (see README), then start."
+echo "    Password-reset email: set RESEND_API_KEY in /opt/mioru/.env, else reset links are only logged."
 echo " 4. Start: systemctl start mioru"
 echo " 5. DNS: api.mioru.store → 92.246.137.159"
 echo " 6. SSL (TLS at the edge): apt install certbot python3-certbot-nginx && certbot --nginx"

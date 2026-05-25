@@ -75,6 +75,9 @@ UPLOAD_DIR=uploads
 | `BOOTSTRAP_ADMIN_USERNAME` | Логин первого админа (см. ниже) | — |
 | `BOOTSTRAP_ADMIN_EMAIL` | Email первого админа | — |
 | `BOOTSTRAP_ADMIN_PASSWORD` | Пароль первого админа | — |
+| `APP_BASE_URL` | База для ссылок сброса пароля; `/reset` живёт в **админке** | `http://localhost:5174` (в проде — домен админки) |
+| `RESEND_API_KEY` | API-ключ Resend для отправки писем. **Пусто → письма сброса только в лог, не отправляются** | — |
+| `EMAIL_SENDER` | From-адрес писем | `onboarding@resend.dev` |
 
 ### 1.3. Первый админ (обязательно при чистой БД)
 
