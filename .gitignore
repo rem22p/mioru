@@ -37,3 +37,8 @@ backend/api/mioru
 backend/api/server
 next-app/
 *.png
+
+# Local tooling artifacts
+.claude/
+.tldr/
+.tldrignore

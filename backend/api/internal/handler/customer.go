@@ -76,6 +76,14 @@ func (h *CustomerHandler) Register(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "пароль максимум 72 символа", http.StatusBadRequest)
 		return
 	}
+	if !isPasswordStrong(req.Password) {
+		jsonError(w, "пароль должен содержать буквы и цифры", http.StatusBadRequest)
+		return
+	}
+	if isCommonPassword(req.Password) {
+		jsonError(w, "пароль слишком распространённый", http.StatusBadRequest)
+		return
+	}
 
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
@@ -109,7 +117,7 @@ func (h *CustomerHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// JWT subject = customer ID
-	tok, err := auth.CreateToken(fmt.Sprintf("%d", cust.ID), h.secret, h.expiry)
+	tok, err := auth.CreateToken(fmt.Sprintf("%d", cust.ID), auth.TokenTypeCustomer, h.secret, h.expiry)
 	if err != nil {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
@@ -132,7 +140,7 @@ func (h *CustomerHandler) Login(w http.ResponseWriter, r *http.Request) {
 	cust, err := h.store.GetCustomerByEmail(r.Context(), req.Email)
 	if err != nil || cust == nil {
 		// Constant-time dummy check to prevent timing attacks
-		auth.CheckPassword(req.Password, "$2a$12$LJ3m4ys3Lk6L0qMqR0qMqO0qMqR0qMqR0qMqR0qMqR0qMqR0qMqR")
+		auth.CheckDummyPassword(req.Password)
 		jsonError(w, "неверный email или пароль", http.StatusUnauthorized)
 		return
 	}
@@ -141,7 +149,7 @@ func (h *CustomerHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tok, err := auth.CreateToken(fmt.Sprintf("%d", cust.ID), h.secret, h.expiry)
+	tok, err := auth.CreateToken(fmt.Sprintf("%d", cust.ID), auth.TokenTypeCustomer, h.secret, h.expiry)
 	if err != nil {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return

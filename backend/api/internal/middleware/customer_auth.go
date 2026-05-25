@@ -22,7 +22,7 @@ func CustomerAuthMW(secret string) func(http.Handler) http.Handler {
 				return
 			}
 			token := strings.TrimPrefix(h, "Bearer ")
-			sub, err := auth.ParseToken(token, secret)
+			sub, err := auth.ParseToken(token, secret, auth.TokenTypeCustomer)
 			if err != nil {
 				http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
 				return

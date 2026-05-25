@@ -1,10 +1,18 @@
 package auth
 
 import (
+	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+)
+
+// Token types distinguish admin-user tokens from store-customer tokens so a
+// token minted for one context cannot be replayed against the other.
+const (
+	TokenTypeUser     = "user"
+	TokenTypeCustomer = "customer"
 )
 
 type Config interface {
@@ -29,24 +37,45 @@ func CheckPassword(pw, hash string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(pw)) == nil
 }
 
-func CreateToken(sub, secret string, expiryMin int) (string, error) {
+// dummyHash is a valid bcrypt hash (cost 12) computed once at init. It is used
+// for constant-time comparison when a user/customer is not found so login
+// timing does not reveal whether an account exists.
+var dummyHash, _ = bcrypt.GenerateFromPassword([]byte("constant-time-timing-guard"), 12)
+
+// CheckDummyPassword runs a throwaway bcrypt comparison to equalize login timing
+// for the "account not found" path. The result is intentionally ignored.
+func CheckDummyPassword(pw string) {
+	_ = bcrypt.CompareHashAndPassword(dummyHash, []byte(pw))
+}
+
+func CreateToken(sub, typ, secret string, expiryMin int) (string, error) {
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": sub,
+		"typ": typ,
 		"exp": time.Now().Add(time.Duration(expiryMin) * time.Minute).Unix(),
 	})
 	return t.SignedString([]byte(secret))
 }
 
-func ParseToken(tokenStr, secret string) (string, error) {
+// ParseToken validates the token signature, pins the algorithm to HS256, and
+// requires the "typ" claim to equal wantType (audience separation between admin
+// users and store customers). Returns the subject on success.
+func ParseToken(tokenStr, secret, wantType string) (string, error) {
 	t, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
 		return []byte(secret), nil
-	})
-	if err != nil || !t.Valid {
+	}, jwt.WithValidMethods([]string{"HS256"}))
+	if err != nil {
 		return "", err
+	}
+	if !t.Valid {
+		return "", errors.New("invalid token")
 	}
 	claims, ok := t.Claims.(jwt.MapClaims)
 	if !ok {
-		return "", err
+		return "", errors.New("invalid claims")
+	}
+	if typ, _ := claims["typ"].(string); typ != wantType {
+		return "", errors.New("wrong token type")
 	}
 	sub, _ := claims["sub"].(string)
 	return sub, nil

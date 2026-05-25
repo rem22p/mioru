@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -44,7 +45,8 @@ func (h *StoreHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 
 	products, total, err := h.store.ListProducts(r.Context(), filter)
 	if err != nil {
-		jsonError(w, "internal error: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("ListProducts: %v", err)
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	if products == nil {
@@ -84,7 +86,8 @@ func (h *StoreHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 func (h *StoreHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
 	cats, err := h.store.GetCategories(r.Context())
 	if err != nil {
-		jsonError(w, "internal error: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("ListCategories: %v", err)
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	if cats == nil {

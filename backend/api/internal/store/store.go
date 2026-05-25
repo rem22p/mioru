@@ -271,6 +271,28 @@ func (s *Store) CreateResetToken(ctx context.Context, email, token string) error
 	return s.rdb.Set(ctx, resetKey+token, username, time.Hour).Err()
 }
 
+// CreateResetTokenForUser stores a reset token -> username mapping with a 1 hour
+// TTL. The caller resolves the username from the canonical user store
+// (PostgreSQL); this avoids relying on the stale Redis email index.
+func (s *Store) CreateResetTokenForUser(ctx context.Context, username, token string) error {
+	return s.rdb.Set(ctx, resetKey+token, username, time.Hour).Err()
+}
+
+// ── Rate limiting ──
+
+// RateLimit implements fixed-window rate limiting: it increments the counter at
+// key, sets the window TTL on the first hit, and returns the resulting count.
+func (s *Store) RateLimit(ctx context.Context, key string, window time.Duration) (int, error) {
+	count, err := s.rdb.Incr(ctx, key).Result()
+	if err != nil {
+		return 0, err
+	}
+	if count == 1 {
+		s.rdb.Expire(ctx, key, window)
+	}
+	return int(count), nil
+}
+
 // Keys returns all Redis keys matching pattern (for migration).
 func (s *Store) Keys(ctx context.Context, pattern string) ([]string, error) {
 	return s.rdb.Keys(ctx, pattern).Result()

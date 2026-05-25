@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -53,7 +54,8 @@ func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	products, total, err := h.store.ListProducts(r.Context(), filter)
 	if err != nil {
-		jsonError(w, "internal error: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("admin ListProducts: %v", err)
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	if products == nil {
@@ -75,7 +77,7 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	r.Body = http.MaxBytesReader(w, r.Body, 32<<20)
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		jsonError(w, "failed to parse form: "+err.Error(), http.StatusBadRequest)
+		jsonError(w, "failed to parse form (too large or malformed)", http.StatusBadRequest)
 		return
 	}
 
@@ -90,7 +92,8 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Upload images
 	imageURLs, err := h.saveUploadedImages(r, "images")
 	if err != nil {
-		jsonError(w, "failed to save images: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("Create product saveUploadedImages: %v", err)
+		jsonError(w, "failed to save images", http.StatusInternalServerError)
 		return
 	}
 	for i, url := range imageURLs {
@@ -103,13 +106,15 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "product with this slug already exists", http.StatusConflict)
 			return
 		}
-		jsonError(w, "internal error: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("CreateProduct: %v", err)
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
 	created, err := h.store.GetProduct(r.Context(), p.Slug)
 	if err != nil {
-		jsonError(w, "created but failed to fetch: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("Create product re-fetch: %v", err)
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
@@ -135,7 +140,8 @@ func (h *ProductHandler) Get(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "product not found", http.StatusNotFound)
 			return
 		}
-		jsonError(w, "internal error: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("admin GetProduct: %v", err)
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
@@ -153,7 +159,7 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	r.Body = http.MaxBytesReader(w, r.Body, 32<<20)
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		jsonError(w, "failed to parse form: "+err.Error(), http.StatusBadRequest)
+		jsonError(w, "failed to parse form (too large or malformed)", http.StatusBadRequest)
 		return
 	}
 
@@ -166,7 +172,8 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// Upload new images
 	imageURLs, err := h.saveUploadedImages(r, "images")
 	if err != nil {
-		jsonError(w, "failed to save images: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("Update product saveUploadedImages: %v", err)
+		jsonError(w, "failed to save images", http.StatusInternalServerError)
 		return
 	}
 	for i, url := range imageURLs {
@@ -182,13 +189,15 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "product with this slug already exists", http.StatusConflict)
 			return
 		}
-		jsonError(w, "internal error: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("UpdateProduct: %v", err)
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
 	updated, err := h.store.GetProduct(r.Context(), p.Slug)
 	if err != nil {
-		jsonError(w, "updated but failed to fetch: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("Update product re-fetch: %v", err)
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
@@ -209,7 +218,8 @@ func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "product not found", http.StatusNotFound)
 			return
 		}
-		jsonError(w, "internal error: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("DeleteProduct: %v", err)
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
@@ -230,7 +240,8 @@ func (h *ProductHandler) Categories(w http.ResponseWriter, r *http.Request) {
 		cats, err = h.store.GetCategories(r.Context())
 	}
 	if err != nil {
-		jsonError(w, "internal error: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("admin Categories: %v", err)
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	if cats == nil {
@@ -259,13 +270,32 @@ func (h *ProductHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// Validate file extension
+	// Validate file extension. SVG is intentionally excluded: it is an XML
+	// document that can embed <script>, so a stored SVG becomes stored XSS.
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	allowedExt := map[string]bool{
-		".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true, ".svg": true,
+		".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
 	}
 	if !allowedExt[ext] {
-		jsonError(w, "only image files allowed (jpg, jpeg, png, gif, webp, svg)", http.StatusBadRequest)
+		jsonError(w, "only image files allowed (jpg, jpeg, png, gif, webp)", http.StatusBadRequest)
+		return
+	}
+
+	// Sniff the real content type from the file bytes — never trust the
+	// client-supplied filename or Content-Type. Reject anything that does not
+	// sniff as a supported raster image (blocks SVG/HTML payloads renamed .png).
+	sniff := make([]byte, 512)
+	n, _ := io.ReadFull(file, sniff)
+	contentType := http.DetectContentType(sniff[:n])
+	allowedMIME := map[string]bool{
+		"image/jpeg": true, "image/png": true, "image/gif": true, "image/webp": true,
+	}
+	if !allowedMIME[contentType] {
+		jsonError(w, "file content is not a supported image", http.StatusBadRequest)
+		return
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 

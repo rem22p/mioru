@@ -130,7 +130,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tok, err := auth.CreateToken(req.Username, h.secret, h.expiry)
+	tok, err := auth.CreateToken(req.Username, auth.TokenTypeUser, h.secret, h.expiry)
 	if err != nil {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
@@ -149,7 +149,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	user, err := h.store.GetUser(r.Context(), req.Username)
 	if err != nil || user == nil {
 		// Constant-time: fake bcrypt call to prevent timing attack
-		auth.CheckPassword(req.Password, "$2a$12$LJ3m4ys3Lk6L0qMqR0qMqO0qMqR0qMqR0qMqR0qMqR0qMqR0qMqR")
+		auth.CheckDummyPassword(req.Password)
 		jsonError(w, "неверный логин или пароль", http.StatusUnauthorized)
 		return
 	}
@@ -158,7 +158,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tok, err := auth.CreateToken(req.Username, h.secret, h.expiry)
+	tok, err := auth.CreateToken(req.Username, auth.TokenTypeUser, h.secret, h.expiry)
 	if err != nil {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
@@ -301,21 +301,31 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	token := hex.EncodeToString(tokenBytes)
 
-	// Store token in Redis (1 hour TTL)
-	if err := h.redisStore.CreateResetToken(r.Context(), body.Email, token); err != nil {
+	// Resolve the account from PostgreSQL (users live there, not the Redis index).
+	user, err := h.store.GetUserByEmail(r.Context(), body.Email)
+	if err != nil {
+		log.Printf("ForgotPassword GetUserByEmail: %v", err)
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+	if user != nil {
+		// Store token in Redis (1 hour TTL) only for a real account.
+		if err := h.redisStore.CreateResetTokenForUser(r.Context(), user.Username, token); err != nil {
+			log.Printf("ForgotPassword CreateResetToken: %v", err)
+			jsonError(w, "internal error", http.StatusInternalServerError)
+			return
+		}
 
-	// Send email asynchronously (don't block the response)
-	go func(emailAddr, tok string) {
-		defer func() {
-			if r := recover(); r != nil {
-				log.Printf("[EMAIL] Panic sending reset email: %v", r)
-			}
-		}()
-		h.email.SendPasswordReset(emailAddr, tok)
-	}(body.Email, token)
+		// Send email asynchronously (don't block the response)
+		go func(emailAddr, tok string) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[EMAIL] Panic sending reset email: %v", r)
+				}
+			}()
+			h.email.SendPasswordReset(emailAddr, tok)
+		}(body.Email, token)
+	}
 
 	// Always return success (don't reveal if email exists)
 	w.Header().Set("Content-Type", "application/json")
