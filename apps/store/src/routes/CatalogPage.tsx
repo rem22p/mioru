@@ -307,32 +307,6 @@ export default function CatalogPage() {
                         Фильтры
                       </h3>
 
-                      {/* Price */}
-                      <div>
-                        <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
-                          Цена
-                        </h4>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            placeholder="От"
-                            value={priceMin}
-                            onChange={(e) => setPriceMin(e.target.value)}
-                            className="flex-1 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)]"
-                          />
-                          <span className="text-[var(--color-text-muted)] text-sm">
-                            —
-                          </span>
-                          <input
-                            type="number"
-                            placeholder="До"
-                            value={priceMax}
-                            onChange={(e) => setPriceMax(e.target.value)}
-                            className="flex-1 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)]"
-                          />
-                        </div>
-                      </div>
-
                       {/* Sizes */}
                       {availableFilters.sizes.length > 0 && (
                         <div>
@@ -414,7 +388,7 @@ export default function CatalogPage() {
                   </motion.div>
                 )}
 
-              {/* Sort + count row */}
+              {/* Sort + price row */}
               <div className="flex items-center gap-3 mt-4">
                 <select
                   value={sortBy}
@@ -429,9 +403,25 @@ export default function CatalogPage() {
                     {t("catalog.sortBy.priceDesc")}
                   </option>
                 </select>
-                <p className="text-sm text-[var(--color-text-muted)] ml-auto">
-                  {t("catalog.count", { count: filteredProducts.length })}
-                </p>
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <input
+                    type="number"
+                    placeholder="Цена от"
+                    value={priceMin}
+                    onChange={(e) => setPriceMin(e.target.value)}
+                    className="w-24 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)]"
+                  />
+                  <span className="text-[var(--color-text-muted)] text-sm">
+                    —
+                  </span>
+                  <input
+                    type="number"
+                    placeholder="До"
+                    value={priceMax}
+                    onChange={(e) => setPriceMax(e.target.value)}
+                    className="w-24 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)]"
+                  />
+                </div>
               </div>
             </motion.div>
 
