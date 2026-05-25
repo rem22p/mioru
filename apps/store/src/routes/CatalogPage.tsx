@@ -255,10 +255,7 @@ export default function CatalogPage() {
                           c.slug === selectedCategory,
                       ),
                   );
-                  const subCats =
-                    parent?.children?.filter(
-                      (ch) => ch.slug !== selectedCategory,
-                    ) || [];
+                  const subCats = parent?.children || [];
                   if (subCats.length === 0) return null;
                   return (
                     <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none ml-4">
