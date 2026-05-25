@@ -37,7 +37,7 @@ func TestListProductsAttachesRelatedData(t *testing.T) {
 	mustCreateProduct(t, s, model.Product{
 		Slug: "bravo", CategoryID: 2, Brand: "ACME", Name: "Bravo", Price: 200,
 		Status: "in_stock", InStock: true,
-		Sizes:  []string{"M"},
+		Sizes: []string{"M"},
 	})
 
 	got, total, err := s.ListProducts(ctx, model.ProductFilter{Sort: "name"})
