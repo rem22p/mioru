@@ -2,17 +2,26 @@ package store
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/tern/v2/migrate"
 
 	"mioru/internal/auth"
 	"mioru/internal/model"
 )
+
+// migrationsFS holds the versioned SQL migrations, embedded so the binary is
+// self-contained (no migrations directory needs shipping alongside it).
+//
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
 // PostgresStore provides PostgreSQL-based persistence for users, products, and categories.
 type PostgresStore struct {
@@ -51,137 +60,47 @@ func (s *PostgresStore) Pool() *pgxpool.Pool {
 }
 
 func (s *PostgresStore) migrate(ctx context.Context) error {
-	schema := `
-	CREATE TABLE IF NOT EXISTS users (
-		id SERIAL PRIMARY KEY,
-		username TEXT UNIQUE NOT NULL,
-		email TEXT UNIQUE NOT NULL,
-		hashed_password TEXT NOT NULL,
-		first_name TEXT NOT NULL DEFAULT '',
-		last_name TEXT NOT NULL DEFAULT '',
-		display_name TEXT NOT NULL DEFAULT '',
-		avatar_color TEXT NOT NULL DEFAULT '#f85149',
-		role TEXT NOT NULL DEFAULT 'admin',
-		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-	);
-
-	CREATE TABLE IF NOT EXISTS customers (
-		id SERIAL PRIMARY KEY,
-		email TEXT UNIQUE NOT NULL,
-		hashed_password TEXT NOT NULL,
-		first_name TEXT NOT NULL DEFAULT '',
-		last_name TEXT NOT NULL DEFAULT '',
-		phone TEXT NOT NULL DEFAULT '',
-		avatar_color TEXT NOT NULL DEFAULT '#44944A',
-		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-		updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-	);
-
-	CREATE TABLE IF NOT EXISTS categories (
-		id SERIAL PRIMARY KEY,
-		parent_id INTEGER REFERENCES categories(id),
-		name TEXT NOT NULL,
-		slug TEXT NOT NULL,
-		criteria TEXT NOT NULL DEFAULT '[]',
-		sort_order INTEGER NOT NULL DEFAULT 0
-	);
-
-	CREATE TABLE IF NOT EXISTS products (
-		id SERIAL PRIMARY KEY,
-		slug TEXT UNIQUE NOT NULL,
-		category_id INTEGER REFERENCES categories(id),
-		brand TEXT NOT NULL DEFAULT '',
-		name TEXT NOT NULL,
-		price INTEGER NOT NULL DEFAULT 0,
-		color TEXT NOT NULL DEFAULT '',
-		model TEXT NOT NULL DEFAULT '',
-		fit TEXT NOT NULL DEFAULT '',
-		material TEXT NOT NULL DEFAULT '',
-		care TEXT NOT NULL DEFAULT '[]',
-		description TEXT NOT NULL DEFAULT '',
-		xp_reward INTEGER NOT NULL DEFAULT 0,
-		in_stock SMALLINT NOT NULL DEFAULT 1,
-		status TEXT NOT NULL DEFAULT 'in_stock',
-		stock_quantity INTEGER NOT NULL DEFAULT 0,
-		created_by TEXT NOT NULL DEFAULT '',
-		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-		updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-	);
-
-	CREATE TABLE IF NOT EXISTS product_sizes (
-		id SERIAL PRIMARY KEY,
-		product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
-		size_label TEXT NOT NULL
-	);
-
-	CREATE TABLE IF NOT EXISTS size_chart_rows (
-		id SERIAL PRIMARY KEY,
-		product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
-		label TEXT NOT NULL,
-		chest REAL,
-		waist REAL,
-		hips REAL,
-		length REAL,
-		foot_length REAL,
-		wrist REAL,
-		sort_order INTEGER NOT NULL DEFAULT 0
-	);
-
-	CREATE TABLE IF NOT EXISTS product_images (
-		id SERIAL PRIMARY KEY,
-		product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
-		url TEXT NOT NULL,
-		sort_order INTEGER NOT NULL DEFAULT 0
-	);
-
-	CREATE TABLE IF NOT EXISTS password_reset_tokens (
-		token TEXT PRIMARY KEY,
-		username TEXT NOT NULL,
-		expires_at TIMESTAMPTZ NOT NULL
-	);
-	`
-	if _, err := s.pool.Exec(ctx, schema); err != nil {
-		return fmt.Errorf("create schema: %w", err)
-	}
-
-	// Insert default categories
-	cats := `
-	INSERT INTO categories (id, parent_id, name, slug, criteria, sort_order) VALUES
-	(1, NULL, 'Одежда', 'clothing', '["size","brand","color"]', 1),
-	(2, 1, 'Футболки / поло', 'tshirts-polo', '[]', 1),
-	(3, 1, 'Шорты', 'shorts', '[]', 2),
-	(4, 1, 'Худи / зип-худи', 'hoodies-zip', '[]', 3),
-	(5, 1, 'Свитшоты / свитера', 'sweatshirts-sweaters', '[]', 4),
-	(6, 1, 'Джинсы', 'jeans', '[]', 5),
-	(7, 1, 'Штаны', 'pants', '[]', 6),
-	(8, 1, 'Куртки', 'jackets', '[]', 7),
-	(9, 1, 'Жилетки', 'vests', '[]', 8),
-	(10, 1, 'Нижнее бельё', 'underwear', '[]', 9),
-	(11, NULL, 'Обувь', 'shoes', '["size","brand","model","color"]', 2),
-	(12, 11, 'Кроссовки', 'sneakers', '[]', 1),
-	(13, 11, 'Тапки', 'slides', '[]', 2),
-	(14, 11, 'Ботинки', 'boots', '[]', 3),
-	(15, NULL, 'Сумки', 'bags', '["brand","color"]', 3),
-	(16, NULL, 'Аксессуары', 'accessories', '["size","brand"]', 4),
-	(17, 16, 'Кошельки / кардхолдеры', 'wallets-cardholders', '[]', 1),
-	(18, 16, 'Ремни', 'belts', '[]', 2),
-	(19, 16, 'Головные уборы', 'headwear', '[]', 3),
-	(20, 16, 'Ювелирные украшения', 'jewelry', '[]', 4),
-	(21, 20, 'Браслеты', 'bracelets', '[]', 1),
-	(22, 20, 'Подвески', 'pendants', '[]', 2),
-	(23, 20, 'Кольца', 'rings', '[]', 3),
-	(24, 16, 'Часы', 'watches', '[]', 5)
-	ON CONFLICT (id) DO NOTHING;
-	`
-	if _, err := s.pool.Exec(ctx, cats); err != nil {
-		return fmt.Errorf("insert default categories: %w", err)
+	if err := s.runMigrations(ctx); err != nil {
+		return err
 	}
 
 	// Seed the first admin from BOOTSTRAP_ADMIN_* env. Registration is
 	// invite-only (admins create admins), so this resolves the chicken-and-egg
-	// for the very first admin on a clean database.
+	// for the very first admin on a clean database. It depends on runtime env
+	// and bcrypt, so it stays a Go step rather than a versioned SQL migration.
 	if err := s.seedAdmin(ctx); err != nil {
 		return fmt.Errorf("seed admin: %w", err)
+	}
+
+	return nil
+}
+
+// runMigrations applies every embedded versioned migration up to the latest via
+// tern. The applied version is tracked in public.schema_version (created on
+// first run) and each migration runs in its own transaction, so a restart or a
+// deploy onto an already-migrated database is a safe no-op. tern operates on a
+// single *pgx.Conn, so we borrow one from the pool for the duration.
+func (s *PostgresStore) runMigrations(ctx context.Context) error {
+	conn, err := s.pool.Acquire(ctx)
+	if err != nil {
+		return fmt.Errorf("acquire migration conn: %w", err)
+	}
+	defer conn.Release()
+
+	m, err := migrate.NewMigrator(ctx, conn.Conn(), "public.schema_version")
+	if err != nil {
+		return fmt.Errorf("new migrator: %w", err)
+	}
+
+	sub, err := fs.Sub(migrationsFS, "migrations")
+	if err != nil {
+		return fmt.Errorf("sub migrations fs: %w", err)
+	}
+	if err := m.LoadMigrations(sub); err != nil {
+		return fmt.Errorf("load migrations: %w", err)
+	}
+	if err := m.Migrate(ctx); err != nil {
+		return fmt.Errorf("apply migrations: %w", err)
 	}
 
 	return nil

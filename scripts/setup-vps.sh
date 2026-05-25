@@ -3,7 +3,7 @@ set -e
 
 echo "================================================"
 echo " MIORU Backend VPS Setup"
-echo " Ubuntu 22.04 | Go 1.22 | PostgreSQL 16 | Nginx"
+echo " Ubuntu 22.04 | Go 1.25 | PostgreSQL 16 | Nginx"
 echo "================================================"
 
 # ── System ──
@@ -19,13 +19,23 @@ if [ ! -f /swapfile ]; then
     echo "Swap 2GB created"
 fi
 
-# ── Go 1.22 ──
-if ! command -v go &>/dev/null; then
-    wget -q https://go.dev/dl/go1.22.10.linux-amd64.tar.gz
+# ── Go 1.25 ──
+# Install if Go is missing or older than the target (so re-running on a VPS that
+# still has an older Go actually upgrades it instead of silently skipping).
+GO_VERSION=go1.25.10
+need_go=1
+if command -v go &>/dev/null; then
+    current=$(go version | awk '{print $3}')
+    if [ "$(printf '%s\n%s\n' "$GO_VERSION" "$current" | sort -V | head -1)" = "$GO_VERSION" ]; then
+        need_go=0  # installed Go is >= target
+    fi
+fi
+if [ "$need_go" = "1" ]; then
+    wget -q "https://go.dev/dl/${GO_VERSION}.linux-amd64.tar.gz"
     rm -rf /usr/local/go
-    tar -C /usr/local -xzf go1.22.10.linux-amd64.tar.gz
-    rm go1.22.10.linux-amd64.tar.gz
-    echo 'export PATH=$PATH:/usr/local/go/bin' >> /root/.bashrc
+    tar -C /usr/local -xzf "${GO_VERSION}.linux-amd64.tar.gz"
+    rm "${GO_VERSION}.linux-amd64.tar.gz"
+    grep -q '/usr/local/go/bin' /root/.bashrc || echo 'export PATH=$PATH:/usr/local/go/bin' >> /root/.bashrc
     export PATH=$PATH:/usr/local/go/bin
     echo "Go $(go version) installed"
 fi

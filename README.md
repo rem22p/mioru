@@ -33,7 +33,7 @@ scripts/       Провижининг VPS и сиды БД
 
 | Инструмент | Версия | Зачем |
 |---|---|---|
-| **Go** | 1.22+ | бэкенд |
+| **Go** | 1.25+ | бэкенд |
 | **PostgreSQL** | 14+ (в проде 16) | единственное хранилище данных |
 | **Node.js** | 18+ (проверено на 20/24) | оба фронта |
 
@@ -50,7 +50,7 @@ sudo -u postgres psql -c "CREATE USER mioru WITH PASSWORD 'localdev';"
 sudo -u postgres psql -c "CREATE DATABASE mioru OWNER mioru;"
 ```
 
-Таблицы создаются автоматически при старте сервера (миграции встроены в код, `CREATE TABLE IF NOT EXISTS`) — вручную ничего накатывать не нужно.
+Таблицы создаются автоматически при старте сервера: версионированные миграции (tern) встроены в бинарь и накатываются до последней при подключении — вручную ничего запускать не нужно.
 
 ### 1.2. Настроить окружение
 
@@ -173,7 +173,7 @@ TEST_DATABASE_URL='postgres://USER:PASS@localhost:5432/mioru_test?sslmode=disabl
 
 # Деплой
 
-`scripts/setup-vps.sh` поднимает Ubuntu 22.04 VPS целиком: Go 1.22, PostgreSQL 16, Nginx, swap 2GB, отдельный системный пользователь `mioru` и systemd-сервис. Секреты (БД, `SECRET_KEY`) генерируются случайно при первом запуске и сохраняются в `/opt/mioru/.env`.
+`scripts/setup-vps.sh` поднимает Ubuntu 22.04 VPS целиком: Go 1.25, PostgreSQL 16, Nginx, swap 2GB, отдельный системный пользователь `mioru` и systemd-сервис. Секреты (БД, `SECRET_KEY`) генерируются случайно при первом запуске и сохраняются в `/opt/mioru/.env`.
 
 ```bash
 # на VPS под root
