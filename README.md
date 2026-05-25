@@ -150,7 +150,24 @@ npm test                       # юнит (Vitest)
 cd apps/store && npm run test:e2e
 ```
 
-Бэкенд-тестов пока нет.
+### Бэкенд (Go)
+
+```bash
+cd backend/api
+go test ./... -race
+```
+
+Тесты, которым нужна БД (слой `store` и часть хендлеров), берут подключение из `TEST_DATABASE_URL` и **пропускаются** (`t.Skip`), если она не задана. Чистые юнит-тесты (auth, валидатор картинок, хендлеры на фейках) идут без БД.
+
+Для DB-тестов укажи **отдельную одноразовую** тестовую базу — никогда не прод и не ту, что в `DATABASE_URL` (харнесс делает `TRUNCATE` таблиц с данными между тестами):
+
+```bash
+createdb mioru_test    # любой локальный или CI-инстанс PostgreSQL
+TEST_DATABASE_URL='postgres://USER:PASS@localhost:5432/mioru_test?sslmode=disable' \
+  go test ./... -race
+```
+
+Схему и сид категорий накатывает сам харнесс (`internal/store/harness_test.go`) при старте подключения.
 
 ---
 
