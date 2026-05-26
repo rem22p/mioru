@@ -165,26 +165,7 @@ func (s *PostgresStore) GetProduct(ctx context.Context, slug string) (*model.Pro
 
 // ListProducts retrieves products with filtering, sorting, and pagination.
 func (s *PostgresStore) ListProducts(ctx context.Context, filter model.ProductFilter) ([]model.Product, int, error) {
-	where := "WHERE 1=1"
-	args := []interface{}{}
-	argIdx := 1
-
-	if filter.CategoryID > 0 {
-		where += fmt.Sprintf(" AND p.category_id = $%d", argIdx)
-		args = append(args, filter.CategoryID)
-		argIdx++
-	}
-	if filter.Search != "" {
-		where += fmt.Sprintf(" AND (p.name LIKE $%d OR p.brand LIKE $%d OR p.slug LIKE $%d)", argIdx, argIdx+1, argIdx+2)
-		s := "%" + filter.Search + "%"
-		args = append(args, s, s, s)
-		argIdx += 3
-	}
-	if filter.Brand != "" {
-		where += fmt.Sprintf(" AND p.brand = $%d", argIdx)
-		args = append(args, filter.Brand)
-		argIdx++
-	}
+	where, args, argIdx := buildProductFilterWhere(filter, 1)
 
 	// Count total
 	var total int
@@ -500,4 +481,135 @@ func (s *PostgresStore) getProductImages(ctx context.Context, productID int64) (
 		images = []model.ProductImage{}
 	}
 	return images, rows.Err()
+}
+
+// buildProductFilterWhere composes the SQL WHERE clause (with leading "WHERE 1=1")
+// and matching args list for the storefront product filters. It returns the next
+// available positional placeholder index so the caller can append LIMIT/OFFSET or
+// other clauses without colliding. Used by both ListProducts and ListProductFacets
+// so the facet counts always match the result set the user is about to see.
+func buildProductFilterWhere(filter model.ProductFilter, startIdx int) (where string, args []interface{}, nextIdx int) {
+	where = "WHERE 1=1"
+	argIdx := startIdx
+
+	cats := filter.CategoryIDs
+	if filter.CategoryID > 0 {
+		cats = append(cats, filter.CategoryID)
+	}
+	if len(cats) > 0 {
+		where += fmt.Sprintf(" AND p.category_id = ANY($%d::int[])", argIdx)
+		args = append(args, cats)
+		argIdx++
+	}
+	if filter.Search != "" {
+		where += fmt.Sprintf(" AND (p.name ILIKE $%d OR p.brand ILIKE $%d OR p.slug ILIKE $%d)", argIdx, argIdx+1, argIdx+2)
+		s := "%" + filter.Search + "%"
+		args = append(args, s, s, s)
+		argIdx += 3
+	}
+	// Brand (legacy single) + Brands (multi) collapse to a single ANY clause so
+	// the storefront can pass either without surprise.
+	brands := filter.Brands
+	if filter.Brand != "" {
+		brands = append(brands, filter.Brand)
+	}
+	if len(brands) > 0 {
+		where += fmt.Sprintf(" AND p.brand = ANY($%d::text[])", argIdx)
+		args = append(args, brands)
+		argIdx++
+	}
+	if len(filter.Colors) > 0 {
+		where += fmt.Sprintf(" AND p.color = ANY($%d::text[])", argIdx)
+		args = append(args, filter.Colors)
+		argIdx++
+	}
+	if len(filter.Sizes) > 0 {
+		where += fmt.Sprintf(" AND EXISTS (SELECT 1 FROM product_sizes ps WHERE ps.product_id = p.id AND ps.size_label = ANY($%d::text[]))", argIdx)
+		args = append(args, filter.Sizes)
+		argIdx++
+	}
+	if filter.PriceMin > 0 {
+		where += fmt.Sprintf(" AND p.price >= $%d", argIdx)
+		args = append(args, filter.PriceMin)
+		argIdx++
+	}
+	if filter.PriceMax > 0 {
+		where += fmt.Sprintf(" AND p.price <= $%d", argIdx)
+		args = append(args, filter.PriceMax)
+		argIdx++
+	}
+
+	return where, args, argIdx
+}
+
+// ListProductFacets returns the distinct brand/color/size values present in the
+// product set matching the given filter (sans facet-specific selections —
+// callers should pass the filter *without* Brands/Colors/Sizes so each facet's
+// option list stays useful even after the user picks one). Used by the
+// storefront filter UI so it shows only options that will actually return
+// results within the active category/search scope.
+func (s *PostgresStore) ListProductFacets(ctx context.Context, filter model.ProductFilter) (model.ProductFacets, error) {
+	where, args, _ := buildProductFilterWhere(filter, 1)
+
+	facets := model.ProductFacets{
+		Brands: []string{},
+		Colors: []string{},
+		Sizes:  []string{},
+	}
+
+	brandQ := `SELECT DISTINCT p.brand FROM products p ` + where + ` AND p.brand <> '' ORDER BY p.brand`
+	rows, err := s.pool.Query(ctx, brandQ, args...)
+	if err != nil {
+		return facets, fmt.Errorf("query brand facets: %w", err)
+	}
+	for rows.Next() {
+		var b string
+		if err := rows.Scan(&b); err != nil {
+			rows.Close()
+			return facets, fmt.Errorf("scan brand facet: %w", err)
+		}
+		facets.Brands = append(facets.Brands, b)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return facets, fmt.Errorf("brand facets iteration: %w", err)
+	}
+
+	colorQ := `SELECT DISTINCT p.color FROM products p ` + where + ` AND p.color <> '' ORDER BY p.color`
+	rows, err = s.pool.Query(ctx, colorQ, args...)
+	if err != nil {
+		return facets, fmt.Errorf("query color facets: %w", err)
+	}
+	for rows.Next() {
+		var c string
+		if err := rows.Scan(&c); err != nil {
+			rows.Close()
+			return facets, fmt.Errorf("scan color facet: %w", err)
+		}
+		facets.Colors = append(facets.Colors, c)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return facets, fmt.Errorf("color facets iteration: %w", err)
+	}
+
+	sizeQ := `SELECT DISTINCT ps.size_label FROM product_sizes ps JOIN products p ON p.id = ps.product_id ` + where + ` ORDER BY ps.size_label`
+	rows, err = s.pool.Query(ctx, sizeQ, args...)
+	if err != nil {
+		return facets, fmt.Errorf("query size facets: %w", err)
+	}
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			rows.Close()
+			return facets, fmt.Errorf("scan size facet: %w", err)
+		}
+		facets.Sizes = append(facets.Sizes, s)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return facets, fmt.Errorf("size facets iteration: %w", err)
+	}
+
+	return facets, nil
 }

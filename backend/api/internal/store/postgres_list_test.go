@@ -145,6 +145,102 @@ func TestListProductsFilters(t *testing.T) {
 	}
 }
 
+// TestListProductsMultiFilters verifies brand/color/size/price multi-value
+// filters narrow the result set the way the storefront filter UI expects.
+func TestListProductsMultiFilters(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	mustCreateProduct(t, s, model.Product{Slug: "red-s", CategoryID: 2, Brand: "ACME", Name: "Red S", Color: "red", Price: 100, Status: "in_stock", InStock: true, Sizes: []string{"S"}})
+	mustCreateProduct(t, s, model.Product{Slug: "red-m", CategoryID: 2, Brand: "ACME", Name: "Red M", Color: "red", Price: 200, Status: "in_stock", InStock: true, Sizes: []string{"M"}})
+	mustCreateProduct(t, s, model.Product{Slug: "blue-m", CategoryID: 2, Brand: "Nike", Name: "Blue M", Color: "blue", Price: 300, Status: "in_stock", InStock: true, Sizes: []string{"M"}})
+	mustCreateProduct(t, s, model.Product{Slug: "green-l", CategoryID: 2, Brand: "Nike", Name: "Green L", Color: "green", Price: 400, Status: "in_stock", InStock: true, Sizes: []string{"L"}})
+
+	tests := []struct {
+		name      string
+		filter    model.ProductFilter
+		wantSlugs []string
+	}{
+		{
+			"brands multi", model.ProductFilter{Brands: []string{"ACME", "Nike"}, Sort: "name"},
+			[]string{"blue-m", "green-l", "red-m", "red-s"},
+		},
+		{
+			"colors multi", model.ProductFilter{Colors: []string{"red", "blue"}, Sort: "name"},
+			[]string{"blue-m", "red-m", "red-s"},
+		},
+		{
+			"size single", model.ProductFilter{Sizes: []string{"M"}, Sort: "name"},
+			[]string{"blue-m", "red-m"},
+		},
+		{
+			"price range", model.ProductFilter{PriceMin: 200, PriceMax: 300, Sort: "name"},
+			[]string{"blue-m", "red-m"},
+		},
+		{
+			"combined: red OR blue, size M, price>=200",
+			model.ProductFilter{Colors: []string{"red", "blue"}, Sizes: []string{"M"}, PriceMin: 200, Sort: "name"},
+			[]string{"blue-m", "red-m"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, total, err := s.ListProducts(ctx, tt.filter)
+			if err != nil {
+				t.Fatalf("ListProducts: %v", err)
+			}
+			if total != len(tt.wantSlugs) {
+				t.Errorf("total = %d, want %d", total, len(tt.wantSlugs))
+			}
+			var slugs []string
+			for _, p := range got {
+				slugs = append(slugs, p.Slug)
+			}
+			if !equalStrings(slugs, tt.wantSlugs) {
+				t.Errorf("slugs = %v, want %v", slugs, tt.wantSlugs)
+			}
+		})
+	}
+}
+
+// TestListProductFacets verifies facets enumerate distinct brand/color/size
+// values within the filter scope and that empty values are dropped.
+func TestListProductFacets(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	mustCreateProduct(t, s, model.Product{Slug: "p1", CategoryID: 2, Brand: "ACME", Name: "P1", Color: "red", Price: 100, Status: "in_stock", InStock: true, Sizes: []string{"S", "M"}})
+	mustCreateProduct(t, s, model.Product{Slug: "p2", CategoryID: 2, Brand: "Nike", Name: "P2", Color: "blue", Price: 200, Status: "in_stock", InStock: true, Sizes: []string{"M", "L"}})
+	mustCreateProduct(t, s, model.Product{Slug: "p3", CategoryID: 12, Brand: "Puma", Name: "P3", Color: "", Price: 300, Status: "in_stock", InStock: true, Sizes: []string{"XL"}})
+
+	// Without scope: brand/color/size from all categories, empty color dropped.
+	all, err := s.ListProductFacets(ctx, model.ProductFilter{})
+	if err != nil {
+		t.Fatalf("ListProductFacets: %v", err)
+	}
+	if !equalStrings(all.Brands, []string{"ACME", "Nike", "Puma"}) {
+		t.Errorf("brands = %v, want [ACME Nike Puma]", all.Brands)
+	}
+	if !equalStrings(all.Colors, []string{"blue", "red"}) {
+		t.Errorf("colors = %v, want [blue red] (empty dropped)", all.Colors)
+	}
+	if !equalStrings(all.Sizes, []string{"L", "M", "S", "XL"}) {
+		t.Errorf("sizes = %v, want [L M S XL]", all.Sizes)
+	}
+
+	// Scoped by category 2: Puma/p3 must be excluded.
+	cat2, err := s.ListProductFacets(ctx, model.ProductFilter{CategoryID: 2})
+	if err != nil {
+		t.Fatalf("ListProductFacets cat=2: %v", err)
+	}
+	if !equalStrings(cat2.Brands, []string{"ACME", "Nike"}) {
+		t.Errorf("cat=2 brands = %v, want [ACME Nike]", cat2.Brands)
+	}
+	if !equalStrings(cat2.Sizes, []string{"L", "M", "S"}) {
+		t.Errorf("cat=2 sizes = %v, want [L M S]", cat2.Sizes)
+	}
+}
+
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

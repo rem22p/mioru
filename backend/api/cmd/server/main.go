@@ -129,6 +129,7 @@ func main() {
 	// Store: Public product & category endpoints (no auth)
 	storeH := handler.NewStoreHandler(pgStore)
 	mux.HandleFunc("GET /api/products", cors(storeH.ListProducts))
+	mux.HandleFunc("GET /api/products/facets", cors(storeH.ListFacets))
 	mux.HandleFunc("GET /api/products/{slug}", cors(storeH.GetProduct))
 	mux.HandleFunc("GET /api/categories", cors(storeH.ListCategories))
 
