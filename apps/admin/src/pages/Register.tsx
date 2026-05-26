@@ -1,7 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useAuthStore } from '@/stores/authStore';
 import { register as apiRegister } from '@/lib/api';
 import PasswordInput from '@/components/common/PasswordInput';
 import { UserPlus } from 'lucide-react';
@@ -14,7 +13,6 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuthStore();
   const nav = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
@@ -30,14 +28,16 @@ export default function Register() {
     }
     setLoading(true);
     try {
-      const data = await apiRegister({
+      // Invite-only: an existing admin creates the account. The call returns the
+      // new user's summary (no token), so we stay logged in as the current admin
+      // and return to the dashboard rather than logging in as the new account.
+      await apiRegister({
         first_name: firstName,
         last_name: lastName,
         email,
         username,
         password,
       });
-      login(data.access_token);
       nav('/');
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';

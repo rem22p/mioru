@@ -61,6 +61,16 @@ type tokenResp struct {
 	TokenType   string `json:"token_type"`
 }
 
+// createdUserResp is the response of Register: the new account's public summary,
+// deliberately WITHOUT any token. Registration is an admin action (invite-only),
+// not a login, so it must not hand the caller a session for the new account.
+type createdUserResp struct {
+	Username    string `json:"username"`
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+	Role        string `json:"role"`
+}
+
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req registerReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -140,13 +150,17 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tok, err := auth.CreateToken(req.Username, auth.TokenTypeUser, h.secret, h.expiry)
-	if err != nil {
-		jsonError(w, "internal error", http.StatusInternalServerError)
-		return
-	}
+	// Return the created account's summary, never a session token: an admin
+	// created this user, so logging the admin in as the new account would be
+	// both wrong and a privilege/identity confusion.
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(tokenResp{AccessToken: tok, TokenType: "bearer"})
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(createdUserResp{
+		Username:    u.Username,
+		Email:       u.Email,
+		DisplayName: u.DisplayName,
+		Role:        u.Role,
+	})
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {

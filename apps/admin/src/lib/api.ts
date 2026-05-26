@@ -54,6 +54,8 @@ export const login = (username: string, password: string) =>
     body: JSON.stringify({ username, password }),
   });
 
+// Registration is invite-only (an existing admin creates the account); it
+// returns the new user's summary, not a session token.
 export const register = (body: {
   first_name: string;
   last_name: string;
@@ -61,10 +63,13 @@ export const register = (body: {
   username: string;
   password: string;
 }) =>
-  api<{ access_token: string }>("/api/auth/register", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  api<{ username: string; email: string; display_name: string; role: string }>(
+    "/api/auth/register",
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
 
 export const forgotPassword = (email: string) =>
   api<{ message: string }>("/api/auth/forgot-password", {
