@@ -73,8 +73,7 @@ type createdUserResp struct {
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req registerReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonError(w, "bad request", http.StatusBadRequest)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -165,8 +164,13 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req loginReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonError(w, "bad request", http.StatusBadRequest)
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if len(req.Username) > 100 || len(req.Password) > 72 {
+		// Out-of-bounds credentials can't match any account; reject with the
+		// same generic message (bcrypt ignores bytes past 72 anyway).
+		jsonError(w, "неверный логин или пароль", http.StatusUnauthorized)
 		return
 	}
 
@@ -214,8 +218,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	username := middleware.Username(r)
 	var body map[string]string
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		jsonError(w, "bad request", http.StatusBadRequest)
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 	// Validate only allowed fields with length limits
@@ -263,8 +266,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		CurrentPW string `json:"current_password"`
 		NewPW     string `json:"new_password"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		jsonError(w, "bad request", http.StatusBadRequest)
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 	user, err := h.store.GetUser(r.Context(), username)
@@ -306,8 +308,7 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Email string `json:"email"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		jsonError(w, "bad request", http.StatusBadRequest)
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 	body.Email = strings.TrimSpace(strings.ToLower(body.Email))
@@ -362,8 +363,7 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		Token    string `json:"token"`
 		Password string `json:"password"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		jsonError(w, "bad request", http.StatusBadRequest)
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 
@@ -410,6 +410,24 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
+// maxJSONBody bounds the size of a JSON request body. Auth and profile payloads
+// are tiny, so 1 MiB is generous; it stops a client from exhausting server
+// memory with an unbounded body. (The multipart upload path has its own,
+// larger, MaxBytesReader.)
+const maxJSONBody = 1 << 20 // 1 MiB
+
+// decodeJSON caps the request body at maxJSONBody and decodes it into dst. On a
+// malformed or oversized body it writes a 400 and returns false, so callers can
+// simply `if !decodeJSON(w, r, &req) { return }`.
+func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBody)
+	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
+		jsonError(w, "bad request", http.StatusBadRequest)
+		return false
+	}
+	return true
 }
 
 func randomColor() string {

@@ -61,8 +61,7 @@ type customerTokenResp struct {
 
 func (h *CustomerHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req customerRegisterReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonError(w, "bad request", http.StatusBadRequest)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -141,8 +140,11 @@ func (h *CustomerHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 func (h *CustomerHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req customerLoginReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonError(w, "bad request", http.StatusBadRequest)
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if len(req.Email) > 100 || len(req.Password) > 72 {
+		jsonError(w, "неверный email или пароль", http.StatusUnauthorized)
 		return
 	}
 
@@ -193,8 +195,7 @@ func (h *CustomerHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 	id := middleware.CustomerID(r)
 
 	var body map[string]string
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		jsonError(w, "bad request", http.StatusBadRequest)
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 
@@ -245,8 +246,7 @@ func (h *CustomerHandler) ChangePassword(w http.ResponseWriter, r *http.Request)
 		CurrentPW string `json:"current_password"`
 		NewPW     string `json:"new_password"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		jsonError(w, "bad request", http.StatusBadRequest)
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 

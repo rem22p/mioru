@@ -14,8 +14,9 @@ import (
 
 // fakeUserStore is a minimal userStore for handler tests.
 type fakeUserStore struct {
-	created   *model.User
-	createErr error
+	created       *model.User
+	createErr     error
+	getUserCalled bool
 }
 
 func (f *fakeUserStore) CreateUser(ctx context.Context, u model.User) error {
@@ -27,6 +28,7 @@ func (f *fakeUserStore) CreateUser(ctx context.Context, u model.User) error {
 	return nil
 }
 func (f *fakeUserStore) GetUser(ctx context.Context, username string) (*model.User, error) {
+	f.getUserCalled = true
 	return nil, nil
 }
 func (f *fakeUserStore) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
@@ -74,5 +76,47 @@ func TestRegisterDoesNotIssueToken(t *testing.T) {
 	}
 	if fs.created == nil || fs.created.Username != "alice" {
 		t.Errorf("expected user to be created, got %+v", fs.created)
+	}
+}
+
+func newAuthHandlerForTest(fs *fakeUserStore) *AuthHandler {
+	return NewAuthHandler(fs, email.NewService(), "test-secret-key-at-least-32-chars-long!!", 60)
+}
+
+// TestDecodeJSONRejectsOversizedBody verifies the per-request JSON body cap:
+// a body larger than maxJSONBody is rejected rather than buffered into memory.
+func TestDecodeJSONRejectsOversizedBody(t *testing.T) {
+	fs := &fakeUserStore{}
+	h := newAuthHandlerForTest(fs)
+
+	big := strings.Repeat("a", maxJSONBody+1024)
+	body := `{"username":"` + big + `","password":"x"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+
+	h.Login(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("oversized body: status = %d, want %d", rr.Code, http.StatusBadRequest)
+	}
+}
+
+// TestLoginRejectsOverlongCredentials verifies that out-of-bounds credentials
+// are rejected before any store lookup (no enumeration / wasted bcrypt).
+func TestLoginRejectsOverlongCredentials(t *testing.T) {
+	fs := &fakeUserStore{}
+	h := newAuthHandlerForTest(fs)
+
+	body := `{"username":"` + strings.Repeat("u", 101) + `","password":"whatever"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+
+	h.Login(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusUnauthorized)
+	}
+	if fs.getUserCalled {
+		t.Errorf("GetUser must not be called for out-of-bounds credentials")
 	}
 }
