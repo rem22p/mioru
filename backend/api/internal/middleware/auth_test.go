@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"mioru/internal/auth"
+	"mioru/internal/cookieauth"
 )
 
 const mwTestSecret = "test-secret-at-least-32-bytes-long-xxxxx"
@@ -27,7 +28,7 @@ func userTokenReq(t *testing.T, sub string) *http.Request {
 		t.Fatalf("CreateToken: %v", err)
 	}
 	r := httptest.NewRequest(http.MethodGet, "/api/users/me", nil)
-	r.Header.Set("Authorization", "Bearer "+tok)
+	r.AddCookie(&http.Cookie{Name: cookieauth.AdminAuthCookie, Value: tok})
 	return r
 }
 
@@ -99,6 +100,49 @@ func TestAuthMWSessionRevocation(t *testing.T) {
 	}
 }
 
+// TestAuthMWRejectsMissingCookie guards the cookie-only contract: a request
+// with no auth_token cookie must be rejected, regardless of any other header.
+func TestAuthMWRejectsMissingCookie(t *testing.T) {
+	reached := false
+	h := AuthMW(mwTestSecret, epochOK(time.Now().Add(-time.Hour)))(okHandler(&reached))
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/users/me", nil))
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want %d", rr.Code, http.StatusUnauthorized)
+	}
+	if reached {
+		t.Error("handler must not be reached without an auth cookie")
+	}
+}
+
+// TestAuthMWIgnoresAuthorizationHeader guards that the Bearer/Authorization
+// path is fully removed: a token presented only in the Authorization header
+// (no cookie) must NOT authenticate the request, even with otherwise valid
+// claims.
+func TestAuthMWIgnoresAuthorizationHeader(t *testing.T) {
+	tok, err := auth.CreateToken("admin", auth.TokenTypeUser, mwTestSecret, 60)
+	if err != nil {
+		t.Fatalf("CreateToken: %v", err)
+	}
+	r := httptest.NewRequest(http.MethodGet, "/api/users/me", nil)
+	r.Header.Set("Authorization", "Bearer "+tok) // legacy clients
+
+	reached := false
+	h := AuthMW(mwTestSecret, epochOK(time.Now().Add(-time.Hour)))(okHandler(&reached))
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, r)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want %d (Authorization header must be ignored)", rr.Code, http.StatusUnauthorized)
+	}
+	if reached {
+		t.Error("handler must not be reached when token is only in Authorization header")
+	}
+}
+
 func TestCustomerAuthMWSessionRevocation(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -131,7 +175,7 @@ func TestCustomerAuthMWSessionRevocation(t *testing.T) {
 				t.Fatalf("CreateToken: %v", err)
 			}
 			r := httptest.NewRequest(http.MethodGet, "/api/store/customers/me", nil)
-			r.Header.Set("Authorization", "Bearer "+tok)
+			r.AddCookie(&http.Cookie{Name: cookieauth.StoreAuthCookie, Value: tok})
 
 			reached := false
 			h := CustomerAuthMW(mwTestSecret, tt.epoch)(okHandler(&reached))

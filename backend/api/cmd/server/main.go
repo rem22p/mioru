@@ -15,6 +15,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"mioru/internal/config"
+	"mioru/internal/cookieauth"
 	"mioru/internal/email"
 	"mioru/internal/handler"
 	"mioru/internal/middleware"
@@ -47,10 +48,13 @@ func main() {
 
 	emailSvc := email.NewService()
 
-	// Handlers
-	authH := handler.NewAuthHandler(pgStore, emailSvc, cfg.SecretKey, cfg.TokenExpiry)
+	// Handlers. The `secure` flag is on iff we're in production (HTTPS only) —
+	// in development the cookie must be sent over plain HTTP, so Secure stays
+	// off or the browser silently drops it and the SPA fails to authenticate.
+	secureCookies := cfg.IsProduction()
+	authH := handler.NewAuthHandler(pgStore, emailSvc, cfg.SecretKey, cfg.TokenExpiry, secureCookies)
 	productH := handler.NewProductHandler(pgStore, cfg.UploadDir)
-	customerH := handler.NewCustomerHandler(pgStore, cfg.SecretKey, cfg.TokenExpiry)
+	customerH := handler.NewCustomerHandler(pgStore, cfg.SecretKey, cfg.TokenExpiry, secureCookies)
 
 	// getRole resolves an authenticated user's role from the DB for RequireAdmin.
 	getRole := func(ctx context.Context, username string) (string, error) {
@@ -91,24 +95,36 @@ func main() {
 		w.Write([]byte(`{"status":"ok"}`))
 	})
 
+	// adminCSRF / customerCSRF enforce the double-submit-cookie check on every
+	// state-changing request that rides an authenticated session: the SPA must
+	// echo the csrf cookie value back in the X-CSRF-Token header. Safe methods
+	// (GET/HEAD/OPTIONS) are passed through, so read endpoints aren't wrapped.
+	// Login / register / forgot / reset are unauthenticated and bootstrap the
+	// session itself — wrapping them would be a chicken-and-egg, so they stay
+	// out of the CSRF gate (rate limiting is the primary abuse guard there).
+	adminCSRF := middleware.CSRF(cookieauth.AdminCSRFCookie)
+	customerCSRF := middleware.CSRF(cookieauth.StoreCSRFCookie)
+
 	// Auth (no middleware) — registration is invite-only: only an existing admin
 	// can create new admin users.
-	mux.Handle("POST /api/auth/register", authMW(middleware.RequireAdmin(getRole)(http.HandlerFunc(authH.Register))))
+	mux.Handle("POST /api/auth/register", authMW(adminCSRF(middleware.RequireAdmin(getRole)(http.HandlerFunc(authH.Register)))))
 	mux.HandleFunc("POST /api/auth/login", cors(rl("admin-login", 10)(authH.Login)))
 	mux.HandleFunc("POST /api/auth/forgot-password", cors(rl("forgot", 5)(authH.ForgotPassword)))
 	mux.HandleFunc("POST /api/auth/reset-password", cors(rl("reset", 10)(authH.ResetPassword)))
+	mux.Handle("POST /api/auth/logout", authMW(adminCSRF(http.HandlerFunc(authH.Logout))))
 
 	// User profile (with auth)
 	mux.Handle("GET /api/users/me", authMW(http.HandlerFunc(authH.Me)))
-	mux.Handle("PUT /api/users/me/profile", authMW(http.HandlerFunc(authH.UpdateProfile)))
-	mux.Handle("PUT /api/users/me/password", authMW(http.HandlerFunc(authH.ChangePassword)))
+	mux.Handle("PUT /api/users/me/profile", authMW(adminCSRF(http.HandlerFunc(authH.UpdateProfile))))
+	mux.Handle("PUT /api/users/me/password", authMW(adminCSRF(http.HandlerFunc(authH.ChangePassword))))
 
 	// Store: Customer auth & profile (separate namespace, separate JWT)
 	mux.HandleFunc("POST /api/store/auth/register", cors(rl("cust-register", 5)(customerH.Register)))
 	mux.HandleFunc("POST /api/store/auth/login", cors(rl("cust-login", 10)(customerH.Login)))
+	mux.Handle("POST /api/store/auth/logout", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.Logout))))
 	mux.Handle("GET /api/store/customers/me", customerAuthMW(http.HandlerFunc(customerH.Me)))
-	mux.Handle("PUT /api/store/customers/me", customerAuthMW(http.HandlerFunc(customerH.UpdateProfile)))
-	mux.Handle("PUT /api/store/customers/me/password", customerAuthMW(http.HandlerFunc(customerH.ChangePassword)))
+	mux.Handle("PUT /api/store/customers/me", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.UpdateProfile))))
+	mux.Handle("PUT /api/store/customers/me/password", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.ChangePassword))))
 
 	// Store: Public product & category endpoints (no auth)
 	storeH := handler.NewStoreHandler(pgStore)
@@ -116,9 +132,12 @@ func main() {
 	mux.HandleFunc("GET /api/products/{slug}", cors(storeH.GetProduct))
 	mux.HandleFunc("GET /api/categories", cors(storeH.ListCategories))
 
-	// adminOnly composes AuthMW + RequireAdmin (DB-backed role check) for /api/admin/*.
+	// adminOnly composes AuthMW + RequireAdmin (DB-backed role check) + CSRF
+	// for /api/admin/*. The CSRF middleware passes GET/HEAD/OPTIONS through
+	// unchecked, so read endpoints aren't affected; mutations require a
+	// matching X-CSRF-Token header.
 	adminOnly := func(h http.Handler) http.Handler {
-		return authMW(middleware.RequireAdmin(getRole)(h))
+		return authMW(middleware.RequireAdmin(getRole)(adminCSRF(h)))
 	}
 
 	// Admin: Categories (admin only)
@@ -247,7 +266,9 @@ func corsHeaders(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Vary", "Origin")
 	}
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	// Auth lives in HttpOnly cookies (cookie-only — Authorization header is no
+	// longer accepted); mutations must echo the CSRF cookie back in X-CSRF-Token.
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
 }
 
 func securityHeaders(next http.Handler) http.Handler {

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"mioru/internal/auth"
+	"mioru/internal/cookieauth"
 	"mioru/internal/middleware"
 	"mioru/internal/model"
 )
@@ -31,10 +32,14 @@ type CustomerHandler struct {
 	store  customerStore
 	secret string
 	expiry int
+	// secure controls the Secure attribute on the auth/CSRF cookies. true in
+	// production (HTTPS), false in dev (so the cookie isn't silently dropped
+	// over plain HTTP).
+	secure bool
 }
 
-func NewCustomerHandler(s customerStore, secret string, expiry int) *CustomerHandler {
-	return &CustomerHandler{store: s, secret: secret, expiry: expiry}
+func NewCustomerHandler(s customerStore, secret string, expiry int, secure bool) *CustomerHandler {
+	return &CustomerHandler{store: s, secret: secret, expiry: expiry, secure: secure}
 }
 
 // ── Request / response types ──
@@ -52,9 +57,16 @@ type customerLoginReq struct {
 	Password string `json:"password"`
 }
 
-type customerTokenResp struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
+// customerProfileResp is returned by Register/Login: a small public profile
+// of the authenticated customer. The session itself lives in HttpOnly cookies
+// set on the same response — no token is exposed in JSON (XSS-exfil guard).
+type customerProfileResp struct {
+	ID          int64  `json:"id"`
+	Email       string `json:"email"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+	Phone       string `json:"phone"`
+	AvatarColor string `json:"avatar_color"`
 }
 
 // ── Handlers ──
@@ -127,15 +139,39 @@ func (h *CustomerHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// JWT subject = customer ID
-	tok, err := auth.CreateToken(fmt.Sprintf("%d", cust.ID), auth.TokenTypeCustomer, h.secret, h.expiry)
-	if err != nil {
+	if err := h.issueSession(w, cust.ID); err != nil {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(customerTokenResp{AccessToken: tok, TokenType: "bearer"})
+	json.NewEncoder(w).Encode(customerProfileResp{
+		ID:          cust.ID,
+		Email:       cust.Email,
+		FirstName:   cust.FirstName,
+		LastName:    cust.LastName,
+		Phone:       cust.Phone,
+		AvatarColor: cust.AvatarColor,
+	})
+}
+
+// issueSession mints a customer JWT for id and writes both session cookies
+// (auth + CSRF) onto w. It is the single place where the customer session is
+// materialised so Register and Login can't drift apart on cookie attributes.
+func (h *CustomerHandler) issueSession(w http.ResponseWriter, id int64) error {
+	tok, err := auth.CreateToken(fmt.Sprintf("%d", id), auth.TokenTypeCustomer, h.secret, h.expiry)
+	if err != nil {
+		return err
+	}
+	csrf, err := cookieauth.GenCSRFToken()
+	if err != nil {
+		return err
+	}
+	maxAge := h.expiry * 60
+	cookieauth.SetAuthCookie(w, cookieauth.StoreAuthCookie, tok, h.secure, maxAge)
+	cookieauth.SetCSRFCookie(w, cookieauth.StoreCSRFCookie, csrf, h.secure, maxAge)
+	return nil
 }
 
 func (h *CustomerHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -162,14 +198,30 @@ func (h *CustomerHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tok, err := auth.CreateToken(fmt.Sprintf("%d", cust.ID), auth.TokenTypeCustomer, h.secret, h.expiry)
-	if err != nil {
+	if err := h.issueSession(w, cust.ID); err != nil {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(customerTokenResp{AccessToken: tok, TokenType: "bearer"})
+	json.NewEncoder(w).Encode(customerProfileResp{
+		ID:          cust.ID,
+		Email:       cust.Email,
+		FirstName:   cust.FirstName,
+		LastName:    cust.LastName,
+		Phone:       cust.Phone,
+		AvatarColor: cust.AvatarColor,
+	})
+}
+
+// Logout clears the storefront session cookies. Mount behind CSRF — without
+// it any third-party origin could force-log-out a signed-in customer just by
+// triggering a POST. Idempotent: succeeds even if no session was active.
+func (h *CustomerHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	cookieauth.ClearCookie(w, cookieauth.StoreAuthCookie, h.secure)
+	cookieauth.ClearCookie(w, cookieauth.StoreCSRFCookie, h.secure)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"ok":true}`))
 }
 
 func (h *CustomerHandler) Me(w http.ResponseWriter, r *http.Request) {

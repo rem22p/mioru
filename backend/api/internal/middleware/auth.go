@@ -3,10 +3,10 @@ package middleware
 import (
 	"context"
 	"net/http"
-	"strings"
 	"time"
 
 	"mioru/internal/auth"
+	"mioru/internal/cookieauth"
 )
 
 type ctxKey struct{}
@@ -16,20 +16,21 @@ type ctxKey struct{}
 // user no longer exists (their tokens must then be rejected).
 type UserEpochFunc func(ctx context.Context, username string) (changedAt time.Time, ok bool, err error)
 
-// AuthMW authenticates admin/staff requests via a JWT (typ=user). Beyond
-// signature/expiry/audience checks it enforces session revocation: a token whose
-// issued-at predates the user's password_changed_at is rejected, so changing or
-// resetting a password logs out every previously issued session.
+// AuthMW authenticates admin/staff requests via a JWT (typ=user) carried in
+// an HttpOnly cookie (no Authorization-header / Bearer path — closed in #8 to
+// remove the localStorage XSS-exfil surface). Beyond signature/expiry/audience
+// checks it enforces session revocation: a token whose issued-at predates the
+// user's password_changed_at is rejected, so changing or resetting a password
+// logs out every previously issued session.
 func AuthMW(secret string, userEpoch UserEpochFunc) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			h := r.Header.Get("Authorization")
-			if h == "" {
+			c, err := r.Cookie(cookieauth.AdminAuthCookie)
+			if err != nil || c.Value == "" {
 				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 				return
 			}
-			token := strings.TrimPrefix(h, "Bearer ")
-			username, iat, err := auth.ParseToken(token, secret, auth.TokenTypeUser)
+			username, iat, err := auth.ParseToken(c.Value, secret, auth.TokenTypeUser)
 			if err != nil {
 				http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
 				return
