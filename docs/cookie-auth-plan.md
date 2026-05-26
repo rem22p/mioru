@@ -65,7 +65,7 @@
 (например, после Шага 1 фронты сломаны до Шага 4/5) — это ожидаемо,
 именно потому ветка.
 
-- [ ] **Шаг 1. Бэк: cookie + CSRF + logout (cookie-only, ломающий).**
+- [x] **Шаг 1. Бэк: cookie + CSRF + logout (cookie-only, ломающий).** — `ab6218a`
   - Новый `internal/cookieauth` — helpers `SetAuthCookie`,
     `ClearAuthCookie`, `GenCSRFToken`, `SetCSRFCookie`. Все флаги
     (`HttpOnly`/`SameSite=Lax`/`Path=/`/`Max-Age`/`Secure`) выставляются
@@ -96,7 +96,7 @@
     `APP_ENV`.
   - **Коммит:** `feat(auth): HttpOnly-cookie auth + CSRF (cookie-only)`
 
-- [ ] **Шаг 2. Админка: переезд на куки.**
+- [x] **Шаг 2. Админка: переезд на куки.** — `002a063` (часть)
   - `apps/admin/src/lib/api.ts` — `credentials:'include'`, читать
     `csrf_token` из `document.cookie`, слать `X-CSRF-Token` на
     `POST`/`PUT`/`PATCH`/`DELETE`. Перестать читать/писать
@@ -113,7 +113,7 @@
     build`, `npm test` зелёные.
   - **Коммит:** `feat(admin): switch auth to HttpOnly cookies + CSRF`
 
-- [ ] **Шаг 3. Сторфронт: переезд на куки.**
+- [x] **Шаг 3. Сторфронт: переезд на куки.** — `002a063` (часть)
   - То же, что для админки. Cross-origin особенности:
     - `credentials:'include'` обязателен (без него кука не шлётся);
     - cookie `Domain` не ставим (host-only `api.mioru.store`);
@@ -172,5 +172,20 @@
 
 ## Прогресс
 
-Шаги отмечаем по мере прохождения апрува + push. Текущий шаг — **0**
-(план на согласовании).
+- 2026-05-26 — Шаги 1–3 выполнены автономно на ветке `feat/cookie-auth`
+  (`ab6218a` бэк, `002a063` оба SPA). Все автотесты зелёные: backend
+  `go test ./... -race` (включая новые cookieauth/csrf/auth/handler-
+  тесты), admin Vitest 29/29 + `tsc` + `vite build`, store Vitest 20/20
+  на тронутых модулях + `tsc` + `vite build`. Ветка запушена в origin.
+  `cartStore.test.ts` падает 8/9 — это **до-существующая поломка на
+  `main`** (verified stash + re-run), вне моего изменения; почистим
+  отдельной задачей.
+- **Текущий шаг — 4: браузер-валидация.** Прогон оставлен пользователю.
+  Что прокликать: см. список в Шаге 4 (login → mutation → logout в обоих
+  SPA, password-reset, self-password-change, dev cookie ставится по
+  HTTP). Backend поднимать через `cd backend/api && export
+  PATH="$HOME/go-sdk/go/bin:$PATH" && export GOFLAGS=-mod=mod && go run
+  ./cmd/server`. Если найдётся косяк — правлю на ветке и зову на
+  повторный прогон.
+- **Шаг 5 — мерж в `main`** — за пользователем (политика workflow:
+  пуш/мерж по явному разрешению).
