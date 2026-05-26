@@ -255,7 +255,12 @@ func securityHeaders(next http.Handler) http.Handler {
 		corsHeaders(w, r)
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; font-src https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com")
+		// The API serves JSON only, so 'unsafe-inline' adds attack surface
+		// (HTML/SVG error pages, future regressions) without upside. Keep
+		// font-src/style-src directives for the rare HTML rendering path but
+		// without inline styles. The locked-down /uploads/ CSP is set
+		// separately by uploadsSecurity.
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; font-src https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' https://fonts.googleapis.com")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
