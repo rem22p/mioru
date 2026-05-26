@@ -135,6 +135,17 @@ All authenticated calls are **cookie-based** — the SPA must send `credentials:
 - **Store customers (cookie `store_auth`, CSRF `store_csrf` ↔ `X-CSRF-Token`):** `POST /api/store/auth/{register,login}` (no CSRF — bootstraps the session, rate-limited), `POST /api/store/auth/logout` (CSRF required), `/api/store/customers/me*` (CSRF required on mutations).
 - **Admin (cookie `auth_token`, CSRF `csrf_token` ↔ `X-CSRF-Token`):** `POST /api/auth/{register,login,forgot-password,reset-password}` (register is **invite-only**, admin-only; login/forgot/reset bootstrap and so sit outside CSRF — rate limiting is the guard), `POST /api/auth/logout` (CSRF required), `/api/users/me*`, `/api/admin/products*`, `/api/admin/upload`, `/api/admin/categories` (all admin routes CSRF-required on mutations).
 
+### List endpoints & pagination (enforced)
+
+Any list that can grow past ~50 rows paginates on the server. No "load N + client-side slice" — that pattern doesn't scale and silently hides rows once the dataset outgrows N. The storefront catalog is the worked example (`GET /api/products` + `GET /api/products/facets`); same contract applies to every future list (orders, reviews, customers, …).
+
+- **Request:** `page` (1-based, default 1) and `per_page` (positive int, default 20). `per_page` is **clamped to an upper bound in the handler** (`maxPerPage = 100`) before reaching the store — a client cannot ask for a million rows. The store layer clamps again as defence in depth.
+- **Response:** `{ items, total, page, per_page }`. `total` is the row count under the active filter (without pagination), not the global table size. The client computes `totalPages = ceil(total / per_page)`.
+- **Filters and sort live on the server.** If you slice the result client-side after the server already paginated, the page shows fewer rows than expected and `total` becomes inconsistent with what's visible. Everything that participates in filtering or sorting (price, brand, color, size, search) goes in query params and into the SQL `WHERE`. Multi-value filters use `?key=A&key=B` or `?key=A,B` and resolve via `= ANY($n::text[])` (Postgres-native, no IN-list assembly).
+- **Facets get their own endpoint.** Chip-style filter UIs (brand/color/size) cannot derive their options from the current page — only part of the dataset is visible. Add `GET /<resource>/facets` that takes the same filter params and returns distinct values; the facets endpoint **drops the selection of the facet itself** so picking one brand doesn't hide every other brand from the UI. See `internal/store/product_postgres.go::ListProductFacets` for the pattern.
+- **Resetting `page` on filter change.** When any filter or sort changes on the client, reset `page` to 1 — otherwise you can land on a page that no longer exists (e.g. you were on page 5, then narrowed the filter so the result set has only 2 pages).
+- **Tests:** the store-layer pagination/filter test (e.g. `TestListProductsPagination`, `TestListProductsFilters`) ships with the feature, and the handler-layer parser test asserts `per_page` capping and multi-value parsing.
+
 ### Backend env vars
 All loaded from `.env` via `godotenv.Load()` in `cmd/server/main.go`. They are read in three places, not one — don't assume `config.go` owns them all:
 
