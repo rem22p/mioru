@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"mioru/internal/model"
 )
@@ -107,10 +108,12 @@ func (s *PostgresStore) UpdateCustomer(ctx context.Context, id int64, updates ma
 	return nil
 }
 
-// UpdateCustomerPassword updates the hashed password for a customer.
+// UpdateCustomerPassword updates the hashed password for a customer and stamps
+// password_changed_at = NOW() in the same statement, the session-revocation epoch
+// that invalidates every token issued before the change (see UpdatePassword).
 func (s *PostgresStore) UpdateCustomerPassword(ctx context.Context, id int64, hashedPW string) error {
 	tag, err := s.pool.Exec(ctx,
-		`UPDATE customers SET hashed_password = $1, updated_at = NOW() WHERE id = $2`,
+		`UPDATE customers SET hashed_password = $1, password_changed_at = NOW(), updated_at = NOW() WHERE id = $2`,
 		hashedPW, id)
 	if err != nil {
 		return fmt.Errorf("update customer password: %w", err)
@@ -119,4 +122,20 @@ func (s *PostgresStore) UpdateCustomerPassword(ctx context.Context, id int64, ha
 		return fmt.Errorf("customer not found: %d", id)
 	}
 	return nil
+}
+
+// CustomerPasswordChangedAt returns the customer's password_changed_at (the
+// session epoch). ok is false when no such customer exists.
+func (s *PostgresStore) CustomerPasswordChangedAt(ctx context.Context, id int64) (time.Time, bool, error) {
+	var changedAt time.Time
+	err := s.pool.QueryRow(ctx,
+		`SELECT password_changed_at FROM customers WHERE id = $1`, id,
+	).Scan(&changedAt)
+	if err != nil {
+		if strings.Contains(err.Error(), "no rows") {
+			return time.Time{}, false, nil
+		}
+		return time.Time{}, false, fmt.Errorf("customer password_changed_at: %w", err)
+	}
+	return changedAt, true, nil
 }

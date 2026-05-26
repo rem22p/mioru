@@ -64,6 +64,13 @@ func main() {
 		return u.Role, nil
 	}
 
+	// authMW / customerAuthMW authenticate a request and enforce session
+	// revocation: a token issued before the account's password_changed_at is
+	// rejected, so changing or resetting a password logs out prior sessions. The
+	// epoch lookup is a single indexed read per authenticated request.
+	authMW := middleware.AuthMW(cfg.SecretKey, pgStore.UserPasswordChangedAt)
+	customerAuthMW := middleware.CustomerAuthMW(cfg.SecretKey, pgStore.CustomerPasswordChangedAt)
+
 	// rl builds a per-IP, 1-minute fixed-window rate limiter (in-process) for an
 	// endpoint, used to throttle credential-guessing on auth routes.
 	rateLimiter := middleware.NewMemoryRateLimiter(time.Minute)
@@ -86,22 +93,22 @@ func main() {
 
 	// Auth (no middleware) — registration is invite-only: only an existing admin
 	// can create new admin users.
-	mux.Handle("POST /api/auth/register", middleware.AuthMW(cfg.SecretKey)(middleware.RequireAdmin(getRole)(http.HandlerFunc(authH.Register))))
+	mux.Handle("POST /api/auth/register", authMW(middleware.RequireAdmin(getRole)(http.HandlerFunc(authH.Register))))
 	mux.HandleFunc("POST /api/auth/login", cors(rl("admin-login", 10)(authH.Login)))
 	mux.HandleFunc("POST /api/auth/forgot-password", cors(rl("forgot", 5)(authH.ForgotPassword)))
 	mux.HandleFunc("POST /api/auth/reset-password", cors(rl("reset", 10)(authH.ResetPassword)))
 
 	// User profile (with auth)
-	mux.Handle("GET /api/users/me", middleware.AuthMW(cfg.SecretKey)(http.HandlerFunc(authH.Me)))
-	mux.Handle("PUT /api/users/me/profile", middleware.AuthMW(cfg.SecretKey)(http.HandlerFunc(authH.UpdateProfile)))
-	mux.Handle("PUT /api/users/me/password", middleware.AuthMW(cfg.SecretKey)(http.HandlerFunc(authH.ChangePassword)))
+	mux.Handle("GET /api/users/me", authMW(http.HandlerFunc(authH.Me)))
+	mux.Handle("PUT /api/users/me/profile", authMW(http.HandlerFunc(authH.UpdateProfile)))
+	mux.Handle("PUT /api/users/me/password", authMW(http.HandlerFunc(authH.ChangePassword)))
 
 	// Store: Customer auth & profile (separate namespace, separate JWT)
 	mux.HandleFunc("POST /api/store/auth/register", cors(rl("cust-register", 5)(customerH.Register)))
 	mux.HandleFunc("POST /api/store/auth/login", cors(rl("cust-login", 10)(customerH.Login)))
-	mux.Handle("GET /api/store/customers/me", middleware.CustomerAuthMW(cfg.SecretKey)(http.HandlerFunc(customerH.Me)))
-	mux.Handle("PUT /api/store/customers/me", middleware.CustomerAuthMW(cfg.SecretKey)(http.HandlerFunc(customerH.UpdateProfile)))
-	mux.Handle("PUT /api/store/customers/me/password", middleware.CustomerAuthMW(cfg.SecretKey)(http.HandlerFunc(customerH.ChangePassword)))
+	mux.Handle("GET /api/store/customers/me", customerAuthMW(http.HandlerFunc(customerH.Me)))
+	mux.Handle("PUT /api/store/customers/me", customerAuthMW(http.HandlerFunc(customerH.UpdateProfile)))
+	mux.Handle("PUT /api/store/customers/me/password", customerAuthMW(http.HandlerFunc(customerH.ChangePassword)))
 
 	// Store: Public product & category endpoints (no auth)
 	storeH := handler.NewStoreHandler(pgStore)
@@ -111,7 +118,7 @@ func main() {
 
 	// adminOnly composes AuthMW + RequireAdmin (DB-backed role check) for /api/admin/*.
 	adminOnly := func(h http.Handler) http.Handler {
-		return middleware.AuthMW(cfg.SecretKey)(middleware.RequireAdmin(getRole)(h))
+		return authMW(middleware.RequireAdmin(getRole)(h))
 	}
 
 	// Admin: Categories (admin only)

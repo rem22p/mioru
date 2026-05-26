@@ -5,15 +5,22 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"mioru/internal/auth"
 )
 
 type customerCtxKey struct{}
 
-// CustomerAuthMW is the auth middleware for store customers.
-// It expects a JWT with subject = customer ID.
-func CustomerAuthMW(secret string) func(http.Handler) http.Handler {
+// CustomerEpochFunc returns the password-changed-at timestamp for the customer,
+// used to invalidate tokens minted before the last password change. ok is false
+// when the customer no longer exists.
+type CustomerEpochFunc func(ctx context.Context, id int64) (changedAt time.Time, ok bool, err error)
+
+// CustomerAuthMW is the auth middleware for store customers. It expects a JWT
+// with subject = customer ID (typ=customer) and, like AuthMW, rejects tokens
+// issued before the customer's last password change (session revocation).
+func CustomerAuthMW(secret string, customerEpoch CustomerEpochFunc) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			h := r.Header.Get("Authorization")
@@ -22,7 +29,7 @@ func CustomerAuthMW(secret string) func(http.Handler) http.Handler {
 				return
 			}
 			token := strings.TrimPrefix(h, "Bearer ")
-			sub, err := auth.ParseToken(token, secret, auth.TokenTypeCustomer)
+			sub, iat, err := auth.ParseToken(token, secret, auth.TokenTypeCustomer)
 			if err != nil {
 				http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
 				return
@@ -30,6 +37,15 @@ func CustomerAuthMW(secret string) func(http.Handler) http.Handler {
 			// sub is the customer ID as string
 			id, err := strconv.ParseInt(sub, 10, 64)
 			if err != nil {
+				http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
+				return
+			}
+			changedAt, ok, err := customerEpoch(r.Context(), id)
+			if err != nil {
+				http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
+				return
+			}
+			if !ok || iat < changedAt.Unix() {
 				http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
 				return
 			}

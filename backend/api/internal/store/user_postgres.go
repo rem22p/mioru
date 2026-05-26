@@ -125,9 +125,14 @@ func (s *PostgresStore) UpdateUser(ctx context.Context, username string, updates
 	return nil
 }
 
-// UpdatePassword updates the hashed password for a user identified by username.
+// UpdatePassword updates the hashed password for a user identified by username
+// and stamps password_changed_at = NOW() in the same statement. The timestamp is
+// the session-revocation epoch: AuthMW rejects any token issued before it, so
+// changing a password atomically logs out all of that user's other sessions.
 func (s *PostgresStore) UpdatePassword(ctx context.Context, username, hashedPW string) error {
-	tag, err := s.pool.Exec(ctx, `UPDATE users SET hashed_password = $1 WHERE username = $2`, hashedPW, username)
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE users SET hashed_password = $1, password_changed_at = NOW() WHERE username = $2`,
+		hashedPW, username)
 	if err != nil {
 		return fmt.Errorf("update password: %w", err)
 	}
@@ -135,6 +140,23 @@ func (s *PostgresStore) UpdatePassword(ctx context.Context, username, hashedPW s
 		return fmt.Errorf("user not found: %s", username)
 	}
 	return nil
+}
+
+// UserPasswordChangedAt returns the user's password_changed_at (the session
+// epoch). ok is false when no such user exists, so the auth middleware can reject
+// tokens for deleted accounts.
+func (s *PostgresStore) UserPasswordChangedAt(ctx context.Context, username string) (time.Time, bool, error) {
+	var changedAt time.Time
+	err := s.pool.QueryRow(ctx,
+		`SELECT password_changed_at FROM users WHERE username = $1`, username,
+	).Scan(&changedAt)
+	if err != nil {
+		if strings.Contains(err.Error(), "no rows") {
+			return time.Time{}, false, nil
+		}
+		return time.Time{}, false, fmt.Errorf("user password_changed_at: %w", err)
+	}
+	return changedAt, true, nil
 }
 
 // ── Password reset tokens ──

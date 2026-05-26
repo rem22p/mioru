@@ -49,34 +49,42 @@ func CheckDummyPassword(pw string) {
 }
 
 func CreateToken(sub, typ, secret string, expiryMin int) (string, error) {
+	now := time.Now()
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": sub,
 		"typ": typ,
-		"exp": time.Now().Add(time.Duration(expiryMin) * time.Minute).Unix(),
+		"iat": now.Unix(),
+		"exp": now.Add(time.Duration(expiryMin) * time.Minute).Unix(),
 	})
 	return t.SignedString([]byte(secret))
 }
 
 // ParseToken validates the token signature, pins the algorithm to HS256, and
 // requires the "typ" claim to equal wantType (audience separation between admin
-// users and store customers). Returns the subject on success.
-func ParseToken(tokenStr, secret, wantType string) (string, error) {
+// users and store customers). It returns the subject and the token's issued-at
+// (iat) as a Unix timestamp; iat lets the auth middleware reject tokens minted
+// before the account's last password change. A token without an iat claim yields
+// iat == 0, which is treated as "older than any password change" (rejected).
+func ParseToken(tokenStr, secret, wantType string) (sub string, iat int64, err error) {
 	t, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
 		return []byte(secret), nil
 	}, jwt.WithValidMethods([]string{"HS256"}))
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	if !t.Valid {
-		return "", errors.New("invalid token")
+		return "", 0, errors.New("invalid token")
 	}
 	claims, ok := t.Claims.(jwt.MapClaims)
 	if !ok {
-		return "", errors.New("invalid claims")
+		return "", 0, errors.New("invalid claims")
 	}
 	if typ, _ := claims["typ"].(string); typ != wantType {
-		return "", errors.New("wrong token type")
+		return "", 0, errors.New("wrong token type")
 	}
-	sub, _ := claims["sub"].(string)
-	return sub, nil
+	sub, _ = claims["sub"].(string)
+	if v, ok := claims["iat"].(float64); ok {
+		iat = int64(v)
+	}
+	return sub, iat, nil
 }

@@ -75,7 +75,7 @@ func TestCreateParseTokenRoundTrip(t *testing.T) {
 				t.Fatalf("CreateToken returned error: %v", err)
 			}
 
-			sub, err := ParseToken(tok, testSecret, tt.typ)
+			sub, _, err := ParseToken(tok, testSecret, tt.typ)
 			if err != nil {
 				t.Fatalf("ParseToken returned error: %v", err)
 			}
@@ -86,13 +86,34 @@ func TestCreateParseTokenRoundTrip(t *testing.T) {
 	}
 }
 
+// TestCreateTokenSetsIssuedAt guards that minted tokens carry an "iat" claim
+// (round-tripped by ParseToken). The session-revocation guard relies on iat: a
+// token without it is treated as stale, so a missing iat would silently break
+// password-change invalidation.
+func TestCreateTokenSetsIssuedAt(t *testing.T) {
+	before := time.Now().Unix()
+	tok, err := CreateToken("admin", TokenTypeUser, testSecret, 60)
+	if err != nil {
+		t.Fatalf("CreateToken returned error: %v", err)
+	}
+	after := time.Now().Unix()
+
+	_, iat, err := ParseToken(tok, testSecret, TokenTypeUser)
+	if err != nil {
+		t.Fatalf("ParseToken returned error: %v", err)
+	}
+	if iat < before || iat > after {
+		t.Errorf("iat = %d, want within [%d, %d]", iat, before, after)
+	}
+}
+
 func TestParseTokenWrongSecret(t *testing.T) {
 	tok, err := CreateToken("admin", TokenTypeUser, testSecret, 60)
 	if err != nil {
 		t.Fatalf("CreateToken returned error: %v", err)
 	}
 
-	if _, err := ParseToken(tok, "a-totally-different-secret-key-000000", TokenTypeUser); err == nil {
+	if _, _, err := ParseToken(tok, "a-totally-different-secret-key-000000", TokenTypeUser); err == nil {
 		t.Error("ParseToken accepted a token signed with a different secret")
 	}
 }
@@ -105,7 +126,7 @@ func TestParseTokenWrongType(t *testing.T) {
 		t.Fatalf("CreateToken returned error: %v", err)
 	}
 
-	_, err = ParseToken(userTok, testSecret, TokenTypeCustomer)
+	_, _, err = ParseToken(userTok, testSecret, TokenTypeCustomer)
 	if err == nil {
 		t.Fatal("a user token validated as a customer token")
 	}
@@ -121,14 +142,14 @@ func TestParseTokenExpired(t *testing.T) {
 		t.Fatalf("CreateToken returned error: %v", err)
 	}
 
-	if _, err := ParseToken(tok, testSecret, TokenTypeUser); err == nil {
+	if _, _, err := ParseToken(tok, testSecret, TokenTypeUser); err == nil {
 		t.Error("ParseToken accepted an expired token")
 	}
 }
 
 func TestParseTokenMalformed(t *testing.T) {
 	for _, tok := range []string{"", "not.a.jwt", "garbage"} {
-		if _, err := ParseToken(tok, testSecret, TokenTypeUser); err == nil {
+		if _, _, err := ParseToken(tok, testSecret, TokenTypeUser); err == nil {
 			t.Errorf("ParseToken accepted a malformed token %q", tok)
 		}
 	}
@@ -148,7 +169,7 @@ func TestParseTokenRejectsNoneAlg(t *testing.T) {
 		t.Fatalf("signing none-alg token returned error: %v", err)
 	}
 
-	if _, err := ParseToken(unsigned, testSecret, TokenTypeUser); err == nil {
+	if _, _, err := ParseToken(unsigned, testSecret, TokenTypeUser); err == nil {
 		t.Error("ParseToken accepted an alg=none token (algorithm pinning failed)")
 	}
 }

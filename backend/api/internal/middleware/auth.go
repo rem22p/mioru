@@ -4,13 +4,23 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"mioru/internal/auth"
 )
 
 type ctxKey struct{}
 
-func AuthMW(secret string) func(http.Handler) http.Handler {
+// UserEpochFunc returns the password-changed-at timestamp for the user, used to
+// invalidate tokens minted before the last password change. ok is false when the
+// user no longer exists (their tokens must then be rejected).
+type UserEpochFunc func(ctx context.Context, username string) (changedAt time.Time, ok bool, err error)
+
+// AuthMW authenticates admin/staff requests via a JWT (typ=user). Beyond
+// signature/expiry/audience checks it enforces session revocation: a token whose
+// issued-at predates the user's password_changed_at is rejected, so changing or
+// resetting a password logs out every previously issued session.
+func AuthMW(secret string, userEpoch UserEpochFunc) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			h := r.Header.Get("Authorization")
@@ -19,8 +29,19 @@ func AuthMW(secret string) func(http.Handler) http.Handler {
 				return
 			}
 			token := strings.TrimPrefix(h, "Bearer ")
-			username, err := auth.ParseToken(token, secret, auth.TokenTypeUser)
+			username, iat, err := auth.ParseToken(token, secret, auth.TokenTypeUser)
 			if err != nil {
+				http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
+				return
+			}
+			changedAt, ok, err := userEpoch(r.Context(), username)
+			if err != nil {
+				http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
+				return
+			}
+			// Compare at second granularity (iat is Unix seconds): a token issued
+			// in the same second as the change is accepted, anything older is not.
+			if !ok || iat < changedAt.Unix() {
 				http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
 				return
 			}
