@@ -2,12 +2,24 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
 
 	"mioru/internal/model"
 )
+
+// hashResetToken returns the hex SHA-256 of a raw password-reset token. Only the
+// hash is persisted, so a leaked database or backup cannot be used to reset
+// passwords — the raw token exists only in the email sent to the user. SHA-256
+// (not bcrypt) is the right tool here: the token is 256 bits of CSPRNG output,
+// so it is infeasible to brute-force and needs no salt or key-stretching.
+func hashResetToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
 
 // ── User operations on PostgreSQL ──
 
@@ -136,7 +148,7 @@ func (s *PostgresStore) CreateResetToken(ctx context.Context, username, token st
 	if _, err := s.pool.Exec(ctx, `
 		INSERT INTO password_reset_tokens (token, username, expires_at)
 		VALUES ($1, $2, $3)`,
-		token, username, time.Now().Add(time.Hour),
+		hashResetToken(token), username, time.Now().Add(time.Hour),
 	); err != nil {
 		return fmt.Errorf("create reset token: %w", err)
 	}
@@ -150,7 +162,7 @@ func (s *PostgresStore) ConsumeResetToken(ctx context.Context, token string) (st
 	err := s.pool.QueryRow(ctx, `
 		DELETE FROM password_reset_tokens
 		WHERE token = $1 AND expires_at > NOW()
-		RETURNING username`, token,
+		RETURNING username`, hashResetToken(token),
 	).Scan(&username)
 	if err != nil {
 		if strings.Contains(err.Error(), "no rows") {
