@@ -1,0 +1,21 @@
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: mioru-postgres-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mioru
+      POSTGRES_PASSWORD: mioru
+      POSTGRES_DB: mioru_test
+    ports:
+      - "127.0.0.1:55433:5432"
+    volumes:
+      - mioru_postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mioru -d mioru_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  mioru_postgres_test_data:
