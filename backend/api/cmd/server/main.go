@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -132,8 +135,54 @@ func main() {
 	})
 
 	addr := ":" + cfg.Port
-	log.Printf("Server starting on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, securityHeaders(mux)))
+	srv := newServer(addr, securityHeaders(mux))
+
+	// Serve in a goroutine so main can block on a shutdown signal and then drain
+	// in-flight requests instead of letting systemd kill them mid-flight.
+	serverErr := make(chan error, 1)
+	go func() {
+		log.Printf("Server starting on %s", addr)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErr <- err
+		}
+	}()
+
+	// Wait for a fatal serve error or a termination signal: systemd stop and
+	// redeploy send SIGTERM, Ctrl-C sends SIGINT.
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	select {
+	case err := <-serverErr:
+		log.Fatalf("server error: %v", err)
+	case sig := <-stop:
+		log.Printf("Received %s, draining in-flight requests...", sig)
+	}
+
+	// Give in-flight requests a bounded window to finish; the systemd unit's
+	// default TimeoutStopSec (90s) comfortably exceeds this drain budget.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("graceful shutdown timed out: %v", err)
+	}
+	log.Println("Server stopped")
+}
+
+// newServer builds the API HTTP server with explicit timeouts. net/http's
+// defaults are all zero (unbounded), which leaves the server open to
+// Slowloris-style connection-exhaustion DoS. ReadHeaderTimeout is the primary
+// slow-header guard; the wider Read/Write budgets accommodate the 32 MiB
+// multipart upload path on slower connections, and IdleTimeout caps idle
+// keep-alive connections.
+func newServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       120 * time.Second,
+		WriteTimeout:      120 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 }
 
 func cors(next http.HandlerFunc) http.HandlerFunc {
