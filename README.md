@@ -73,6 +73,7 @@ UPLOAD_DIR=uploads
 | `PORT` | Порт API | `8000` |
 | `UPLOAD_DIR` | Каталог загрузок | `uploads` |
 | `CORS_ORIGINS` | Разрешённые origin'ы фронтов (через запятую) | dev-порты + прод-домены |
+| `TRUST_PROXY` | Доверять `X-Forwarded-For`/`X-Real-IP` при определении IP для rate-limit. Включать **только** за доверенным прокси (nginx); иначе заголовки спуфятся и лимит обходится | `false` (в проде `setup-vps.sh` ставит `true`) |
 | `BOOTSTRAP_ADMIN_USERNAME` | Логин первого админа (см. ниже) | — |
 | `BOOTSTRAP_ADMIN_EMAIL` | Email первого админа | — |
 | `BOOTSTRAP_ADMIN_PASSWORD` | Пароль первого админа | — |

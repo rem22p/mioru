@@ -106,6 +106,9 @@ SECRET_KEY=${SECRET_KEY}
 APP_ENV=production
 PORT=8000
 UPLOAD_DIR=/opt/mioru/uploads
+# API runs behind nginx (which sets X-Real-IP/X-Forwarded-For), so trust them
+# for per-IP rate limiting. Keep false for any directly-exposed deployment.
+TRUST_PROXY=true
 
 # CORS (comma-separated origins — must list every allowed front-end origin)
 CORS_ORIGINS=https://mioru.store,https://www.mioru.store,https://admin.mioru.store,https://www.admin.mioru.store

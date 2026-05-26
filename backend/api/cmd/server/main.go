@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -66,8 +67,13 @@ func main() {
 	// rl builds a per-IP, 1-minute fixed-window rate limiter (in-process) for an
 	// endpoint, used to throttle credential-guessing on auth routes.
 	rateLimiter := middleware.NewMemoryRateLimiter(time.Minute)
+	// Trust X-Forwarded-For/X-Real-IP for client identification only when running
+	// behind a trusted reverse proxy (nginx sets TRUST_PROXY=true). Otherwise the
+	// headers are spoofable and would let an attacker rotate fake IPs to evade the
+	// per-IP rate limit.
+	trustProxy, _ := strconv.ParseBool(os.Getenv("TRUST_PROXY"))
 	rl := func(name string, limit int) func(http.HandlerFunc) http.HandlerFunc {
-		return middleware.RateLimit(name, limit, rateLimiter.Incr)
+		return middleware.RateLimit(name, limit, trustProxy, rateLimiter.Incr)
 	}
 
 	mux := http.NewServeMux()
