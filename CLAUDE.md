@@ -142,8 +142,9 @@ All loaded from `.env` via `godotenv.Load()` in `cmd/server/main.go`. They are r
 
 ### Security posture
 - Admin registration is **invite-only** (an existing admin creates admins); `RequireAdmin` re-checks the role from the DB on every privileged route.
-- JWT `typ` separation prevents a customer token from reaching admin routes; HS256 is pinned via `jwt.WithValidMethods`.
-- bcrypt cost 12; login runs a constant-time dummy hash on a missing user (timing guard).
+- JWT `typ` separation prevents a customer token from reaching admin routes; HS256 is pinned via `jwt.WithValidMethods`. Tokens carry an `iat`; `AuthMW`/`CustomerAuthMW` reject any token issued before the account's `password_changed_at`, so changing or resetting a password atomically invalidates all of that account's prior sessions (one DB lookup per authenticated request).
+- bcrypt cost 12; login runs a constant-time dummy hash on a missing user (timing guard); password-reset tokens are stored only as a SHA-256 hash (raw token exists only in the email).
+- JSON request bodies are capped at 1 MiB (`http.MaxBytesReader`); admin login bounds username ≤ 100 / password ≤ 72 before any store lookup.
 - CORS is an explicit allowlist (`CORS_ORIGINS`); credentialed responses reflect only allowlisted origins (`Vary: Origin`).
 - Per-IP rate limiting on login / register / forgot / reset.
 - Upload validation: extension check **plus** `http.DetectContentType` MIME sniff (SVG rejected); `/uploads` served with `nosniff` and a `default-src 'none'; sandbox` CSP.
