@@ -27,11 +27,8 @@ func main() {
 	// Build the CORS allowlist from CORS_ORIGINS (must be done after .env load).
 	allowedOrigins = buildAllowedOrigins()
 
-	// Re-generate random SECRET_KEY if not set in .env
-	if os.Getenv("SECRET_KEY") == "" {
-		log.Println("WARNING: SECRET_KEY not set in .env, generating random key")
-	}
-
+	// config.Load resolves SECRET_KEY (fatal when missing/short in production,
+	// random with a warning in development) and the rest of the runtime config.
 	cfg := config.Load()
 
 	// PostgreSQL store (users, products, categories, reset tokens). The first

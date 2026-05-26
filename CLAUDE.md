@@ -135,7 +135,7 @@ Serves priority #1 (reliability of financial operations) — money / stock / XP 
 ### Backend env vars
 All loaded from `.env` via `godotenv.Load()` in `cmd/server/main.go`. They are read in three places, not one — don't assume `config.go` owns them all:
 
-- **`config.Load()` (`internal/config/config.go`):** `SECRET_KEY` (≥32 chars, else a random one is generated + warns), `DATABASE_URL`, `PORT` (8000), `UPLOAD_DIR`. Token expiry is hardcoded to 1440 min.
+- **`config.Load()` (`internal/config/config.go`):** `APP_ENV` (default `development`), `SECRET_KEY`, `DATABASE_URL`, `PORT` (8000), `UPLOAD_DIR`. `SECRET_KEY` handling is environment-aware (`resolveSecretKey`): in **production** (`APP_ENV=production`/`prod`) a missing or <32-char key is **fatal** (never silently replaced — tokens survive restarts and a forgotten key can't ship); outside production a missing key is replaced by a random one (≥32 chars) with a warning. Token expiry is hardcoded to 1440 min. (`setup-vps.sh` writes `APP_ENV=production` into the VPS `.env`.)
 - **`main.go`:** `CORS_ORIGINS` (comma-separated allowlist; when set it **replaces** the built-in defaults).
 - **`seedAdmin()` (`internal/store/postgres.go`):** `BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` (first-admin seed).
 - **`email.NewService()` (`internal/email/email.go`):** `APP_BASE_URL` (base for password-reset links — the **admin** app hosts `/reset/{token}`, so it defaults to `http://localhost:5174`; set it to the admin domain in prod), `EMAIL_SENDER` (From address, default `onboarding@resend.dev`), `RESEND_API_KEY` (Resend API key; **when empty the reset email is only logged, not sent**).

@@ -103,6 +103,7 @@ DATABASE_URL=postgres://mioru:${DB_PASS}@localhost:5432/mioru?sslmode=disable
 SECRET_KEY=${SECRET_KEY}
 
 # Server
+APP_ENV=production
 PORT=8000
 UPLOAD_DIR=/opt/mioru/uploads
 
