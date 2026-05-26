@@ -12,7 +12,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const { login } = useAuthStore();
+  const { fetchUser } = useAuthStore();
   const nav = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
@@ -24,8 +24,12 @@ export default function Login() {
     }
     setLoading(true);
     try {
-      const data = await apiLogin(username, password);
-      login(data.access_token);
+      // POST /api/auth/login sets the HttpOnly auth + readable CSRF cookies
+      // and returns a small profile (no token). We then hydrate the auth
+      // store with the FULL user record from /api/users/me so downstream UI
+      // (avatar_color, first/last name) has every field it expects.
+      await apiLogin(username, password);
+      await fetchUser();
       setSuccess(true);
       setTimeout(() => nav("/"), 150);
     } catch (err) {

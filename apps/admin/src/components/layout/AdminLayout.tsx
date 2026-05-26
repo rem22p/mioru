@@ -21,17 +21,22 @@ export default function AdminLayout() {
   const { sidebarCollapsed, toggleSidebar } = useUiStore();
   const nav = useNavigate();
 
+  // Cookie-only auth: JS can't peek at the HttpOnly auth cookie, so on every
+  // mount we ASK the API. fetchUser() resolves isAuthenticated to a concrete
+  // bool — until then it's null and we render the neutral loader (otherwise
+  // a reload of any /admin route would flash the login screen for one tick
+  // before the /me round-trip completes).
   useEffect(() => {
-    if (!isAuthenticated) {
-      nav("/login");
-      return;
-    }
     fetchUser();
   }, []);
 
-  if (!isAuthenticated) return null;
+  useEffect(() => {
+    if (isAuthenticated === false) {
+      nav("/login");
+    }
+  }, [isAuthenticated, nav]);
 
-  if (isLoading) {
+  if (isAuthenticated === null || isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--color-bg-primary)]">
         <div className="text-center">
@@ -41,6 +46,8 @@ export default function AdminLayout() {
       </div>
     );
   }
+
+  if (!isAuthenticated) return null;
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--color-bg-primary)]">

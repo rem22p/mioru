@@ -12,32 +12,51 @@ interface ApiError {
   error: string;
 }
 
-async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = localStorage.getItem("token");
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options?.headers,
-    },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Network error" }));
-    throw new Error((body as ApiError).error || "Request failed");
+// CSRF_COOKIE matches cookieauth.StoreCSRFCookie on the backend.
+const CSRF_COOKIE = "store_csrf";
+
+// readCookie returns the value of the named cookie or null. Used to pick up
+// the CSRF token the backend set on customer login — the auth cookie itself
+// is HttpOnly and intentionally invisible to JS.
+function readCookie(name: string): string | null {
+  const prefix = `${name}=`;
+  for (const raw of document.cookie.split(";")) {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith(prefix)) {
+      return decodeURIComponent(trimmed.slice(prefix.length));
+    }
   }
-  return res.json();
+  return null;
 }
 
-/** API wrapper that reads customer_token (store customers, not admin users) */
-async function customerApi<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = localStorage.getItem("customer_token");
+// Methods the backend's CSRF middleware refuses without a token. Keep in
+// sync with middleware/csrf.go (anything not in the safe-list).
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+// api drives both unauthenticated public catalog requests and authenticated
+// customer requests. Cookie-only auth: AuthMW reads the JWT from an HttpOnly
+// cookie; the SPA opts in to sending cookies cross-origin (store.mioru.store
+// ↔ api.mioru.store) via credentials: include. Mutations also echo the CSRF
+// cookie back in the X-CSRF-Token header.
+async function api<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  const method = (options?.method || "GET").toUpperCase();
+  if (MUTATING_METHODS.has(method)) {
+    const csrf = readCookie(CSRF_COOKIE);
+    if (csrf) {
+      headers["X-CSRF-Token"] = csrf;
+    }
+  }
+
   const res = await fetch(`${API_URL}${path}`, {
+    credentials: "include",
     ...options,
     headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options?.headers,
+      ...headers,
+      ...((options?.headers as Record<string, string>) || {}),
     },
   });
   if (!res.ok) {
@@ -74,11 +93,8 @@ export interface CustomerLoginData {
   password: string;
 }
 
-export interface CustomerTokenResponse {
-  access_token: string;
-  token_type: string;
-}
-
+// CustomerProfile is the public profile shape the backend returns from
+// register / login (cookies carry the session — no token in the JSON body).
 export interface CustomerProfile {
   id: number;
   email: string;
@@ -89,22 +105,25 @@ export interface CustomerProfile {
 }
 
 export const fetchStoreRegister = (data: CustomerRegisterData) =>
-  api<CustomerTokenResponse>("/api/store/auth/register", {
+  api<CustomerProfile>("/api/store/auth/register", {
     method: "POST",
     body: JSON.stringify(data),
   });
 
 export const fetchStoreLogin = (data: CustomerLoginData) =>
-  api<CustomerTokenResponse>("/api/store/auth/login", {
+  api<CustomerProfile>("/api/store/auth/login", {
     method: "POST",
     body: JSON.stringify(data),
   });
 
+export const fetchStoreLogout = () =>
+  api<{ ok: true }>("/api/store/auth/logout", { method: "POST" });
+
 export const fetchStoreCustomerMe = () =>
-  customerApi<CustomerProfile>("/api/store/customers/me");
+  api<CustomerProfile>("/api/store/customers/me");
 
 export const fetchStoreCustomerUpdate = (data: Record<string, string>) =>
-  customerApi<{ ok: true }>("/api/store/customers/me", {
+  api<{ ok: true }>("/api/store/customers/me", {
     method: "PUT",
     body: JSON.stringify(data),
   });
@@ -113,7 +132,7 @@ export const fetchStoreCustomerChangePassword = (data: {
   current_password: string;
   new_password: string;
 }) =>
-  customerApi<{ ok: true }>("/api/store/customers/me/password", {
+  api<{ ok: true }>("/api/store/customers/me/password", {
     method: "PUT",
     body: JSON.stringify(data),
   });

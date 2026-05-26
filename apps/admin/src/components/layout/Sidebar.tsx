@@ -49,8 +49,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     nav('/login');
   };
 
