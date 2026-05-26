@@ -24,7 +24,7 @@ When trade-offs collide, resolve them top-down:
 ## Workflow rule (hard)
 
 Every change follows: **plan → user approves → make change → user checks → user says commit → agent commits.**
-No commits without explicit approval. No code changes before presenting a plan. The agent can commit/branch but **cannot push** (SSH passphrase); the user pushes. Remote: `git@github.com:rem22p/mioru.git`.
+No commits without explicit approval. No code changes before presenting a plan. Remote is HTTPS (`https://github.com/rem22p/mioru`) with a stored token, so the agent *can* push non-interactively (`GIT_TERMINAL_PROMPT=0 git push origin main`), but does NOT push by default — same approval gate as commit. Push only when the user explicitly says so, or under an explicit batch waiver (e.g. an autonomous run the user pre-authorized for a specific scope).
 
 ## What this is
 
