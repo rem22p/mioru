@@ -8,6 +8,8 @@ import { ShoppingBag, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
 
+const PER_PAGE = 20;
+
 function categoryEmoji(slug: string): string {
   const map: Record<string, string> = {
     sneakers: "👟",
@@ -24,9 +26,12 @@ export default function CatalogPage() {
   const {
     products,
     categories,
+    facets,
+    total,
     loading,
     error,
     fetchProducts,
+    fetchFacets,
     fetchCategories,
   } = useCatalogStore();
 
@@ -41,10 +46,8 @@ export default function CatalogPage() {
   );
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [page, setPage] = useState(1);
-  const PER_PAGE = 20;
   const addItem = useCartStore((state) => state.addItem);
 
-  // Reset filters when category changes
   const handleCategoryChange = (slug: string) => {
     setSelectedCategory(slug);
     setSelectedBrands(new Set());
@@ -64,13 +67,13 @@ export default function CatalogPage() {
     setPage(1);
   };
 
-  // Fetch data on mount — load up to 100 products for client-side pagination
+  // Bootstrap: load category tree once. Products + facets are loaded by the
+  // filter-driven effects below.
   useEffect(() => {
-    fetchProducts({ per_page: "100" });
     fetchCategories();
-  }, [fetchProducts, fetchCategories]);
+  }, [fetchCategories]);
 
-  // category_id → slug lookup
+  // category_id → slug lookup (used for product cards when no image is set).
   const categorySlugById = useMemo(() => {
     const map = new Map<number, string>();
     const walk = (cats: typeof categories) => {
@@ -83,110 +86,128 @@ export default function CatalogPage() {
     return map;
   }, [categories]);
 
-  // Flatten category tree for filter buttons
-  const flatCategories = useMemo(() => {
-    const result: typeof categories = [];
+  // For each category id, collect the set of descendant ids (including itself).
+  // When the user picks a parent category, the storefront sends all leaf ids so
+  // the backend returns products attached to any of them.
+  const descendantIdsBySlug = useMemo(() => {
+    const map = new Map<string, number[]>();
+    const collect = (node: (typeof categories)[number]): number[] => {
+      const ids = [node.id];
+      if (node.children) {
+        for (const ch of node.children) ids.push(...collect(ch));
+      }
+      return ids;
+    };
     const walk = (cats: typeof categories) => {
       for (const c of cats) {
-        result.push(c);
+        map.set(c.slug, collect(c));
         if (c.children) walk(c.children);
       }
     };
     walk(categories);
-    return result;
+    return map;
   }, [categories]);
 
-  // Products filtered by category only (before brand/color/size/price)
-  const categoryProducts = useMemo(() => {
-    if (selectedCategory === "all") return products;
-    const catId = flatCategories.find((c) => c.slug === selectedCategory)?.id;
-    if (catId == null) return products;
-    const ids = new Set<number>();
-    const collect = (cats: typeof categories) => {
-      for (const c of cats) {
-        if (c.id === catId || ids.has(c.parent_id ?? 0)) ids.add(c.id);
-        if (c.children) collect(c.children);
-      }
-    };
-    collect(categories);
-    ids.add(catId);
-    return products.filter((p) => ids.has(p.category_id));
-  }, [products, selectedCategory, flatCategories, categories]);
+  const categoryIds = useMemo(() => {
+    if (selectedCategory === "all") return [];
+    return (descendantIdsBySlug.get(selectedCategory) ?? []).map(String);
+  }, [selectedCategory, descendantIdsBySlug]);
 
-  // Available filter options from category-filtered products
-  const availableFilters = useMemo(() => {
-    const brands = new Set<string>();
-    const colors = new Set<string>();
-    const sizes = new Set<string>();
-    for (const p of categoryProducts) {
-      if (p.brand) brands.add(p.brand);
-      if (p.color) colors.add(p.color);
-      if (p.sizes) p.sizes.forEach((s) => sizes.add(s));
+  const sortParam = useMemo(() => {
+    switch (sortBy) {
+      case "price-asc":
+        return "price";
+      case "price-desc":
+        return "-price";
+      case "newest":
+      default:
+        return "-created_at";
     }
-    return {
-      brands: [...brands].sort(),
-      colors: [...colors].sort(),
-      sizes: [...sizes].sort((a, b) => {
+  }, [sortBy]);
+
+  // Stable keys for the Set-based filter state so deps arrays compare by value.
+  const brandKey = useMemo(
+    () => [...selectedBrands].sort().join("|"),
+    [selectedBrands],
+  );
+  const colorKey = useMemo(
+    () => [...selectedColors].sort().join("|"),
+    [selectedColors],
+  );
+  const sizeKey = useMemo(
+    () => [...selectedSizes].sort().join("|"),
+    [selectedSizes],
+  );
+  const categoryIdsKey = categoryIds.join(",");
+
+  // Fetch products whenever any filter, sort, or page changes.
+  useEffect(() => {
+    fetchProducts({
+      category_id: categoryIds.length > 0 ? categoryIds : undefined,
+      brand: brandKey ? brandKey.split("|") : undefined,
+      color: colorKey ? colorKey.split("|") : undefined,
+      size: sizeKey ? sizeKey.split("|") : undefined,
+      price_min: priceMin || undefined,
+      price_max: priceMax || undefined,
+      sort: sortParam,
+      page: String(page),
+      per_page: String(PER_PAGE),
+    });
+  }, [
+    fetchProducts,
+    categoryIdsKey,
+    categoryIds,
+    brandKey,
+    colorKey,
+    sizeKey,
+    priceMin,
+    priceMax,
+    sortParam,
+    page,
+  ]);
+
+  // Facets follow the scope (category + price + search) only — brand/color/size
+  // selections do NOT narrow the facet lists, otherwise picking one brand would
+  // hide every other brand from the UI.
+  useEffect(() => {
+    fetchFacets({
+      category_id: categoryIds.length > 0 ? categoryIds : undefined,
+      price_min: priceMin || undefined,
+      price_max: priceMax || undefined,
+    });
+  }, [fetchFacets, categoryIdsKey, categoryIds, priceMin, priceMax]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [totalPages, page]);
+
+  const availableFilters = useMemo(
+    () => ({
+      brands: facets.brands,
+      colors: facets.colors,
+      sizes: [...facets.sizes].sort((a, b) => {
         const na = parseInt(a);
         const nb = parseInt(b);
         if (!isNaN(na) && !isNaN(nb)) return na - nb;
         return a.localeCompare(b);
       }),
-    };
-  }, [categoryProducts]);
-
-  const toggleFilter = (setter: any, value: string) => {
-    setter((prev: Set<string>) => {
-      const next = new Set(prev);
-      next.has(value) ? next.delete(value) : next.add(value);
-      return next;
-    });
-  };
-
-  const filteredProducts = useMemo(() => {
-    let result = categoryProducts;
-    if (priceMin) result = result.filter((p) => p.price >= Number(priceMin));
-    if (priceMax) result = result.filter((p) => p.price <= Number(priceMax));
-    if (selectedBrands.size > 0)
-      result = result.filter((p) => selectedBrands.has(p.brand));
-    if (selectedColors.size > 0)
-      result = result.filter((p) => selectedColors.has(p.color));
-    if (selectedSizes.size > 0)
-      result = result.filter((p) => p.sizes?.some((s) => selectedSizes.has(s)));
-    switch (sortBy) {
-      case "price-asc":
-        result = [...result].sort((a, b) => a.price - b.price);
-        break;
-      case "price-desc":
-        result = [...result].sort((a, b) => b.price - a.price);
-        break;
-      case "newest":
-        result = [...result].sort(
-          (a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-        );
-        break;
-    }
-    return result;
-  }, [
-    categoryProducts,
-    sortBy,
-    priceMin,
-    priceMax,
-    selectedBrands,
-    selectedColors,
-    selectedSizes,
-  ]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PER_PAGE));
-  const paginatedProducts = filteredProducts.slice(
-    (page - 1) * PER_PAGE,
-    page * PER_PAGE,
+    }),
+    [facets],
   );
 
-  useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [totalPages, page]);
+  const toggleFilter = (
+    setter: React.Dispatch<React.SetStateAction<Set<string>>>,
+    value: string,
+  ) => {
+    setter((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
+    setPage(1);
+  };
 
   return (
     <div className="px-6 py-24 lg:px-8">
@@ -323,139 +344,133 @@ export default function CatalogPage() {
                 })()}
 
               {/* Dynamic filters — after any category selected */}
-              {selectedCategory !== "all" &&
-                (() => {
-                  const catHasChildren = categories.some((c) =>
-                    c.children?.some((ch) => ch.slug === selectedCategory),
-                  );
-                  const parentWithoutChildren = categories.some(
-                    (c) => !c.children?.length && c.slug === selectedCategory,
-                  );
-                  return catHasChildren || parentWithoutChildren;
-                })() && (
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={selectedCategory}
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="mb-6 overflow-hidden"
-                    >
-                      <div className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-5 space-y-5">
-                        <button
-                          onClick={() => setFiltersOpen(!filtersOpen)}
-                          className="w-full flex items-center justify-between text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
-                        >
-                          Фильтры
-                          <ChevronDown
-                            className={`h-4 w-4 transition-transform duration-300 ${filtersOpen ? "rotate-180" : ""}`}
-                          />
-                        </button>
-                        {filtersOpen && (
-                          <div className="space-y-5">
-                            {/* Sizes */}
-                            {availableFilters.sizes.length > 0 && (
-                              <div>
-                                <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
-                                  Размер
-                                </h4>
-                                <div className="flex flex-wrap gap-2">
-                                  {availableFilters.sizes.map((s) => (
-                                    <button
-                                      key={s}
-                                      onClick={() =>
-                                        toggleFilter(setSelectedSizes, s)
-                                      }
-                                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-                                        selectedSizes.has(s)
-                                          ? "bg-[#44944A] text-black border-[#44944A]"
-                                          : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
-                                      }`}
-                                    >
-                                      {s}
-                                    </button>
-                                  ))}
-                                </div>
+              {selectedCategory !== "all" && (
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={selectedCategory}
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mb-6 overflow-hidden"
+                  >
+                    <div className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-5 space-y-5">
+                      <button
+                        onClick={() => setFiltersOpen(!filtersOpen)}
+                        className="w-full flex items-center justify-between text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+                      >
+                        Фильтры
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform duration-300 ${filtersOpen ? "rotate-180" : ""}`}
+                        />
+                      </button>
+                      {filtersOpen && (
+                        <div className="space-y-5">
+                          {/* Sizes */}
+                          {availableFilters.sizes.length > 0 && (
+                            <div>
+                              <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
+                                Размер
+                              </h4>
+                              <div className="flex flex-wrap gap-2">
+                                {availableFilters.sizes.map((s) => (
+                                  <button
+                                    key={s}
+                                    onClick={() =>
+                                      toggleFilter(setSelectedSizes, s)
+                                    }
+                                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                                      selectedSizes.has(s)
+                                        ? "bg-[#44944A] text-black border-[#44944A]"
+                                        : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                                    }`}
+                                  >
+                                    {s}
+                                  </button>
+                                ))}
                               </div>
-                            )}
+                            </div>
+                          )}
 
-                            {/* Brands */}
-                            {availableFilters.brands.length > 0 && (
-                              <div>
-                                <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
-                                  Бренд
-                                </h4>
-                                <div className="flex flex-wrap gap-2">
-                                  {availableFilters.brands.map((b) => (
-                                    <button
-                                      key={b}
-                                      onClick={() =>
-                                        toggleFilter(setSelectedBrands, b)
-                                      }
-                                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-                                        selectedBrands.has(b)
-                                          ? "bg-[#44944A] text-black border-[#44944A]"
-                                          : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
-                                      }`}
-                                    >
-                                      {b}
-                                    </button>
-                                  ))}
-                                </div>
+                          {/* Brands */}
+                          {availableFilters.brands.length > 0 && (
+                            <div>
+                              <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
+                                Бренд
+                              </h4>
+                              <div className="flex flex-wrap gap-2">
+                                {availableFilters.brands.map((b) => (
+                                  <button
+                                    key={b}
+                                    onClick={() =>
+                                      toggleFilter(setSelectedBrands, b)
+                                    }
+                                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                                      selectedBrands.has(b)
+                                        ? "bg-[#44944A] text-black border-[#44944A]"
+                                        : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                                    }`}
+                                  >
+                                    {b}
+                                  </button>
+                                ))}
                               </div>
-                            )}
+                            </div>
+                          )}
 
-                            {/* Colors */}
-                            {availableFilters.colors.length > 0 && (
-                              <div>
-                                <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
-                                  Цвет
-                                </h4>
-                                <div className="flex flex-wrap gap-2">
-                                  {availableFilters.colors.map((c) => (
-                                    <button
-                                      key={c}
-                                      onClick={() =>
-                                        toggleFilter(setSelectedColors, c)
-                                      }
-                                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-                                        selectedColors.has(c)
-                                          ? "bg-[#44944A] text-black border-[#44944A]"
-                                          : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
-                                      }`}
-                                    >
-                                      {c}
-                                    </button>
-                                  ))}
-                                </div>
+                          {/* Colors */}
+                          {availableFilters.colors.length > 0 && (
+                            <div>
+                              <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
+                                Цвет
+                              </h4>
+                              <div className="flex flex-wrap gap-2">
+                                {availableFilters.colors.map((c) => (
+                                  <button
+                                    key={c}
+                                    onClick={() =>
+                                      toggleFilter(setSelectedColors, c)
+                                    }
+                                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                                      selectedColors.has(c)
+                                        ? "bg-[#44944A] text-black border-[#44944A]"
+                                        : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                                    }`}
+                                  >
+                                    {c}
+                                  </button>
+                                ))}
                               </div>
-                            )}
+                            </div>
+                          )}
 
-                            {(selectedBrands.size > 0 ||
-                              selectedColors.size > 0 ||
-                              selectedSizes.size > 0 ||
-                              priceMin ||
-                              priceMax) && (
-                              <button
-                                type="button"
-                                onClick={resetFilters}
-                                className="w-full text-center text-xs text-[var(--color-text-muted)] hover:text-red-500 transition-colors py-1"
-                              >
-                                Сбросить все фильтры
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  </AnimatePresence>
-                )}
+                          {(selectedBrands.size > 0 ||
+                            selectedColors.size > 0 ||
+                            selectedSizes.size > 0 ||
+                            priceMin ||
+                            priceMax) && (
+                            <button
+                              type="button"
+                              onClick={resetFilters}
+                              className="w-full text-center text-xs text-[var(--color-text-muted)] hover:text-red-500 transition-colors py-1"
+                            >
+                              Сбросить все фильтры
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+              )}
 
               {/* Sort + price row */}
               <div className="flex items-center gap-3 mt-4">
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                  onChange={(e) => {
+                    setSortBy(e.target.value as typeof sortBy);
+                    setPage(1);
+                  }}
                   className="rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-4 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] transition-colors"
                 >
                   <option value="newest">{t("catalog.sortBy.newest")}</option>
@@ -471,7 +486,10 @@ export default function CatalogPage() {
                     type="number"
                     placeholder="Цена от"
                     value={priceMin}
-                    onChange={(e) => setPriceMin(e.target.value)}
+                    onChange={(e) => {
+                      setPriceMin(e.target.value);
+                      setPage(1);
+                    }}
                     className="w-24 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                   <span className="text-[var(--color-text-muted)] text-sm">
@@ -481,7 +499,10 @@ export default function CatalogPage() {
                     type="number"
                     placeholder="До"
                     value={priceMax}
-                    onChange={(e) => setPriceMax(e.target.value)}
+                    onChange={(e) => {
+                      setPriceMax(e.target.value);
+                      setPage(1);
+                    }}
                     className="w-24 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
@@ -490,7 +511,7 @@ export default function CatalogPage() {
 
             {/* Product grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {paginatedProducts.map((product, index) => (
+              {products.map((product, index) => (
                 <motion.div
                   key={product.id}
                   initial={{ opacity: 0, y: 20 }}

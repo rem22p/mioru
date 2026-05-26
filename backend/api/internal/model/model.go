@@ -73,12 +73,27 @@ type ProductImage struct {
 
 // ProductFilter defines filtering, sorting, and pagination options for listing products
 type ProductFilter struct {
-	CategoryID int
-	Search     string
-	Brand      string
-	Sort       string
-	Page       int
-	PerPage    int
+	CategoryID  int   // legacy single-value filter; combined with CategoryIDs via OR
+	CategoryIDs []int // multi-value, lets the storefront fold a parent category + its children into one query
+	Search      string
+	Brand       string // legacy single-value filter; combined with Brands via OR
+	Brands      []string
+	Colors      []string
+	Sizes       []string
+	PriceMin    int // 0 = no lower bound
+	PriceMax    int // 0 = no upper bound
+	Sort        string
+	Page        int
+	PerPage     int
+}
+
+// ProductFacets enumerates the distinct values available for filtering within
+// a given scope (typically a category). Returned by storeReader.ListProductFacets
+// so the storefront filter UI shows only what actually matches.
+type ProductFacets struct {
+	Brands []string `json:"brands"`
+	Colors []string `json:"colors"`
+	Sizes  []string `json:"sizes"`
 }
 
 // Customer represents a store customer (separate from admin users)
