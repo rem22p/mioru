@@ -52,11 +52,6 @@ func (s *PostgresStore) Close() {
 	s.pool.Close()
 }
 
-// Pool returns the underlying *pgxpool.Pool (used by migration handler).
-func (s *PostgresStore) Pool() *pgxpool.Pool {
-	return s.pool
-}
-
 func (s *PostgresStore) migrate(ctx context.Context) error {
 	if err := s.runMigrations(ctx); err != nil {
 		return err
