@@ -18,19 +18,47 @@ interface ApiError {
   error: string;
 }
 
+// CSRF_COOKIE matches cookieauth.AdminCSRFCookie on the backend.
+const CSRF_COOKIE = "csrf_token";
+
+// readCookie returns the value of the named cookie or null. Used to pick up
+// the CSRF token the backend set on login — the auth cookie itself is
+// HttpOnly and intentionally invisible to JS.
+function readCookie(name: string): string | null {
+  const prefix = `${name}=`;
+  for (const raw of document.cookie.split(";")) {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith(prefix)) {
+      return decodeURIComponent(trimmed.slice(prefix.length));
+    }
+  }
+  return null;
+}
+
+// Methods that the backend's CSRF middleware refuses without a token. Keep
+// in sync with middleware/csrf.go (anything not in the safe-list).
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = localStorage.getItem("token");
   const headers: Record<string, string> = {};
 
   if (!(options?.body instanceof FormData)) {
     headers["Content-Type"] = "application/json";
   }
 
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+  // Cookie-only auth: AuthMW reads the JWT from an HttpOnly cookie. We must
+  // opt in to sending cookies with cross-origin requests (admin SPA ↔
+  // api.mioru.store) — fetch defaults to "same-origin".
+  const method = (options?.method || "GET").toUpperCase();
+  if (MUTATING_METHODS.has(method)) {
+    const csrf = readCookie(CSRF_COOKIE);
+    if (csrf) {
+      headers["X-CSRF-Token"] = csrf;
+    }
   }
 
   const res = await fetch(`${API_URL}${path}`, {
+    credentials: "include",
     ...options,
     headers: {
       ...headers,
@@ -48,8 +76,17 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
 
 // ── Auth ──
 
+// Login no longer returns a token: the backend sets HttpOnly auth + readable
+// CSRF cookies on the response. The body carries a small public profile so
+// the UI can render immediately without a follow-up /me round-trip.
 export const login = (username: string, password: string) =>
-  api<{ access_token: string }>("/api/auth/login", {
+  api<{
+    id: number;
+    username: string;
+    email: string;
+    display_name: string;
+    role: string;
+  }>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({ username, password }),
   });
@@ -70,6 +107,9 @@ export const register = (body: {
       body: JSON.stringify(body),
     },
   );
+
+export const logout = () =>
+  api<{ ok: true }>("/api/auth/logout", { method: "POST" });
 
 export const forgotPassword = (email: string) =>
   api<{ message: string }>("/api/auth/forgot-password", {

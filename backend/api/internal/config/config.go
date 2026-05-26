@@ -63,6 +63,13 @@ func isProduction(appEnv string) bool {
 	return strings.EqualFold(appEnv, "production") || strings.EqualFold(appEnv, "prod")
 }
 
+// IsProduction reports whether the loaded config targets the production
+// environment. Consumers gate runtime decisions (notably the cookie Secure
+// flag) on it instead of re-deriving the answer from AppEnv themselves.
+func (c Config) IsProduction() bool {
+	return isProduction(c.AppEnv)
+}
+
 // resolveSecretKey decides the JWT signing key for the configured environment.
 //
 // In production a strong SECRET_KEY (>= minSecretKeyLen chars) is mandatory: an

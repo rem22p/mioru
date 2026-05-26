@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"mioru/internal/auth"
+	"mioru/internal/cookieauth"
 	"mioru/internal/email"
 	"mioru/internal/middleware"
 	"mioru/internal/model"
@@ -37,10 +38,14 @@ type AuthHandler struct {
 	email  *email.Service
 	secret string
 	expiry int
+	// secure controls the Secure attribute on the auth/CSRF cookies. true in
+	// production, false in dev (so the cookie is not silently dropped over
+	// plain HTTP outside the localhost-secure-context browser exception).
+	secure bool
 }
 
-func NewAuthHandler(pgStore userStore, emailSvc *email.Service, secret string, expiry int) *AuthHandler {
-	return &AuthHandler{store: pgStore, email: emailSvc, secret: secret, expiry: expiry}
+func NewAuthHandler(pgStore userStore, emailSvc *email.Service, secret string, expiry int, secure bool) *AuthHandler {
+	return &AuthHandler{store: pgStore, email: emailSvc, secret: secret, expiry: expiry, secure: secure}
 }
 
 type registerReq struct {
@@ -56,9 +61,17 @@ type loginReq struct {
 	Password string `json:"password"`
 }
 
-type tokenResp struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
+// loginUserResp is the body returned by Login: a small public profile of the
+// authenticated user. The actual session lives in HttpOnly cookies set on the
+// same response — the JSON deliberately carries no token, so JavaScript can
+// never read it (closing the XSS-exfil path that motivated the migration to
+// cookie-only auth).
+type loginUserResp struct {
+	ID          int64  `json:"id"`
+	Username    string `json:"username"`
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+	Role        string `json:"role"`
 }
 
 // createdUserResp is the response of Register: the new account's public summary,
@@ -191,8 +204,37 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+	csrf, err := cookieauth.GenCSRFToken()
+	if err != nil {
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	// expiry is configured in minutes (see config.Config.TokenExpiry); the
+	// browser wants seconds. Both cookies share the same MaxAge so the CSRF
+	// token can't outlive the session it protects, and vice versa.
+	maxAge := h.expiry * 60
+	cookieauth.SetAuthCookie(w, cookieauth.AdminAuthCookie, tok, h.secure, maxAge)
+	cookieauth.SetCSRFCookie(w, cookieauth.AdminCSRFCookie, csrf, h.secure, maxAge)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(tokenResp{AccessToken: tok, TokenType: "bearer"})
+	json.NewEncoder(w).Encode(loginUserResp{
+		ID:          user.ID,
+		Username:    user.Username,
+		Email:       user.Email,
+		DisplayName: user.DisplayName,
+		Role:        user.Role,
+	})
+}
+
+// Logout clears the admin auth and CSRF cookies. It is a state-changing
+// endpoint (it mutates the client's session), so it MUST be mounted behind
+// the CSRF middleware — otherwise a foreign origin could force-log-out an
+// authenticated admin. The handler itself is intentionally idempotent: the
+// cookies are cleared whether or not the caller's session was still valid.
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	cookieauth.ClearCookie(w, cookieauth.AdminAuthCookie, h.secure)
+	cookieauth.ClearCookie(w, cookieauth.AdminCSRFCookie, h.secure)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"ok":true}`))
 }
 
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {

@@ -33,7 +33,7 @@ MIORU — virtual clothing try-on with a 3D avatar. A monorepo with two React SP
 ```
 apps/store/    Storefront SPA (React 19 + Vite), port 5173 — public, served as static/CDN
 apps/admin/    Admin panel SPA (React 19 + Vite), port 5174 — product management, auth
-backend/api/   Go API (net/http + PostgreSQL + JWT), port 8000
+backend/api/   Go API (net/http + PostgreSQL + HttpOnly-cookie JWT + CSRF), port 8000
 scripts/       VPS provisioning + DB seeding
 ```
 
@@ -86,7 +86,7 @@ bash scripts/seed-300.sh | psql "$DATABASE_URL"   # 300 random products
 - **Single datastore — PostgreSQL** (`internal/store/postgres.go`, `user_postgres.go`, `customer_postgres.go`) via `pgxpool`: users, customers, products, categories, sizes, size charts, images, and password-reset tokens.
 - **Schema = versioned migrations** via **tern** (`github.com/jackc/tern/v2/migrate`). SQL files live in `internal/store/migrations/` (`NNN_*.sql`), are `//go:embed`-ed into the binary, and `runMigrations()` (called from `PostgresStore.migrate()`) applies them up to the latest on startup, tracking the applied version in `public.schema_version`. `001_baseline.sql` is the original schema as `CREATE TABLE IF NOT EXISTS` (so an existing DB adopts it as a no-op); `002_seed_categories.sql` seeds the category tree. New schema/seed changes ship as new numbered files, never edits to applied ones.
 - **First admin:** seeded inside `migrate()` (`seedAdmin`) from `BOOTSTRAP_ADMIN_*` env — idempotent `INSERT ... ON CONFLICT DO NOTHING`. Registration is invite-only, so this resolves the first-admin chicken-and-egg.
-- **Auth:** JWT (`internal/auth`), HS256 with a single `SECRET_KEY`. Two audiences via the `typ` claim: `TokenTypeUser` (admin/staff) and `TokenTypeCustomer` (storefront). Enforced by `middleware.AuthMW` / `middleware.CustomerAuthMW`; `middleware.RequireAdmin` does a DB-backed role check. Public store endpoints use a plain `cors()` wrapper.
+- **Auth:** **HttpOnly-cookie JWT**, **no Bearer fallback**. JWT (`internal/auth`) is HS256 with a single `SECRET_KEY`; two audiences via the `typ` claim — `TokenTypeUser` (admin/staff) and `TokenTypeCustomer` (storefront). Cookies are minted via `internal/cookieauth`: admin → `auth_token` (HttpOnly) + `csrf_token` (JS-readable); storefront → `store_auth` (HttpOnly) + `store_csrf` (JS-readable). The audience pair is separate by design so the two apps can coexist on the same eTLD+1 without clobbering each other. `Secure` is gated on `cfg.IsProduction()` so dev over plain HTTP still works. `middleware.AuthMW` / `middleware.CustomerAuthMW` read the token ONLY from the cookie (Authorization header is ignored — tested as a regression guard); `middleware.RequireAdmin` re-checks role from the DB on every privileged route. State-changing requests under either AuthMW must echo the matching CSRF cookie back in `X-CSRF-Token` — `middleware.CSRF` does a constant-time double-submit compare and 403s on miss/mismatch. Login/forgot/reset are unauthenticated and bootstrap the session itself, so they sit outside the CSRF gate (rate limiting is the abuse guard there). `POST /api/auth/logout` + `POST /api/store/auth/logout` clear both cookies (mounted under CSRF so a foreign origin can't force-log-out an authenticated session). Public store endpoints use a plain `cors()` wrapper.
 - **Rate limiting:** in-process fixed-window limiter (`middleware/memstore.go`, `MemoryRateLimiter`) on auth routes — per client IP.
 - **Handlers** (`internal/handler/`): `handler.go` (admin auth + profile), `customer.go` (storefront customer auth + profile), `store.go` (public storefront read), `product.go` (admin product CRUD + image upload).
 - **Uploads** saved to `UPLOAD_DIR` (default `uploads/`), served at `GET /uploads/` (hardened: nosniff + locked-down CSP).
@@ -128,9 +128,12 @@ Serves priority #1 (reliability of financial operations) — money / stock / XP 
 - Background jobs updating shared state use compare-and-swap (write only if the current value still matches) to avoid stale overwrites.
 
 ### API contract (how the frontends talk to it)
+
+All authenticated calls are **cookie-based** — the SPA must send `credentials: "include"` (so the browser attaches `auth_token` / `store_auth`) and, for any state-changing method (`POST`/`PUT`/`PATCH`/`DELETE`), copy the matching CSRF cookie value into the `X-CSRF-Token` header. There is no `Authorization: Bearer …` path and no token in the JSON response body — login/register return only the user/customer profile. The server's `Access-Control-Allow-Headers` advertises `Content-Type, X-CSRF-Token`.
+
 - **Store public (no auth):** `GET /api/products` (query: `category_id, search, brand, sort, page, per_page`), `GET /api/products/{slug}`, `GET /api/categories` (returns the category **tree**, not flat).
-- **Store customers (JWT typ=customer):** `POST /api/store/auth/{register,login}`, `/api/store/customers/me*`.
-- **Admin (JWT typ=user):** `POST /api/auth/{register,login,forgot-password,reset-password}` (**register is invite-only** — admin-only), `/api/users/me*`, `/api/admin/products*`, `/api/admin/upload`, `/api/admin/categories`.
+- **Store customers (cookie `store_auth`, CSRF `store_csrf` ↔ `X-CSRF-Token`):** `POST /api/store/auth/{register,login}` (no CSRF — bootstraps the session, rate-limited), `POST /api/store/auth/logout` (CSRF required), `/api/store/customers/me*` (CSRF required on mutations).
+- **Admin (cookie `auth_token`, CSRF `csrf_token` ↔ `X-CSRF-Token`):** `POST /api/auth/{register,login,forgot-password,reset-password}` (register is **invite-only**, admin-only; login/forgot/reset bootstrap and so sit outside CSRF — rate limiting is the guard), `POST /api/auth/logout` (CSRF required), `/api/users/me*`, `/api/admin/products*`, `/api/admin/upload`, `/api/admin/categories` (all admin routes CSRF-required on mutations).
 
 ### Backend env vars
 All loaded from `.env` via `godotenv.Load()` in `cmd/server/main.go`. They are read in three places, not one — don't assume `config.go` owns them all:
@@ -142,11 +145,14 @@ All loaded from `.env` via `godotenv.Load()` in `cmd/server/main.go`. They are r
 
 ### Security posture
 - Admin registration is **invite-only** (an existing admin creates admins); `RequireAdmin` re-checks the role from the DB on every privileged route.
+- **Auth lives in HttpOnly cookies — never in `localStorage` and never in the JSON body.** XSS in either SPA cannot exfiltrate the session token (HttpOnly hides it from JS). The CSRF cookie *is* readable so the SPA can echo it in `X-CSRF-Token`; that's safe because a foreign origin cannot read it (Same-Origin Policy) — the double-submit-cookie pattern.
+- **CSRF gate on every authenticated mutation** (`middleware.CSRF`) — constant-time compare (`crypto/subtle.ConstantTimeCompare`) between the readable CSRF cookie and the `X-CSRF-Token` request header; missing or mismatching → 403, no logging of the cookie or header values. Logout is gated too, so a foreign origin can't force-log-out an authenticated session.
+- **`SameSite=Lax`** on both cookie pairs limits drive-by CSRF to top-level navigations; `Secure` is on in production (gated via `cfg.IsProduction()`), off in dev so plain-HTTP localhost works. Separate cookie names per audience (`auth_token`/`csrf_token` vs `store_auth`/`store_csrf`) so admin and storefront can coexist on the same eTLD+1 without overwriting each other.
 - JWT `typ` separation prevents a customer token from reaching admin routes; HS256 is pinned via `jwt.WithValidMethods`. Tokens carry an `iat`; `AuthMW`/`CustomerAuthMW` reject any token issued before the account's `password_changed_at`, so changing or resetting a password atomically invalidates all of that account's prior sessions (one DB lookup per authenticated request).
 - bcrypt cost 12; login runs a constant-time dummy hash on a missing user (timing guard); password-reset tokens are stored only as a SHA-256 hash (raw token exists only in the email).
 - JSON request bodies are capped at 1 MiB (`http.MaxBytesReader`); admin login bounds username ≤ 100 / password ≤ 72 before any store lookup.
-- CORS is an explicit allowlist (`CORS_ORIGINS`); credentialed responses reflect only allowlisted origins (`Vary: Origin`).
-- Per-IP rate limiting on login / register / forgot / reset.
+- CORS is an explicit allowlist (`CORS_ORIGINS`); credentialed responses reflect only allowlisted origins (`Vary: Origin`). `Allow-Headers` exposes only `Content-Type, X-CSRF-Token` — `Authorization` is not advertised because Bearer auth is intentionally not supported.
+- Per-IP rate limiting on login / register / forgot / reset (the unauthenticated routes that sit outside the CSRF gate).
 - Upload validation: extension check **plus** `http.DetectContentType` MIME sniff (SVG rejected); `/uploads` served with `nosniff` and a `default-src 'none'; sandbox` CSP.
 - 500-level errors log internally and return a generic message — no `err.Error()` leakage to clients.
 - Security headers + HSTS on all responses.
@@ -156,7 +162,7 @@ All loaded from `.env` via `godotenv.Load()` in `cmd/server/main.go`. They are r
 - **Stack:** React 19, Vite, TypeScript, Tailwind **v4** (`@tailwindcss/vite`, no config file — theme in `index.css`), shadcn/ui-style components built on Radix in `src/components/ui/`.
 - **Path alias:** `@/` → `src/` (used everywhere; configured in vite + tsconfig).
 - **State:** Zustand stores in `src/stores/` (one store per domain: `cartStore`, `authStore`, `catalogStore`, `avatarStore`, etc.). Async fetch logic lives inside the store actions.
-- **API layer:** all HTTP in `src/lib/api.ts`. Base URL from `VITE_API_URL` (store defaults to `https://api.mioru.store`, admin defaults to `""`). JWT read from `localStorage.getItem("token")`. `getImageUrl()` prefixes relative upload paths.
+- **API layer:** all HTTP in `src/lib/api.ts`. Base URL from `VITE_API_URL` (store defaults to `https://api.mioru.store`, admin defaults to `""`). **Auth is cookie-based**: every call uses `credentials: "include"` so the browser attaches the HttpOnly session cookie; on mutating methods (`POST`/`PUT`/`PATCH`/`DELETE`) the helper reads the readable CSRF cookie (`csrf_token` for admin, `store_csrf` for store) and copies it into `X-CSRF-Token`. **No token is read from or written to `localStorage` — that pattern is deliberately removed (XSS exfil risk).** `getImageUrl()` prefixes relative upload paths.
 - **i18n:** i18next, three locales RU/EN/RO in `src/i18n/locales/`.
 - **Theme:** dark/light toggled by adding/removing the `light` class on `<html>`; colors are CSS variables `--color-*` in `index.css` — **CSS variables are the source of truth**, not the `COLORS` object in `src/lib/constants.ts` (that object is legacy/stale).
 - **Tests:** colocated `*.test.ts(x)` next to source — framework and conventions in **Testing standard**.
@@ -167,7 +173,7 @@ All loaded from `.env` via `godotenv.Load()` in `cmd/server/main.go`. They are r
 - Catalog currently loads up to 100 products and paginates client-side.
 
 ### Admin app specifics
-- `App.tsx` routes only auth pages; everything else (`/*`) goes to `AdminLayout`, which performs the auth check (no duplicate auth logic in routes).
+- `App.tsx` routes only auth pages; everything else (`/*`) goes to `AdminLayout`, which performs the auth check (no duplicate auth logic in routes). `authStore.isAuthenticated` is **tri-state** (`null | true | false`): the layout renders a neutral loader while it's `null` (probe in flight) and only redirects to `/login` when it resolves to `false` — there's no synchronous "do we have a token" check anymore (the cookie is HttpOnly and the SPA can't see it), so the answer comes from `GET /api/users/me` succeeding or returning 401.
 - UI organized as **workspaces** (`src/workspaces/`, declared in `src/lib/constants.ts WORKSPACES`); only `products` is active, the rest are placeholders.
 - The category tree is **owned by the backend**: the admin fetches it from `/api/admin/categories` into `productStore.categories` (no hardcoded copy in the frontend). The single source is the seed migration `internal/store/migrations/002_seed_categories.sql`, pinned by `TestSeededCategoryTree` in the `store` package.
 

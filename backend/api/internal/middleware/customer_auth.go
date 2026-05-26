@@ -4,10 +4,10 @@ import (
 	"context"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"mioru/internal/auth"
+	"mioru/internal/cookieauth"
 )
 
 type customerCtxKey struct{}
@@ -17,19 +17,19 @@ type customerCtxKey struct{}
 // when the customer no longer exists.
 type CustomerEpochFunc func(ctx context.Context, id int64) (changedAt time.Time, ok bool, err error)
 
-// CustomerAuthMW is the auth middleware for store customers. It expects a JWT
-// with subject = customer ID (typ=customer) and, like AuthMW, rejects tokens
+// CustomerAuthMW is the auth middleware for store customers. The JWT is
+// carried in an HttpOnly cookie (#8 removed the Authorization/Bearer path),
+// with subject = customer ID (typ=customer). Like AuthMW it rejects tokens
 // issued before the customer's last password change (session revocation).
 func CustomerAuthMW(secret string, customerEpoch CustomerEpochFunc) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			h := r.Header.Get("Authorization")
-			if h == "" {
+			c, err := r.Cookie(cookieauth.StoreAuthCookie)
+			if err != nil || c.Value == "" {
 				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 				return
 			}
-			token := strings.TrimPrefix(h, "Bearer ")
-			sub, iat, err := auth.ParseToken(token, secret, auth.TokenTypeCustomer)
+			sub, iat, err := auth.ParseToken(c.Value, secret, auth.TokenTypeCustomer)
 			if err != nil {
 				http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
 				return
