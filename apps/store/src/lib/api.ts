@@ -68,10 +68,69 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
 
 // ── Public catalog ──
 
-export const fetchStoreProducts = (params: Record<string, string>) =>
-  api<{ products: Product[]; total: number }>(
-    "/api/products?" + new URLSearchParams(params),
-  );
+// CatalogQuery mirrors the backend's storefront filter contract. Multi-value
+// fields (brand/color/size) come through as repeated query keys; scalar
+// fields (sort, page, per_page, category_id, search, price_min, price_max)
+// stay as strings so the caller doesn't have to remember which is which.
+export type CatalogQuery = Partial<{
+  category_id: string | string[];
+  search: string;
+  sort: string;
+  page: string;
+  per_page: string;
+  price_min: string;
+  price_max: string;
+  brand: string[];
+  color: string[];
+  size: string[];
+}>;
+
+export interface ProductsPage {
+  products: Product[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export interface ProductFacets {
+  brands: string[];
+  colors: string[];
+  sizes: string[];
+}
+
+function buildCatalogParams(query: CatalogQuery): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value == null) continue;
+    if (Array.isArray(value)) {
+      for (const v of value) {
+        if (v) params.append(key, v);
+      }
+    } else if (value !== "") {
+      params.append(key, value);
+    }
+  }
+  return params.toString();
+}
+
+export const fetchStoreProducts = (query: CatalogQuery = {}) => {
+  const qs = buildCatalogParams(query);
+  return api<ProductsPage>("/api/products" + (qs ? "?" + qs : ""));
+};
+
+export const fetchStoreProductFacets = (query: CatalogQuery = {}) => {
+  // Strip the chip selections — the backend ignores them anyway, but trimming
+  // here keeps the URL short and avoids a wasteful re-fetch when the user
+  // toggles a chip (facets only depend on category/search/price scope).
+  const scope: CatalogQuery = {
+    category_id: query.category_id,
+    search: query.search,
+    price_min: query.price_min,
+    price_max: query.price_max,
+  };
+  const qs = buildCatalogParams(scope);
+  return api<ProductFacets>("/api/products/facets" + (qs ? "?" + qs : ""));
+};
 
 export const fetchStoreProduct = (slug: string) =>
   api<Product>("/api/products/" + slug);
