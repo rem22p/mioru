@@ -37,26 +37,46 @@ for i in $(seq 1 300); do
   color=$(rand "${COLORS[@]}")
   price=$(rprice)
   
+  # Pick sizes as a bash array so they survive into SQL as separate rows
+  # (the old comma-joined string ended up as ARRAY['40,41,42,43'] — one
+  # element, so unnest produced a single bogus "40,41,42,43" size_label).
   case $cid in
     2|3|4|5|6|7|8|9|10)
-      sz=$(rand "${SIZES_CLOTHING[@]}")","$(rand "${SIZES_CLOTHING[@]}")","$(rand "${SIZES_CLOTHING[@]}")
+      sizes=("$(rand "${SIZES_CLOTHING[@]}")" "$(rand "${SIZES_CLOTHING[@]}")" "$(rand "${SIZES_CLOTHING[@]}")")
       ;;
     12|13|14)
-      sz=$(rand "${SIZES_SHOES[@]}")","$(rand "${SIZES_SHOES[@]}")","$(rand "${SIZES_SHOES[@]}")","$(rand "${SIZES_SHOES[@]}")
+      sizes=("$(rand "${SIZES_SHOES[@]}")" "$(rand "${SIZES_SHOES[@]}")" "$(rand "${SIZES_SHOES[@]}")" "$(rand "${SIZES_SHOES[@]}")")
       ;;
-    *) sz="One size" ;;
+    *) sizes=("One size") ;;
   esac
-  
+
+  # Dedupe — rand can hit the same value twice and a real product never
+  # carries the same size_label twice.
+  declare -A seen=()
+  unique_sizes=()
+  for s in "${sizes[@]}"; do
+    if [[ -z "${seen[$s]+x}" ]]; then
+      seen[$s]=1
+      unique_sizes+=("$s")
+    fi
+  done
+
+  # Render ARRAY['40','41','42'] — quoted, comma-joined.
+  sz_sql=""
+  for s in "${unique_sizes[@]}"; do
+    sz_sql+="'${s//\'/\'\'}',"
+  done
+  sz_sql="${sz_sql%,}"
+
   slug="${brand,,}-${cname,,}-${i}"
   slug="${slug//\//-}"
   slug="${slug// /-}"
-  
+
   name="$brand $cname #${i}"
-  
+
   echo "INSERT INTO products (slug, category_id, brand, name, price, color, material, description, xp_reward, in_stock, status, stock_quantity, created_by)"
   echo "VALUES ('$slug', $cid, '$brand', '$name', $price, '$color', 'Премиальный материал', 'Качественный товар от $brand. Современный дизайн и комфорт на каждый день.', $((price/100)), 1, 'in_stock', $((RANDOM % 30 + 1)), 'seed');"
-  
-  # Insert sizes via subquery
-  echo "INSERT INTO product_sizes (product_id, size_label) VALUES (currval(pg_get_serial_sequence('products','id')), unnest(ARRAY['$sz']));"
+
+  echo "INSERT INTO product_sizes (product_id, size_label) VALUES (currval(pg_get_serial_sequence('products','id')), unnest(ARRAY[$sz_sql]));"
 done
 echo "COMMIT;"
