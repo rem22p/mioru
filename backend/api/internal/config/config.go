@@ -50,9 +50,6 @@ func Load() Config {
 	}
 
 	telegramBotToken := os.Getenv("TELEGRAM_BOT_TOKEN")
-	if isProduction(appEnv) && telegramBotToken == "" {
-		log.Fatal("TELEGRAM_BOT_TOKEN is required in production")
-	}
 	if telegramBotToken == "" {
 		log.Printf("WARNING: TELEGRAM_BOT_TOKEN not set — Telegram login is disabled")
 	}
