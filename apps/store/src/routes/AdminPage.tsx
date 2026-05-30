@@ -258,11 +258,11 @@ export default function AdminPage() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] flex items-center justify-center text-lg">
-                              {product.category.slug === "sneakers" && "👟"}
-                              {product.category.slug === "slides" && "🩴"}
-                              {product.category.slug === "tshirts" && "👕"}
-                              {product.category.slug === "shorts" && "🩳"}
-                              {product.category.slug === "bracelets" && "⛓️"}
+                              {product.category_name === "Кроссовки" && "👟"}
+                              {product.category_name === "Тапки" && "🩴"}
+                              {product.category_name === "Футболки / поло" && "👕"}
+                              {product.category_name === "Шорты" && "🩳"}
+                              {product.category_name === "Браслеты" && "⛓️"}
                             </div>
                             <span className="text-sm text-[var(--color-text-primary)]">
                               {product.name}
@@ -271,7 +271,7 @@ export default function AdminPage() {
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm text-[var(--color-text-secondary)]">
-                            {product.category.name}
+                            {product.category_name}
                           </span>
                         </td>
                         <td className="px-4 py-3">

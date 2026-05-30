@@ -268,5 +268,11 @@
     "dark": "Тёмная",
     "light": "Светлая",
     "toggle": "Переключить тему"
+  },
+  "auth": {
+    "orLoginWith": "или войти через",
+    "loginWithTelegram": "Войти через Telegram",
+    "telegramError": "Ошибка входа через Telegram",
+    "telegramNotConfigured": "Вход через Telegram не настроен"
   }
 }

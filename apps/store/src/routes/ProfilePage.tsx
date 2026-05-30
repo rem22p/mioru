@@ -1,14 +1,44 @@
 import { Link } from "react-router-dom";
-import { mockUser, mockOrders } from "@/lib/data";
+import { mockOrders } from "@/lib/data";
 import { VIP_LEVELS } from "@/lib/constants";
-import { User, Settings, Package, Star, ChevronRight } from "lucide-react";
+import { User, Settings, Package, Star, ChevronRight, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
+import { useAuthStore } from "@/stores/authStore";
+import AuthSection from "@/components/auth/AuthSection";
 
 export default function ProfilePage() {
   const { t } = useTranslation();
-  const user = mockUser;
+  const { user, isAuthenticated, logout } = useAuthStore();
+
+  // Non-authenticated view — show Telegram login.
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="px-6 py-24 lg:px-8">
+        <Helmet>
+          <title>{t("profile.title")} — MIORU</title>
+        </Helmet>
+        <div className="mx-auto max-w-md">
+          <div className="text-center mb-8">
+            <div className="flex justify-center mb-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#44944A]/10">
+                <User className="h-8 w-8 text-[#44944A]" />
+              </div>
+            </div>
+            <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
+              {t("profile.title")}
+            </h2>
+          </div>
+          <div className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-6">
+            <AuthSection />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Authenticated view.
   const currentVip = VIP_LEVELS.reduce((prev, curr) =>
     user.xpBalance >= curr.minXp ? curr : prev,
   );
@@ -22,22 +52,31 @@ export default function ProfilePage() {
   return (
     <div className="px-6 py-24 lg:px-8">
       <Helmet>
-        <title>Личный кабинет — MIORU</title>
+        <title>{t("profile.title")} — MIORU</title>
         <meta
           name="description"
           content="Ваш личный кабинет MIORU. Управляйте аватаром, отслеживайте заказы и уровень XP."
         />
-        <meta property="og:title" content="Личный кабинет — MIORU" />
+        <meta property="og:title" content={t("profile.title") + " — MIORU"} />
         <link rel="canonical" href="https://mioru.store/profile" />
       </Helmet>
       <div className="mx-auto max-w-4xl">
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-4xl font-bold tracking-tighter text-[var(--color-text-primary)] sm:text-5xl"
-        >
-          {t("profile.title")}
-        </motion.h1>
+        <div className="flex items-center justify-between">
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-4xl font-bold tracking-tighter text-[var(--color-text-primary)] sm:text-5xl"
+          >
+            {t("profile.title")}
+          </motion.h1>
+          <button
+            onClick={logout}
+            className="flex items-center gap-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            Выйти
+          </button>
+        </div>
 
         {/* Profile Card */}
         <motion.div
@@ -52,7 +91,9 @@ export default function ProfilePage() {
             </div>
             <div>
               <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{user.name}</h2>
-              <p className="text-sm text-[var(--color-text-secondary)]">{user.email}</p>
+              {user.email && (
+                <p className="text-sm text-[var(--color-text-secondary)]">{user.email}</p>
+              )}
             </div>
           </div>
         </motion.div>

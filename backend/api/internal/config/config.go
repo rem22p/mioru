@@ -14,12 +14,13 @@ import (
 const minSecretKeyLen = 32
 
 type Config struct {
-	SecretKey   string
-	TokenExpiry int
-	Port        string
-	DatabaseURL string
-	UploadDir   string
-	AppEnv      string
+	SecretKey        string
+	TokenExpiry      int
+	Port             string
+	DatabaseURL      string
+	UploadDir        string
+	AppEnv           string
+	TelegramBotToken string
 }
 
 func Load() Config {
@@ -48,13 +49,22 @@ func Load() Config {
 		uploadDir = "uploads"
 	}
 
+	telegramBotToken := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if isProduction(appEnv) && telegramBotToken == "" {
+		log.Fatal("TELEGRAM_BOT_TOKEN is required in production")
+	}
+	if telegramBotToken == "" {
+		log.Printf("WARNING: TELEGRAM_BOT_TOKEN not set — Telegram login is disabled")
+	}
+
 	return Config{
-		SecretKey:   secret,
-		TokenExpiry: 1440,
-		Port:        port,
-		DatabaseURL: databaseURL,
-		UploadDir:   uploadDir,
-		AppEnv:      appEnv,
+		SecretKey:        secret,
+		TokenExpiry:      1440,
+		Port:             port,
+		DatabaseURL:      databaseURL,
+		UploadDir:        uploadDir,
+		AppEnv:           appEnv,
+		TelegramBotToken: telegramBotToken,
 	}
 }
 

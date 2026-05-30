@@ -54,7 +54,7 @@ func main() {
 	secureCookies := cfg.IsProduction()
 	authH := handler.NewAuthHandler(pgStore, emailSvc, cfg.SecretKey, cfg.TokenExpiry, secureCookies)
 	productH := handler.NewProductHandler(pgStore, cfg.UploadDir)
-	customerH := handler.NewCustomerHandler(pgStore, cfg.SecretKey, cfg.TokenExpiry, secureCookies)
+	customerH := handler.NewCustomerHandler(pgStore, cfg.SecretKey, cfg.TokenExpiry, secureCookies, cfg.TelegramBotToken)
 
 	// getRole resolves an authenticated user's role from the DB for RequireAdmin.
 	getRole := func(ctx context.Context, username string) (string, error) {
@@ -121,10 +121,13 @@ func main() {
 	// Store: Customer auth & profile (separate namespace, separate JWT)
 	mux.HandleFunc("POST /api/store/auth/register", cors(rl("cust-register", 5)(customerH.Register)))
 	mux.HandleFunc("POST /api/store/auth/login", cors(rl("cust-login", 10)(customerH.Login)))
+	mux.HandleFunc("POST /api/store/auth/telegram", cors(rl("telegram", 10)(customerH.TelegramLogin)))
 	mux.Handle("POST /api/store/auth/logout", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.Logout))))
 	mux.Handle("GET /api/store/customers/me", customerAuthMW(http.HandlerFunc(customerH.Me)))
 	mux.Handle("PUT /api/store/customers/me", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.UpdateProfile))))
 	mux.Handle("PUT /api/store/customers/me/password", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.ChangePassword))))
+	mux.Handle("POST /api/store/customers/me/set-password", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.SetPassword))))
+	mux.Handle("POST /api/store/customers/me/oauth", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.LinkOAuth))))
 
 	// Store: Public product & category endpoints (no auth)
 	storeH := handler.NewStoreHandler(pgStore)

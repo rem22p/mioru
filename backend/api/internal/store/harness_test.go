@@ -39,7 +39,7 @@ func resetTables(t *testing.T, s *PostgresStore) {
 	t.Helper()
 	_, err := s.pool.Exec(context.Background(),
 		`TRUNCATE products, product_sizes, size_chart_rows, product_images,
-		         users, customers, password_reset_tokens
+		         users, customers, customer_oauth, password_reset_tokens
 		 RESTART IDENTITY CASCADE`)
 	if err != nil {
 		t.Fatalf("reset tables: %v", err)

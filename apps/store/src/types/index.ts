@@ -90,7 +90,7 @@ export interface AvatarParams {
 export interface User {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   avatarParams: AvatarParams;
   xpBalance: number;
   vipLevel: number;

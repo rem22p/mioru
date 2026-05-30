@@ -196,6 +196,24 @@ export const fetchStoreCustomerChangePassword = (data: {
     body: JSON.stringify(data),
   });
 
+// ── OAuth ──
+
+export interface TelegramAuthData {
+  id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+  auth_date: number;
+  hash: string;
+}
+
+export const fetchTelegramLogin = (data: TelegramAuthData) =>
+  api<CustomerProfile>("/api/store/auth/telegram", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
 /** Map a category slug or name to an emoji icon */
 export function getCategoryEmoji(slugOrName: string): string {
   const s = slugOrName.toLowerCase();

@@ -12,10 +12,11 @@ import (
 // ── Customer operations on PostgreSQL ──
 
 // CreateCustomer inserts a new customer into PostgreSQL.
+// Email and hashed_password may be empty for OAuth customers.
 func (s *PostgresStore) CreateCustomer(ctx context.Context, c model.Customer) error {
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO customers (email, hashed_password, first_name, last_name, phone, avatar_color)
-		VALUES ($1, $2, $3, $4, $5, $6)`,
+		VALUES (NULLIF($1, ''), NULLIF($2, ''), $3, $4, $5, $6)`,
 		c.Email, c.HashedPW, c.FirstName, c.LastName, c.Phone, c.AvatarColor,
 	)
 	if err != nil {

@@ -48,9 +48,18 @@ func (f *fakeCustomerStore) UpdateCustomer(ctx context.Context, id int64, update
 func (f *fakeCustomerStore) UpdateCustomerPassword(ctx context.Context, id int64, hashedPW string) error {
 	return nil
 }
+func (f *fakeCustomerStore) GetCustomerByOAuth(ctx context.Context, provider, oauthID string) (*model.Customer, *model.CustomerOAuth, error) {
+	return nil, nil, nil
+}
+func (f *fakeCustomerStore) CreateCustomerWithOAuth(ctx context.Context, c model.Customer, oa model.CustomerOAuth) error {
+	return nil
+}
+func (f *fakeCustomerStore) LinkOAuth(ctx context.Context, customerID int64, oa model.CustomerOAuth) error {
+	return nil
+}
 
 func newCustomerHandlerForTest(fs *fakeCustomerStore) *CustomerHandler {
-	return NewCustomerHandler(fs, "test-secret-key-at-least-32-chars-long!!", 60, false)
+	return NewCustomerHandler(fs, "test-secret-key-at-least-32-chars-long!!", 60, false, "")
 }
 
 // TestCustomerLoginIssuesCookiesNotAccessToken locks in the cookie-only

@@ -277,5 +277,11 @@
     "dark": "Întunecat",
     "light": "Deschis",
     "toggle": "Comută tema"
+  },
+  "auth": {
+    "orLoginWith": "sau autentificare prin",
+    "loginWithTelegram": "Autentificare prin Telegram",
+    "telegramError": "Eroare la autentificarea Telegram",
+    "telegramNotConfigured": "Autentificarea Telegram nu este configurată"
   }
 }

@@ -96,7 +96,8 @@ type ProductFacets struct {
 	Sizes  []string `json:"sizes"`
 }
 
-// Customer represents a store customer (separate from admin users)
+// Customer represents a store customer (separate from admin users).
+// After 004_oauth.sql, Email and HashedPW may be empty for OAuth-only customers.
 type Customer struct {
 	ID          int64  `json:"id"`
 	Email       string `json:"email"`
@@ -107,4 +108,14 @@ type Customer struct {
 	AvatarColor string `json:"avatar_color"`
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
+}
+
+// CustomerOAuth records an OAuth provider link for a store customer.
+type CustomerOAuth struct {
+	ID          int64  `json:"id"`
+	CustomerID  int64  `json:"customer_id"`
+	Provider    string `json:"provider"`
+	OAuthID     string `json:"oauth_id"`
+	ProfileData string `json:"profile_data"`
+	CreatedAt   string `json:"created_at"`
 }
