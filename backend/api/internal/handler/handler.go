@@ -27,6 +27,7 @@ type userStore interface {
 	CreateUser(ctx context.Context, u model.User) error
 	GetUser(ctx context.Context, username string) (*model.User, error)
 	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
+	ListUsers(ctx context.Context) ([]model.User, error)
 	UpdateUser(ctx context.Context, username string, updates map[string]string) error
 	UpdatePassword(ctx context.Context, username, hashedPW string) error
 	CreateResetToken(ctx context.Context, username, token string) error
@@ -255,6 +256,31 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		"avatar_color": user.AvatarColor,
 		"role":         user.Role,
 	})
+}
+
+// ListUsers returns all admin users. Admin-only (gated by RequireAdmin in routing).
+func (h *AuthHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := h.store.ListUsers(r.Context())
+	if err != nil {
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	out := make([]map[string]interface{}, 0, len(users))
+	for _, u := range users {
+		out = append(out, map[string]interface{}{
+			"id":           u.ID,
+			"username":     u.Username,
+			"first_name":   u.FirstName,
+			"last_name":    u.LastName,
+			"email":        u.Email,
+			"display_name": u.DisplayName,
+			"avatar_color": u.AvatarColor,
+			"role":         u.Role,
+			"created_at":   u.CreatedAt,
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(out)
 }
 
 func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {

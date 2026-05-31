@@ -144,6 +144,9 @@ func main() {
 		return authMW(middleware.RequireAdmin(getRole)(adminCSRF(h)))
 	}
 
+	// Admin: Users (admin only)
+	mux.Handle("GET /api/admin/users", adminOnly(http.HandlerFunc(authH.ListUsers)))
+
 	// Admin: Categories (admin only)
 	mux.Handle("GET /api/admin/categories", adminOnly(http.HandlerFunc(productH.Categories)))
 

@@ -142,6 +142,31 @@ func (s *PostgresStore) UpdatePassword(ctx context.Context, username, hashedPW s
 	return nil
 }
 
+// ListUsers returns all admin users ordered by creation date newest first.
+func (s *PostgresStore) ListUsers(ctx context.Context) ([]model.User, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, username, email, COALESCE(first_name, '') as first_name,
+			COALESCE(last_name, '') as last_name, display_name, avatar_color, role,
+			COALESCE(created_at::text, '') as created_at
+		FROM users
+		ORDER BY created_at DESC`)
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []model.User
+	for rows.Next() {
+		var u model.User
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.FirstName, &u.LastName,
+			&u.DisplayName, &u.AvatarColor, &u.Role, &u.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan user: %w", err)
+		}
+		users = append(users, u)
+	}
+	return users, rows.Err()
+}
+
 // UserPasswordChangedAt returns the user's password_changed_at (the session
 // epoch). ok is false when no such user exists, so the auth middleware can reject
 // tokens for deleted accounts.
