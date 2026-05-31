@@ -3,3 +3,4 @@
 -- not via a hardcoded SQL username. This migration remains as a
 -- version placeholder for schema continuity; fresh installs get
 -- the role from seedAdmin at first startup.
+SELECT 1;
