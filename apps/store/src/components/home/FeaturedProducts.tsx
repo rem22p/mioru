@@ -70,44 +70,44 @@ export default function FeaturedProducts() {
                 className="group"
               >
                 <Link to={`/product/${product.slug}`}>
-                  <div className="card-hover overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)]">
-                    <div className="relative aspect-[3/4] overflow-hidden">
-                      {/* Product image placeholder */}
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-3xl sm:text-5xl transition-transform duration-500 group-hover:scale-110">
-                          📦
-                        </span>
+                    <div className="card-hover overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)]">
+                      <div className="relative aspect-[3/4] overflow-hidden">
+                        {/* Product image placeholder */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-3xl sm:text-5xl transition-transform duration-500 group-hover:scale-110">
+                            📦
+                          </span>
+                        </div>
+
+                        {/* Overlay on hover */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-bg-primary)] via-transparent to-transparent opacity-60 pointer-events-none" />
+
+                        {/* Quick add button */}
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            addItem(product, product.sizes[0]);
+                          }}
+                          className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#44944A] opacity-0 transition-all duration-300 hover:scale-110 group-hover:opacity-100"
+                          aria-label={t("home.featured.addToCart")}
+                        >
+                          <ShoppingBag className="h-4 w-4 text-black" />
+                        </button>
                       </div>
 
-                      {/* Overlay on hover */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-bg-primary)] via-transparent to-transparent opacity-60 pointer-events-none" />
-
-                      {/* Quick add button */}
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          addItem(product, product.sizes[0]);
-                        }}
-                        className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#44944A] opacity-0 transition-all duration-300 hover:scale-110 group-hover:opacity-100"
-                        aria-label={t("home.featured.addToCart")}
-                      >
-                        <ShoppingBag className="h-4 w-4 text-black" />
-                      </button>
+                      {/* Bottom info */}
+                      <div className="px-3 py-2.5 border-t border-[var(--color-border-custom)]">
+                        <p className="text-[11px] font-mono uppercase tracking-wider text-[#558b5c]">
+                          {product.category_name}
+                        </p>
+                        <h3 className="mt-0.5 text-sm font-medium text-[var(--color-text-primary)] line-clamp-1">
+                          {product.name}
+                        </h3>
+                        <p className="mt-1 text-sm font-bold text-[#44944A]">
+                          {product.price.toLocaleString("ru-RU")} ₽
+                        </p>
+                      </div>
                     </div>
-
-                    {/* Bottom info */}
-                    <div className="px-3 py-2.5 border-t border-[var(--color-border-custom)]">
-                      <p className="text-[11px] font-mono uppercase tracking-wider text-[#558b5c]">
-                        {product.category_name}
-                      </p>
-                      <h3 className="mt-0.5 text-sm font-medium text-[var(--color-text-primary)] line-clamp-1">
-                        {product.name}
-                      </h3>
-                      <p className="mt-1 text-sm font-bold text-[#44944A]">
-                        {product.price.toLocaleString("ru-RU")} ₽
-                      </p>
-                    </div>
-                  </div>
                 </Link>
               </motion.div>
             ))}
