@@ -190,7 +190,7 @@ export default function ProfilePage() {
                       <p className="text-sm font-medium text-[var(--color-text-primary)]">
                         {(order.total_minor / 100).toLocaleString("ru-RU", { minimumFractionDigits: 2 })} ₽
                       </p>
-                      <p className="text-xs text-[#44944A]">{order.status}</p>
+                      <p className="text-xs text-[#44944A]">{t(`profile.orderStatus.${order.status}`, order.status)}</p>
                     </div>
                   </div>
                 </div>

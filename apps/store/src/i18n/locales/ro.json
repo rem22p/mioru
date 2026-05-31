@@ -212,7 +212,15 @@
     "xp": "{{xp}} XP",
     "toNextLevel": "Până la {{level}}: {{xp}} XP",
     "myAvatar": "Avatarul meu",
-    "orderHistory": "Istoric comenzi"
+    "orderHistory": "Istoric comenzi",
+    "noOrders": "Nu ai comenzi încă",
+    "orderStatus": {
+      "pending": "În așteptare",
+      "processing": "În procesare",
+      "shipped": "Expediat",
+      "delivered": "Livrat",
+      "cancelled": "Anulat"
+    }
   },
   "avatar": {
     "title": "Editor avatar",

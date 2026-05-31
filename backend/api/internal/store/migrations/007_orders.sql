@@ -1,4 +1,4 @@
--- 006_orders: customer order history.
+-- 007_orders: customer order history.
 -- total_minor is in minor currency units (kopecks/cents).
 -- FK defaults to RESTRICT — orders preserved when customer deleted.
 

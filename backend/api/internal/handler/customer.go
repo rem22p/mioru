@@ -686,6 +686,9 @@ func (h *CustomerHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 	if v, err := strconv.Atoi(q.Get("per_page")); err == nil && v > 0 {
 		perPage = v
 	}
+	if perPage > 100 {
+		perPage = 100
+	}
 
 	orders, total, err := h.store.ListCustomerOrders(r.Context(), id, page, perPage)
 	if err != nil {

@@ -206,7 +206,15 @@
     "xp": "{{xp}} XP",
     "toNextLevel": "To level {{level}}: {{xp}} XP",
     "myAvatar": "My avatar",
-    "orderHistory": "Order history"
+    "orderHistory": "Order history",
+    "noOrders": "No orders yet",
+    "orderStatus": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "shipped": "Shipped",
+      "delivered": "Delivered",
+      "cancelled": "Cancelled"
+    }
   },
   "avatar": {
     "title": "Avatar editor",
