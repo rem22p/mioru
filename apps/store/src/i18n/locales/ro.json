@@ -53,6 +53,9 @@
     "favorites": "FAVORITE",
     "profile": "Profil"
   },
+  "favorites": {
+    "empty": "Nu ai adăugat nimic la favorite încă"
+  },
   "home": {
     "hero": {
       "badge": "3D Avatar Try-On",
