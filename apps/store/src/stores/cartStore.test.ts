@@ -58,6 +58,13 @@ describe('cartStore', () => {
     expect(items[0].quantity).toBe(2);
   });
 
+  it('adds item with custom quantity', () => {
+    useCartStore.getState().addItem(mockProduct, '42', 5);
+    const items = useCartStore.getState().items;
+    expect(items).toHaveLength(1);
+    expect(items[0].quantity).toBe(5);
+  });
+
   it('adds separate item for different size', () => {
     useCartStore.getState().addItem(mockProduct, '42');
     useCartStore.getState().addItem(mockProduct, '43');

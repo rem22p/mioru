@@ -46,7 +46,9 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   const [showSizeChart, setShowSizeChart] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [qty, setQty] = useState(1);
   const addItem = useCartStore((state) => state.addItem);
+  const cartItems = useCartStore((state) => state.items);
 
   // Transform backend size_chart rows into UI format
   const sizeChart = toSizeChart(product.size_chart);
@@ -58,11 +60,29 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
       ? Math.round(reviews.reduce((s, r) => s + r.rating, 0) / reviews.length)
       : 0;
 
+  // How many of this product+size are already in the cart
+  const alreadyInCart = selectedSize
+    ? cartItems
+        .filter(
+          (item) =>
+            item.product.id === product.id && item.size === selectedSize,
+        )
+        .reduce((sum, item) => sum + item.quantity, 0)
+    : 0;
+
+  const stock = product.stock_quantity || 0;
+  const available = Math.max(0, stock - alreadyInCart);
+  const maxQty = stock > 0 ? available : 999;
+  const soldOut = stock > 0 && available <= 0;
+
+  // Clamp qty when available changes
+  const safeQty = stock > 0 ? Math.min(qty, Math.max(1, available)) : qty;
+
   const handleAddToCart = () => {
-    if (selectedSize) {
-      addItem(product, selectedSize);
+    if (selectedSize && safeQty > 0 && !soldOut) {
+      addItem(product, selectedSize, safeQty);
       setAddedToCart(true);
-      setTimeout(() => setAddedToCart(false), 2000);
+      setTimeout(() => setAddedToCart(false), 1500);
     }
   };
 
@@ -191,7 +211,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   {product.sizes.map((size) => (
                     <button
                       key={size}
-                      onClick={() => setSelectedSize(size)}
+                      onClick={() => { setSelectedSize(size); setQty(1); }}
                       className={`relative rounded-xl border px-5 py-3 text-sm font-medium transition-all min-h-[44px] ${
                         selectedSize === size
                           ? "border-[#44944A] bg-[#44944A] text-black"
@@ -209,18 +229,48 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                 </div>
               </div>
 
+              {/* Quantity Selector */}
+              {selectedSize && !soldOut && maxQty > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-primary)] mb-4">
+                    {t("product.quantity")}
+                  </h3>
+                  <div className="flex items-center gap-0 rounded-xl border border-[var(--color-border-custom)] w-fit overflow-hidden">
+                    <button
+                      onClick={() => setQty((q) => Math.max(1, q - 1))}
+                      disabled={safeQty <= 1}
+                      className="h-11 w-11 flex items-center justify-center text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)] disabled:opacity-30 transition-colors"
+                    >
+                      −
+                    </button>
+                    <span className="h-11 w-12 flex items-center justify-center text-sm font-bold text-[var(--color-text-primary)] border-x border-[var(--color-border-custom)]">
+                      {safeQty}
+                    </span>
+                    <button
+                      onClick={() => setQty((q) => Math.min(available, q + 1))}
+                      disabled={safeQty >= available}
+                      className="h-11 w-11 flex items-center justify-center text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)] disabled:opacity-30 transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Actions */}
               <div className="mt-8 flex gap-3">
                 <button
                   onClick={handleAddToCart}
-                  disabled={!selectedSize}
+                  disabled={!selectedSize || soldOut}
                   className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-4 text-sm font-semibold transition-all min-h-[44px] ${
                     addedToCart
                       ? "bg-[#558b5c] text-[var(--color-text-primary)]"
                       : "bg-[#44944A] text-black hover:shadow-[0_0_30px_rgba(192,254,57,0.3)]"
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                  {addedToCart ? (
+                  {soldOut ? (
+                    <>{t("product.soldOut")}</>
+                  ) : addedToCart ? (
                     <>
                       <Check className="h-4 w-4" />
                       {t("product.addedToCart")}
