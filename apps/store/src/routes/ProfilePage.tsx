@@ -49,23 +49,19 @@ export default function ProfilePage() {
             </h2>
           </div>
           <div className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-6">
-            <AuthSection
-              onSuccess={() => {
-                if (redirect) navigate(redirect, { replace: true });
-              }}
-            />
+            <AuthSection />
           </div>
         </div>
       </div>
     );
   }
 
-  const nextLevel = VIP_LEVELS.find((lvl) => lvl.xp > (user.xpBalance || 0));
+  const nextLevel = VIP_LEVELS.find((lvl) => lvl.minXp > (user.xpBalance || 0));
   const xpProgress = nextLevel
     ? Math.min(
         100,
         Math.round(
-          ((user.xpBalance || 0) / nextLevel.xp) * 100,
+          ((user.xpBalance || 0) / nextLevel.minXp) * 100,
         ),
       )
     : 100;
@@ -118,7 +114,7 @@ export default function ProfilePage() {
               <p className="text-xs text-[var(--color-text-muted)] mt-1">
                 {t("profile.toNextLevel", {
                   level: nextLevel.level,
-                  xp: nextLevel.xp - (user.xpBalance || 0),
+                  xp: nextLevel.minXp - (user.xpBalance || 0),
                 })}
               </p>
             )}
