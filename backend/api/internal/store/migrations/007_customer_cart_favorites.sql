@@ -1,4 +1,4 @@
--- 006_customer_cart_favorites: persist cart and favorites per customer
+-- 007_customer_cart_favorites: persist cart and favorites per customer
 -- so they survive across devices and sessions.
 
 CREATE TABLE IF NOT EXISTS customer_cart (
