@@ -57,7 +57,7 @@ export default function AdminLayout() {
         <Routes>
           <Route path="/" element={<Navigate to="/products" replace />} />
           <Route path="/products" element={<Products />} />
-          <Route path="/users" element={<Users />} />
+          <Route path="/users" element={user?.role === "super_admin" ? <Users /> : <Navigate to="/products" replace />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />
           <Route

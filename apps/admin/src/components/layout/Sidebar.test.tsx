@@ -22,6 +22,7 @@ describe('Sidebar', () => {
         email: 'test@test.com',
         display_name: 'Test User',
         avatar_color: '#f85149',
+        role: 'admin',
       },
       isAuthenticated: true,
       isLoading: false,

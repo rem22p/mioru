@@ -28,3 +28,6 @@ export const createUser = (body: {
 			body: JSON.stringify(body),
 		},
 	);
+
+export const deleteUser = (username: string) =>
+	api<void>(`/api/admin/users/${username}`, { method: 'DELETE' });

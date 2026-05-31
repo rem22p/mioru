@@ -58,6 +58,10 @@ func (f *fakeUserStore) ListUsers(ctx context.Context) ([]model.User, error) {
 	return nil, nil
 }
 
+func (f *fakeUserStore) DeleteUser(ctx context.Context, username string) error {
+	return nil
+}
+
 // TestRegisterDoesNotIssueToken guards that admin-created registration returns
 // the new account's summary (201) and never a session token — issuing one would
 // log the creating admin in as the new user.

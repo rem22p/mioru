@@ -28,6 +28,7 @@ type userStore interface {
 	GetUser(ctx context.Context, username string) (*model.User, error)
 	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
 	ListUsers(ctx context.Context) ([]model.User, error)
+	DeleteUser(ctx context.Context, username string) error
 	UpdateUser(ctx context.Context, username string, updates map[string]string) error
 	UpdatePassword(ctx context.Context, username, hashedPW string) error
 	CreateResetToken(ctx context.Context, username, token string) error
@@ -279,6 +280,28 @@ func (h *AuthHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(out)
+}
+
+// DeleteUser removes a user by username. Super-admin only (gated by
+// RequireSuperAdmin in routing). The caller cannot delete themselves.
+func (h *AuthHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	target := r.PathValue("username")
+	if target == "" {
+		jsonError(w, "username required", http.StatusBadRequest)
+		return
+	}
+
+	caller := middleware.Username(r)
+	if caller == target {
+		jsonError(w, "cannot delete yourself", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.store.DeleteUser(r.Context(), target); err != nil {
+		jsonError(w, "user not found", http.StatusNotFound)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {

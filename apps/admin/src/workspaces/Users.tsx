@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { fetchUsers, createUser, type AdminUser } from "@/lib/users";
-import { Plus, User, Mail, Shield, X } from "lucide-react";
+import { fetchUsers, createUser, deleteUser, type AdminUser } from "@/lib/users";
+import { Plus, User, Mail, Shield, X, Trash2 } from "lucide-react";
 
 export default function Users() {
 	const [users, setUsers] = useState<AdminUser[]>([]);
@@ -16,6 +16,7 @@ export default function Users() {
 	});
 	const [formError, setFormError] = useState("");
 	const [submitting, setSubmitting] = useState(false);
+	const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
 
 	const loadUsers = useCallback(async () => {
 		setLoading(true);
@@ -53,6 +54,17 @@ export default function Users() {
 			setFormError(err instanceof Error ? err.message : "Ошибка");
 		} finally {
 			setSubmitting(false);
+		}
+	};
+
+	const handleDelete = async () => {
+		if (!deleteTarget) return;
+		try {
+			await deleteUser(deleteTarget.username);
+			setDeleteTarget(null);
+			loadUsers();
+		} catch {
+			// handled
 		}
 	};
 
@@ -117,6 +129,9 @@ export default function Users() {
 								<th className="text-left px-6 py-3.5 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
 									Создан
 								</th>
+								<th className="text-right px-6 py-3.5 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+									Действия
+								</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -162,6 +177,15 @@ export default function Users() {
 										{u.created_at
 											? new Date(u.created_at).toLocaleDateString("ru-RU")
 											: "—"}
+									</td>
+									<td className="px-6 py-4 text-right">
+										<button
+											onClick={() => setDeleteTarget(u)}
+											className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-[var(--color-text-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors"
+											title="Удалить"
+										>
+											<Trash2 className="h-4 w-4" />
+										</button>
 									</td>
 								</tr>
 							))}
@@ -290,6 +314,49 @@ export default function Users() {
 									className="w-full rounded-xl bg-[#44944A] px-4 py-2.5 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(68,148,74,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
 								>
 									{submitting ? "Создание..." : "Создать"}
+								</button>
+							</div>
+						</motion.div>
+					</motion.div>
+				)}
+			</AnimatePresence>
+
+			{/* Delete Confirmation Modal */}
+			<AnimatePresence>
+				{deleteTarget && (
+					<motion.div
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0 }}
+						className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+						onClick={() => setDeleteTarget(null)}
+					>
+						<motion.div
+							initial={{ opacity: 0, scale: 0.95, y: 20 }}
+							animate={{ opacity: 1, scale: 1, y: 0 }}
+							exit={{ opacity: 0, scale: 0.95, y: 20 }}
+							transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+							onClick={(e) => e.stopPropagation()}
+							className="w-full max-w-sm rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-6 shadow-2xl"
+						>
+							<h2 className="text-lg font-bold text-[var(--color-text-primary)] mb-2">
+								Удалить пользователя?
+							</h2>
+							<p className="text-sm text-[var(--color-text-secondary)] mb-6">
+								Пользователь <strong>@{deleteTarget.username}</strong> будет удалён безвозвратно.
+							</p>
+							<div className="flex gap-3">
+								<button
+									onClick={() => setDeleteTarget(null)}
+									className="flex-1 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-4 py-2.5 text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+								>
+									Отмена
+								</button>
+								<button
+									onClick={handleDelete}
+									className="flex-1 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-red-600"
+								>
+									Удалить
 								</button>
 							</div>
 						</motion.div>

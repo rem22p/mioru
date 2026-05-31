@@ -107,7 +107,7 @@ func main() {
 
 	// Auth (no middleware) — registration is invite-only: only an existing admin
 	// can create new admin users.
-	mux.Handle("POST /api/auth/register", authMW(adminCSRF(middleware.RequireAdmin(getRole)(http.HandlerFunc(authH.Register)))))
+	mux.Handle("POST /api/auth/register", authMW(adminCSRF(middleware.RequireSuperAdmin(getRole)(http.HandlerFunc(authH.Register)))))
 	mux.HandleFunc("POST /api/auth/login", cors(rl("admin-login", 10)(authH.Login)))
 	mux.HandleFunc("POST /api/auth/forgot-password", cors(rl("forgot", 5)(authH.ForgotPassword)))
 	mux.HandleFunc("POST /api/auth/reset-password", cors(rl("reset", 10)(authH.ResetPassword)))
@@ -144,8 +144,15 @@ func main() {
 		return authMW(middleware.RequireAdmin(getRole)(adminCSRF(h)))
 	}
 
-	// Admin: Users (admin only)
-	mux.Handle("GET /api/admin/users", adminOnly(http.HandlerFunc(authH.ListUsers)))
+	// superAdminOnly gates routes that only the super_admin can access
+	// (user management: list, create, delete).
+	superAdminOnly := func(h http.Handler) http.Handler {
+		return authMW(middleware.RequireSuperAdmin(getRole)(adminCSRF(h)))
+	}
+
+	// Admin: Users (super_admin only)
+	mux.Handle("GET /api/admin/users", superAdminOnly(http.HandlerFunc(authH.ListUsers)))
+	mux.Handle("DELETE /api/admin/users/{username}", superAdminOnly(http.HandlerFunc(authH.DeleteUser)))
 
 	// Admin: Categories (admin only)
 	mux.Handle("GET /api/admin/categories", adminOnly(http.HandlerFunc(productH.Categories)))

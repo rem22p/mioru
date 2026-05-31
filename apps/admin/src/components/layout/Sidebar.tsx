@@ -43,6 +43,11 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   const currentWs = loc.pathname === '/' ? 'products' : loc.pathname.slice(1);
 
+  // Hide "users" workspace from non-super_admin
+  const visibleWorkspaces = WORKSPACES.filter(
+    (ws) => ws.id !== 'users' || user?.role === 'super_admin'
+  );
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
@@ -103,7 +108,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             Пространства
           </div>
         )}
-        {WORKSPACES.map((ws, i) => {
+        {visibleWorkspaces.map((ws, i) => {
           const Icon = ICON_MAP[ws.icon];
           const isActive = currentWs === ws.id;
           return (

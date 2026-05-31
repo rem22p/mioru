@@ -167,6 +167,19 @@ func (s *PostgresStore) ListUsers(ctx context.Context) ([]model.User, error) {
 	return users, rows.Err()
 }
 
+// DeleteUser permanently removes a user by username. Returns an error
+// when the user does not exist.
+func (s *PostgresStore) DeleteUser(ctx context.Context, username string) error {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM users WHERE username = $1`, username)
+	if err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("user not found: %s", username)
+	}
+	return nil
+}
+
 // UserPasswordChangedAt returns the user's password_changed_at (the session
 // epoch). ok is false when no such user exists, so the auth middleware can reject
 // tokens for deleted accounts.

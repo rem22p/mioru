@@ -10,6 +10,7 @@ const mockUser = {
   email: 'test@test.com',
   display_name: 'Test User',
   avatar_color: '#ff0000',
+  role: 'admin',
 };
 
 describe('authStore (cookie-only)', () => {

@@ -63,3 +63,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
   clearError: () => set({ error: null }),
 }));
+
+// isSuperAdmin is a convenience selector that checks the current user's role
+// without subscribing the caller to the full user object.
+export const selectIsSuperAdmin = (): boolean => {
+  return useAuthStore.getState().user?.role === "super_admin";
+};

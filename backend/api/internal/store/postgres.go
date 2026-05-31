@@ -118,7 +118,7 @@ func (s *PostgresStore) seedAdmin(ctx context.Context) error {
 
 	tag, err := s.pool.Exec(ctx, `
 		INSERT INTO users (username, email, hashed_password, display_name, avatar_color, role)
-		VALUES ($1, $2, $3, $1, '#44944A', 'admin')
+		VALUES ($1, $2, $3, $1, '#44944A', 'super_admin')
 		ON CONFLICT DO NOTHING`,
 		username, strings.ToLower(emailAddr), hash,
 	)
