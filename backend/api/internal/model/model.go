@@ -119,3 +119,12 @@ type CustomerOAuth struct {
 	ProfileData string `json:"profile_data"`
 	CreatedAt   string `json:"created_at"`
 }
+
+// Order represents a customer order. Minimal for order history display.
+type Order struct {
+	ID         int64  `json:"id"`
+	CustomerID int64  `json:"customer_id"`
+	Total      int    `json:"total"`
+	Status     string `json:"status"`
+	CreatedAt  string `json:"created_at"`
+}

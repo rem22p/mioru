@@ -1,0 +1,143 @@
+SUPER ADMIN PLAN — MIORU
+═══════════════════════════════════════════
+
+Дата: 2026-05-31
+Статус: план (не реализовано)
+
+См. также: CLAUDE.md (принципы разработки)
+
+───────────────────────────────────────────
+1. РОЛИ
+───────────────────────────────────────────
+
+  super_admin  — полный доступ. Единственный: rem22p.
+  admin        — сотрудники-управленцы. Не видят пользователей,
+                 не могут создавать/удалять пользователей.
+                 Полный доступ к товарам, категориям, профилю.
+
+───────────────────────────────────────────
+2. БАЗА ДАННЫХ
+───────────────────────────────────────────
+
+  2.1 Миграция: backend/api/internal/store/migrations/005_super_admin.sql
+
+      -- Назначить rem22p супер-админом
+      UPDATE users SET role = 'super_admin' WHERE username = 'rem22p';
+
+      -- Всех остальных оставить admin (на всякий случай)
+      -- (ничего не делаем, у них уже role = 'admin')
+
+  2.2 Колонка role (уже существует, varchar).
+
+  2.3 seedAdmin (postgres.go):
+      INSERT ... VALUES (..., 'super_admin')  -- вместо 'admin'
+
+───────────────────────────────────────────
+3. БЭКЕНД
+───────────────────────────────────────────
+
+  3.1 Новая middleware: internal/middleware/require_super_admin.go
+
+      Аналог RequireAdmin, но проверяет role == "super_admin".
+      Возвращает 403 если роль не super_admin.
+      Использовать: requireSuperAdmin(getRole)(handler)
+
+  3.2 Новый хендлер: DeleteUser (handler.go)
+
+      DELETE /api/admin/users/{username}
+      - Проверяет username из пути
+      - Запрещает удалять самого себя (req username == path username → 400)
+      - Вызывает store.DeleteUser
+      - Возвращает 204 No Content
+
+  3.3 Новый store-метод: DeleteUser (user_postgres.go)
+
+      DELETE FROM users WHERE username = $1
+      Если RowsAffected == 0 → ErrNotFound
+
+  3.4 Обновить userStore interface (handler.go):
+      Добавить DeleteUser(ctx, username) error
+
+  3.5 Обновить маршруты (main.go):
+
+      Было:
+        adminOnly = authMW + RequireAdmin + adminCSRF
+
+      Стало:
+        superAdminOnly = authMW + RequireSuperAdmin + adminCSRF
+
+      Применить superAdminOnly к:
+        GET    /api/admin/users              (список)
+        POST   /api/auth/register            (создание)
+        DELETE /api/admin/users/{username}   (удаление)
+
+      Остальные /api/admin/* маршруты остаются на adminOnly (обычный admin).
+
+───────────────────────────────────────────
+4. ФРОНТЕНД (админка)
+───────────────────────────────────────────
+
+  4.1 Типы (types/index.ts):
+      Добавить role: string в User.
+
+  4.2 authStore (stores/authStore.ts):
+      Сохранять role из ответа /api/users/me.
+      Добавить селектор isSuperAdmin.
+
+  4.3 Sidebar (components/layout/Sidebar.tsx):
+      Фильтровать WORKSPACES:
+      - «Пользователи» показывать только если user.role === 'super_admin'
+      - Остальные workspace'ы без изменений
+
+  4.4 AdminLayout (components/layout/AdminLayout.tsx):
+      Защитить /users маршрут:
+      - Если не super_admin → редирект на /products (или показать 403)
+
+  4.5 Users.tsx (workspaces/Users.tsx):
+      - Добавить колонку «Действия» с кнопкой удаления (иконка Trash2)
+      - При удалении: подтверждение в модалке (как DeleteDialog у товаров)
+      - API: DELETE /api/admin/users/{username}
+      - После удаления обновить список
+
+  4.6 users.ts (lib/users.ts):
+      Добавить deleteUser(username: string):
+        api<void>('/api/admin/users/' + username, { method: 'DELETE' })
+
+───────────────────────────────────────────
+5. ТЕСТЫ
+───────────────────────────────────────────
+
+  5.1 require_super_admin_test.go:
+      - С супер-админом → 200
+      - С обычным админом → 403
+      - Без авторизации → 401
+
+  5.2 handler_test.go:
+      - TestDeleteUser: успешное удаление, удаление себя, несуществующий
+      - TestListUsersRequiresSuperAdmin
+      - TestRegisterRequiresSuperAdmin
+
+  5.3 Обновить fakeUserStore в handler_test.go:
+      Добавить DeleteUser метод.
+
+───────────────────────────────────────────
+6. ПОРЯДОК ДЕЙСТВИЙ
+───────────────────────────────────────────
+
+  1. Миграция 005_super_admin.sql
+  2. middleware/require_super_admin.go + тест
+  3. store: DeleteUser + обновить интерфейс
+  4. handler: DeleteUser + обновить gating
+  5. main.go: superAdminOnly для user-ручек
+  6. Фронтенд: типы, authStore, Sidebar, Users, AdminLayout
+  7. Прогнать все тесты
+  8. Собрать, залить на VPS, миграция применится при старте
+
+───────────────────────────────────────────
+7. НЕ ДЕЛАЕМ (YAGNI)
+───────────────────────────────────────────
+
+  - Смена роли через UI
+  - Разделение прав на уровне фич внутри admin
+  - Редактирование пользователей (email, пароль)
+  - Пагинация списка пользователей (их всегда мало)

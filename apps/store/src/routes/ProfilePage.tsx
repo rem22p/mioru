@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { mockOrders } from "@/lib/data";
+import { useState, useEffect } from "react";
+import { fetchStoreCustomerOrders, type StoreOrder } from "@/lib/api";
 import { VIP_LEVELS } from "@/lib/constants";
 import { User, Settings, Package, ChevronRight, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
@@ -11,6 +12,13 @@ import AuthSection from "@/components/auth/AuthSection";
 export default function ProfilePage() {
   const { t } = useTranslation();
   const { user, isAuthenticated, logout } = useAuthStore();
+  const [orders, setOrders] = useState<StoreOrder[]>([]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchStoreCustomerOrders().then(setOrders).catch(() => {});
+    }
+  }, [isAuthenticated]);
 
   // Non-authenticated view — show Telegram login.
   if (!isAuthenticated || !user) {
@@ -156,34 +164,38 @@ export default function ProfilePage() {
             {t("profile.orderHistory")}
           </h3>
           <div className="space-y-4">
-            {mockOrders.map((order) => (
-              <div
-                key={order.id}
-                className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-5"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Package className="h-5 w-5 text-[var(--color-text-muted)]" />
-                    <div>
+            {orders.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-muted)] text-center py-4">
+                {t("profile.noOrders")}
+              </p>
+            ) : (
+              orders.map((order) => (
+                <div
+                  key={order.id}
+                  className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-5"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Package className="h-5 w-5 text-[var(--color-text-muted)]" />
+                      <div>
+                        <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                          #{order.id}
+                        </p>
+                        <p className="text-xs text-[var(--color-text-muted)]">
+                          {new Date(order.created_at).toLocaleDateString("ru-RU")}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
                       <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                        {order.id}
+                        {order.total.toLocaleString("ru-RU")} ₽
                       </p>
-                      <p className="text-xs text-[var(--color-text-muted)]">
-                        {new Date(order.createdAt).toLocaleDateString("ru-RU")}
-                      </p>
+                      <p className="text-xs text-[#44944A]">{order.status}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-[var(--color-text-primary)]">
-                      {order.total.toLocaleString("ru-RU")} ₽
-                    </p>
-                    <p className="text-xs text-[var(--color-text-muted)] capitalize">
-                      {order.status}
-                    </p>
-                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>

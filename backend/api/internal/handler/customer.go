@@ -31,6 +31,9 @@ type customerStore interface {
 	GetCustomerByOAuth(ctx context.Context, provider, oauthID string) (*model.Customer, *model.CustomerOAuth, error)
 	CreateCustomerWithOAuth(ctx context.Context, c model.Customer, oa model.CustomerOAuth) error
 	LinkOAuth(ctx context.Context, customerID int64, oa model.CustomerOAuth) error
+
+	// Orders
+	ListCustomerOrders(ctx context.Context, customerID int64) ([]model.Order, error)
 }
 
 // CustomerHandler handles store customer auth & profile.
@@ -666,6 +669,29 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"ok":true}`))
+}
+
+// ListOrders returns the authenticated customer's order history, newest first.
+func (h *CustomerHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
+	id := middleware.CustomerID(r)
+
+	orders, err := h.store.ListCustomerOrders(r.Context(), id)
+	if err != nil {
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	out := make([]map[string]interface{}, 0, len(orders))
+	for _, o := range orders {
+		out = append(out, map[string]interface{}{
+			"id":         o.ID,
+			"total":      o.Total,
+			"status":     o.Status,
+			"created_at": o.CreatedAt,
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(out)
 }
 
 // escapeJSON escapes a string for safe inclusion in a JSON string value.
