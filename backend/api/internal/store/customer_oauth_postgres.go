@@ -2,10 +2,11 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"mioru/internal/model"
 )
@@ -40,7 +41,7 @@ func (s *PostgresStore) GetCustomerByOAuth(ctx context.Context, provider, oauthI
 		&oa.ProfileData, &oaCreatedAt,
 	)
 	if err != nil {
-		if strings.Contains(err.Error(), "no rows") {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil, nil
 		}
 		return nil, nil, fmt.Errorf("get customer by oauth: %w", err)
@@ -79,7 +80,8 @@ func (s *PostgresStore) CreateCustomerWithOAuth(ctx context.Context, c model.Cus
 		customerID, oa.Provider, oa.OAuthID, oa.ProfileData,
 	)
 	if err != nil {
-		if strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return fmt.Errorf("telegram account already linked to another user")
 		}
 		return fmt.Errorf("insert customer_oauth: %w", err)

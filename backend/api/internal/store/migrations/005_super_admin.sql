@@ -1,5 +1,5 @@
--- 005_super_admin: promote the initial admin to super_admin.
--- super_admin has unrestricted access (users CRUD), while
--- regular admin has product/category access only.
-
-UPDATE users SET role = 'super_admin' WHERE username = 'rem22p';
+-- 005_super_admin: super_admin role assignment is handled in
+-- the Go bootstrap path (seedAdmin/BOOTSTRAP_ADMIN_USERNAME),
+-- not via a hardcoded SQL username. This migration remains as a
+-- version placeholder for schema continuity; fresh installs get
+-- the role from seedAdmin at first startup.

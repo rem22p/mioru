@@ -757,6 +757,13 @@ func escapeJSON(s string) string {
 
 // ── Cart & Favorites handlers ──
 
+const (
+	maxCartItems      = 200
+	maxFavoritesItems = 200
+	maxSizeLabelLen   = 32
+	maxQuantity       = 999
+)
+
 type cartItemReq struct {
 	ProductID int    `json:"product_id"`
 	SizeLabel string `json:"size_label"`
@@ -771,12 +778,32 @@ type favoritesSaveReq struct {
 	ProductIDs []int `json:"product_ids"`
 }
 
+// validationError writes a 400 with {error, code}.
+func validationError(w http.ResponseWriter, msg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusBadRequest)
+	json.NewEncoder(w).Encode(map[string]string{
+		"error": msg,
+		"code":  "VALIDATION_FAILED",
+	})
+}
+
+// internalError writes a 500 with {error, code}.
+func internalError(w http.ResponseWriter, msg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusInternalServerError)
+	json.NewEncoder(w).Encode(map[string]string{
+		"error": msg,
+		"code":  "INTERNAL",
+	})
+}
+
 // GetCart returns the customer's saved cart.
 func (h *CustomerHandler) GetCart(w http.ResponseWriter, r *http.Request) {
 	id := middleware.CustomerID(r)
 	items, err := h.store.GetCustomerCart(r.Context(), id)
 	if err != nil {
-		jsonError(w, "internal error", http.StatusInternalServerError)
+		internalError(w, "internal error")
 		return
 	}
 	if items == nil {
@@ -793,16 +820,35 @@ func (h *CustomerHandler) SaveCart(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	items := make([]store.CartItem, len(req.Items))
-	for i, it := range req.Items {
-		items[i] = store.CartItem{
+
+	if len(req.Items) > maxCartItems {
+		validationError(w, "too many items")
+		return
+	}
+
+	items := make([]store.CartItem, 0, len(req.Items))
+	for _, it := range req.Items {
+		if it.ProductID <= 0 {
+			validationError(w, "invalid product_id")
+			return
+		}
+		if it.Quantity < 1 || it.Quantity > maxQuantity {
+			validationError(w, "quantity out of range")
+			return
+		}
+		if len(it.SizeLabel) > maxSizeLabelLen {
+			validationError(w, "size_label too long")
+			return
+		}
+		items = append(items, store.CartItem{
 			ProductID: it.ProductID,
 			SizeLabel: it.SizeLabel,
 			Quantity:  it.Quantity,
-		}
+		})
 	}
+
 	if err := h.store.SaveCustomerCart(r.Context(), id, items); err != nil {
-		jsonError(w, "internal error", http.StatusInternalServerError)
+		internalError(w, "internal error")
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -814,7 +860,7 @@ func (h *CustomerHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 	id := middleware.CustomerID(r)
 	ids, err := h.store.GetCustomerFavorites(r.Context(), id)
 	if err != nil {
-		jsonError(w, "internal error", http.StatusInternalServerError)
+		internalError(w, "internal error")
 		return
 	}
 	if ids == nil {
@@ -831,8 +877,20 @@ func (h *CustomerHandler) SaveFavorites(w http.ResponseWriter, r *http.Request) 
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+
+	if len(req.ProductIDs) > maxFavoritesItems {
+		validationError(w, "too many product_ids")
+		return
+	}
+	for _, pid := range req.ProductIDs {
+		if pid <= 0 {
+			validationError(w, "invalid product_id")
+			return
+		}
+	}
+
 	if err := h.store.SaveCustomerFavorites(r.Context(), id, req.ProductIDs); err != nil {
-		jsonError(w, "internal error", http.StatusInternalServerError)
+		internalError(w, "internal error")
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

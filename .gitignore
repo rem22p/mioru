@@ -19,6 +19,14 @@ playwright-report/
 .DS_Store
 Thumbs.db
 
+# SQLite artifacts (project uses PostgreSQL exclusively)
+*.db
+*.db-shm
+*.db-wal
+
+# User uploads (dev artifacts, not version-controlled)
+backend/api/uploads/
+
 # Go
 *.exe
 mioru-admin/backend/mioru

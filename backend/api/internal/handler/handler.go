@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"regexp"
@@ -15,6 +16,7 @@ import (
 	"mioru/internal/email"
 	"mioru/internal/middleware"
 	"mioru/internal/model"
+	"mioru/internal/store"
 )
 
 var emailRe = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
@@ -298,7 +300,11 @@ func (h *AuthHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.store.DeleteUser(r.Context(), target); err != nil {
-		jsonError(w, "user not found", http.StatusNotFound)
+		if errors.Is(err, store.ErrUserNotFound) {
+			jsonError(w, "user not found", http.StatusNotFound)
+		} else {
+			jsonError(w, "internal error", http.StatusInternalServerError)
+		}
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

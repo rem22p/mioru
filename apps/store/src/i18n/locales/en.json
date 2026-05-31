@@ -25,7 +25,8 @@
     "orLoginWith": "or sign in with",
     "loginWithTelegram": "Sign in with Telegram",
     "telegramError": "Telegram login error",
-    "telegramNotConfigured": "Telegram login is not configured"
+    "telegramNotConfigured": "Telegram login is not configured",
+    "telegramUnavailable": "Telegram login is temporarily unavailable"
   },
   "customOrder": {
     "title": "Custom order",
@@ -95,8 +96,14 @@
           "label": "3D Avatar",
           "desc": "Create an accurate digital twin of your body"
         },
-        { "label": "Virtual Try-On", "desc": "See how it fits before you buy" },
-        { "label": "XP System", "desc": "Earn points and unlock rewards" },
+        {
+          "label": "Virtual Try-On",
+          "desc": "See how it fits before you buy"
+        },
+        {
+          "label": "XP System",
+          "desc": "Earn points and unlock rewards"
+        },
         {
           "label": "Precise Sizing",
           "desc": "Matched to your exact measurements"

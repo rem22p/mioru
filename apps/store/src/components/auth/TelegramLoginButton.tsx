@@ -1,13 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { useAuthStore } from "@/stores/authStore";
-import type { TelegramAuthData } from "@/lib/api";
-
-// Extend window with Telegram widget callback.
-declare global {
-  interface Window {
-    onTelegramAuth?: (user: TelegramAuthData) => void;
-  }
-}
 
 interface TelegramLoginButtonProps {
   botName: string;
@@ -15,13 +6,11 @@ interface TelegramLoginButtonProps {
   onError?: (error: Error) => void;
 }
 
-// This component is no longer used — kept for reference.
-// The store-based auth flow now uses AuthSection on /profile page.
-export default function TelegramLoginButton({
-  botName: _botName,
-  onSuccess: _onSuccess,
-  onError: _onError,
-}: TelegramLoginButtonProps) {
+// Telegram login widget placeholder.
+// The backend Telegram OAuth flow (issue #1) is functional but the
+// widget integration is deferred. When re-enabled, import
+// fetchTelegramLogin from @/lib/api and wire the callback.
+export default function TelegramLoginButton(_props: TelegramLoginButtonProps) {
   const { t } = useTranslation();
 
   return (
@@ -31,7 +20,7 @@ export default function TelegramLoginButton({
       </p>
       <div className="flex justify-center">
         <span className="text-xs text-[var(--color-text-muted)]">
-          Telegram login is currently unavailable
+          {t("auth.telegramUnavailable")}
         </span>
       </div>
     </div>
