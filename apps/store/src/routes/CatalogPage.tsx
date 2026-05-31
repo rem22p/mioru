@@ -192,9 +192,24 @@ export default function CatalogPage() {
       brands: facets.brands,
       colors: facets.colors,
       sizes: [...facets.sizes].sort((a, b) => {
+        const order = [
+          "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL",
+        ];
+        const ai = order.indexOf(a);
+        const bi = order.indexOf(b);
+        // Both are named sizes — use predefined order
+        if (ai !== -1 && bi !== -1) return ai - bi;
+        // Only one is named — put it first
+        if (ai !== -1) return -1;
+        if (bi !== -1) return 1;
+        // Both numeric — compare as numbers
         const na = parseInt(a);
         const nb = parseInt(b);
         if (!isNaN(na) && !isNaN(nb)) return na - nb;
+        // One numeric, other is "One size" etc. — numeric first
+        if (!isNaN(na)) return -1;
+        if (!isNaN(nb)) return 1;
+        // Fallback
         return a.localeCompare(b);
       }),
     }),

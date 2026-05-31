@@ -17,12 +17,12 @@ const CustomOrderPage = lazy(() => import("@/routes/CustomOrderPage"));
 const ContactsPage = lazy(() => import("@/routes/ContactsPage"));
 
 function PageLoader() {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="text-center">
-        <div className="text-6xl mb-4 animate-pulse">👤</div>
         <p className="text-[var(--color-text-muted)] font-mono text-sm">
-          Loading...
+          {t("common.loading")}
         </p>
       </div>
     </div>

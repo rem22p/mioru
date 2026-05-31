@@ -55,7 +55,6 @@ export default function ProductPage() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
-          <div className="text-6xl mb-4 animate-pulse">👤</div>
           <p className="text-[var(--color-text-muted)] font-mono text-sm">
             {t("common.loading")}
           </p>
