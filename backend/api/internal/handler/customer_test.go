@@ -10,6 +10,7 @@ import (
 
 	"mioru/internal/auth"
 	"mioru/internal/cookieauth"
+	"mioru/internal/middleware"
 	"mioru/internal/model"
 )
 
@@ -152,5 +153,32 @@ func TestCustomerLogoutClearsCookies(t *testing.T) {
 		if c.Value != "" {
 			t.Errorf("%s Value = %q, want empty", name, c.Value)
 		}
+	}
+}
+
+// TestLinkOAuthRejectsUnsignedTelegramID guards against account hijack via
+// the vulnerable LinkOAuth endpoint (issue #1). A bare oauth_id without a
+// valid Telegram HMAC signature must be rejected. This test should FAIL
+// before the fix and PASS after.
+func TestLinkOAuthRejectsUnsignedTelegramID(t *testing.T) {
+	h := newCustomerHandlerForTest(&fakeCustomerStore{})
+
+	// Attempt to link a Telegram ID without any hash/auth_date — this is the
+	// exploit path described in issue #1.
+	body := `{"provider":"telegram","oauth_id":"123456789"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/store/customers/me/oauth", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	// Pretend we are customer 42 (bypass CustomerAuthMW for the test).
+	ctx := middleware.WithCustomerID(req.Context(), 42)
+	req = req.WithContext(ctx)
+
+	rr := httptest.NewRecorder()
+	// Also need CSRF bypass — LinkOAuth sits behind customerCSRF in main.go.
+	// In tests we call the handler directly, bypassing middleware.
+	h.LinkOAuth(rr, req)
+
+	if rr.Code != http.StatusBadRequest && rr.Code != http.StatusUnauthorized {
+		t.Errorf("unsigned telegram oauth link must be rejected, got HTTP %d (want 400 or 401)", rr.Code)
 	}
 }

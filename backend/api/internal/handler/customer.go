@@ -78,8 +78,18 @@ type setPasswordReq struct {
 
 type linkOAuthReq struct {
 	Provider    string `json:"provider"`
-	OAuthID     string `json:"oauth_id"`
+	OAuthID     string `json:"oauth_id"`     // for non-Telegram providers
 	ProfileData string `json:"profile_data"`
+	// Telegram-specific: full signed payload from the Login Widget.
+	// When provider == "telegram", these fields are required and are
+	// verified via auth.VerifyTelegramAuth before linking.
+	ID        int64  `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Username  string `json:"username"`
+	PhotoURL  string `json:"photo_url"`
+	AuthDate  int64  `json:"auth_date"`
+	Hash      string `json:"hash"`
 }
 
 // customerProfileResp is returned by Register/Login: a small public profile
@@ -567,6 +577,10 @@ func (h *CustomerHandler) SetPassword(w http.ResponseWriter, r *http.Request) {
 
 // LinkOAuth binds an OAuth provider to the currently authenticated customer.
 // The operation is idempotent: linking the same provider+id twice is a no-op.
+//
+// For Telegram, the full signed payload (hash, auth_date, id, first_name, …)
+// is required and verified via auth.VerifyTelegramAuth — a bare oauth_id is
+// rejected to prevent account hijack (see issue #1).
 func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 	id := middleware.CustomerID(r)
 
@@ -586,14 +600,53 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "provider максимум 50 символов", http.StatusBadRequest)
 		return
 	}
-	if body.OAuthID == "" {
-		jsonError(w, "oauth_id обязателен", http.StatusBadRequest)
-		return
+
+	var oauthID string
+
+	if body.Provider == "telegram" {
+		// Telegram requires the full signed payload — never trust a bare oauth_id.
+		if body.Hash == "" {
+			jsonError(w, "hash обязателен для Telegram", http.StatusBadRequest)
+			return
+		}
+		if body.AuthDate <= 0 {
+			jsonError(w, "auth_date обязателен для Telegram", http.StatusBadRequest)
+			return
+		}
+		if body.ID <= 0 {
+			jsonError(w, "некорректный Telegram ID", http.StatusBadRequest)
+			return
+		}
+
+		data := auth.TelegramAuthData{
+			ID:        body.ID,
+			FirstName: body.FirstName,
+			LastName:  body.LastName,
+			Username:  body.Username,
+			PhotoURL:  body.PhotoURL,
+			AuthDate:  body.AuthDate,
+			Hash:      body.Hash,
+		}
+
+		if err := auth.VerifyTelegramAuth(data, h.botToken, 24*time.Hour); err != nil {
+			jsonError(w, "неверная Telegram подпись", http.StatusUnauthorized)
+			return
+		}
+
+		oauthID = fmt.Sprintf("%d", body.ID)
+	} else {
+		// Non-Telegram providers use the oauth_id directly.
+		if body.OAuthID == "" {
+			jsonError(w, "oauth_id обязателен", http.StatusBadRequest)
+			return
+		}
+		if len(body.OAuthID) > 100 {
+			jsonError(w, "oauth_id максимум 100 символов", http.StatusBadRequest)
+			return
+		}
+		oauthID = body.OAuthID
 	}
-	if len(body.OAuthID) > 100 {
-		jsonError(w, "oauth_id максимум 100 символов", http.StatusBadRequest)
-		return
-	}
+
 	if len(body.ProfileData) > 2000 {
 		jsonError(w, "profile_data максимум 2000 символов", http.StatusBadRequest)
 		return
@@ -602,7 +655,7 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 	oa := model.CustomerOAuth{
 		CustomerID:  id,
 		Provider:    body.Provider,
-		OAuthID:     body.OAuthID,
+		OAuthID:     oauthID,
 		ProfileData: body.ProfileData,
 	}
 

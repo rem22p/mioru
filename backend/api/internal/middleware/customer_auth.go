@@ -63,3 +63,9 @@ func CustomerID(r *http.Request) int64 {
 	}
 	return 0
 }
+
+// WithCustomerID returns a context with the customer ID set. Used in tests to
+// bypass CustomerAuthMW when testing handlers that call CustomerID(ctx).
+func WithCustomerID(ctx context.Context, id int64) context.Context {
+	return context.WithValue(ctx, customerCtxKey{}, id)
+}
