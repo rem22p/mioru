@@ -77,8 +77,7 @@
     },
     "about": {
       "badge": "02 / About us",
-      "title1": "Technology",
-      "title2": "is changing shopping",
+      "title": "Our advantages",
       "items": [
         {
           "label": "3D Avatar",

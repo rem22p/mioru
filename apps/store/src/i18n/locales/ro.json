@@ -77,8 +77,7 @@
     },
     "about": {
       "badge": "02 / Despre noi",
-      "title1": "Tehnologia",
-      "title2": "schimbă shoppingul",
+      "title": "Avantajele noastre",
       "items": [
         {
           "label": "Avatar 3D",
