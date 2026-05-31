@@ -4,12 +4,16 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"mioru/internal/model"
 )
+
+// ErrUserNotFound is returned by DeleteUser when the username does not exist.
+var ErrUserNotFound = errors.New("user not found")
 
 // hashResetToken returns the hex SHA-256 of a raw password-reset token. Only the
 // hash is persisted, so a leaked database or backup cannot be used to reset
@@ -175,7 +179,7 @@ func (s *PostgresStore) DeleteUser(ctx context.Context, username string) error {
 		return fmt.Errorf("delete user: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("user not found: %s", username)
+		return ErrUserNotFound
 	}
 	return nil
 }

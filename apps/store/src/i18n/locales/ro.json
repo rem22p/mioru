@@ -25,7 +25,8 @@
     "orLoginWith": "sau autentificare prin",
     "loginWithTelegram": "Autentificare prin Telegram",
     "telegramError": "Eroare la autentificarea Telegram",
-    "telegramNotConfigured": "Autentificarea Telegram nu este configurată"
+    "telegramNotConfigured": "Autentificarea Telegram nu este configurată",
+    "telegramUnavailable": "Autentificarea prin Telegram este temporar indisponibilă"
   },
   "customOrder": {
     "title": "Comandă personalizată",

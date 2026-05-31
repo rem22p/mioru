@@ -25,7 +25,8 @@
     "orLoginWith": "или войти через",
     "loginWithTelegram": "Войти через Telegram",
     "telegramError": "Ошибка входа через Telegram",
-    "telegramNotConfigured": "Вход через Telegram не настроен"
+    "telegramNotConfigured": "Вход через Telegram не настроен",
+    "telegramUnavailable": "Вход через Telegram временно недоступен"
   },
   "customOrder": {
     "title": "Индивидуальный заказ",
@@ -91,11 +92,26 @@
       "badge": "02 / О НАС",
       "title": "Наши преимущества",
       "items": [
-        { "label": "Удобный каталог одежды", "desc": "" },
-        { "label": "Возможность индивидуального заказа", "desc": "" },
-        { "label": "Система XP бонусов", "desc": "" },
-        { "label": "3D-аватар — скоро", "desc": "" },
-        { "label": "Виртуальная примерка — скоро", "desc": "" }
+        {
+          "label": "Удобный каталог одежды",
+          "desc": ""
+        },
+        {
+          "label": "Возможность индивидуального заказа",
+          "desc": ""
+        },
+        {
+          "label": "Система XP бонусов",
+          "desc": ""
+        },
+        {
+          "label": "3D-аватар — скоро",
+          "desc": ""
+        },
+        {
+          "label": "Виртуальная примерка — скоро",
+          "desc": ""
+        }
       ]
     },
     "featured": {

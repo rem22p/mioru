@@ -11,9 +11,9 @@ import (
 
 // CartItem is a single row in customer_cart.
 type CartItem struct {
-	ProductID  int    `json:"product_id"`
-	SizeLabel  string `json:"size_label"`
-	Quantity   int    `json:"quantity"`
+	ProductID   int    `json:"product_id"`
+	SizeLabel   string `json:"size_label"`
+	Quantity    int    `json:"quantity"`
 	ProductSlug string `json:"product_slug"`
 }
 
@@ -41,7 +41,8 @@ func (s *PostgresStore) GetCustomerCart(ctx context.Context, customerID int64) (
 	return items, rows.Err()
 }
 
-// SaveCustomerCart replaces the entire cart for a customer atomically.
+// SaveCustomerCart replaces the entire cart for a customer atomically
+// using a batched insert (pgx.Batch) to avoid N+1 round-trips.
 func (s *PostgresStore) SaveCustomerCart(ctx context.Context, customerID int64, items []CartItem) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -49,21 +50,25 @@ func (s *PostgresStore) SaveCustomerCart(ctx context.Context, customerID int64, 
 	}
 	defer tx.Rollback(ctx)
 
-	// Clear existing cart
+	// Clear existing cart.
 	if _, err := tx.Exec(ctx, `DELETE FROM customer_cart WHERE customer_id = $1`, customerID); err != nil {
 		return fmt.Errorf("clear cart: %w", err)
 	}
 
-	// Insert new items
-	for _, item := range items {
-		_, err := tx.Exec(ctx, `
-			INSERT INTO customer_cart (customer_id, product_id, size_label, quantity)
-			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (customer_id, product_id, size_label)
-			DO UPDATE SET quantity = EXCLUDED.quantity`,
-			customerID, item.ProductID, item.SizeLabel, item.Quantity)
-		if err != nil {
-			return fmt.Errorf("insert cart item %d/%s: %w", item.ProductID, item.SizeLabel, err)
+	if len(items) > 0 {
+		batch := &pgx.Batch{}
+		for _, item := range items {
+			batch.Queue(`
+				INSERT INTO customer_cart (customer_id, product_id, size_label, quantity)
+				VALUES ($1, $2, $3, $4)
+				ON CONFLICT (customer_id, product_id, size_label)
+				DO UPDATE SET quantity = EXCLUDED.quantity`,
+				customerID, item.ProductID, item.SizeLabel, item.Quantity)
+		}
+		br := tx.SendBatch(ctx, batch)
+		// Close the batch result — errors surface on Close.
+		if err := br.Close(); err != nil {
+			return fmt.Errorf("batch insert cart: %w", err)
 		}
 	}
 
@@ -94,7 +99,8 @@ func (s *PostgresStore) GetCustomerFavorites(ctx context.Context, customerID int
 	return ids, rows.Err()
 }
 
-// SaveCustomerFavorites replaces all favorites for a customer atomically.
+// SaveCustomerFavorites replaces all favorites for a customer atomically
+// using a batched insert (pgx.Batch) to avoid N+1 round-trips.
 func (s *PostgresStore) SaveCustomerFavorites(ctx context.Context, customerID int64, productIDs []int) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -106,19 +112,20 @@ func (s *PostgresStore) SaveCustomerFavorites(ctx context.Context, customerID in
 		return fmt.Errorf("clear favorites: %w", err)
 	}
 
-	for _, pid := range productIDs {
-		_, err := tx.Exec(ctx, `
-			INSERT INTO customer_favorites (customer_id, product_id)
-			VALUES ($1, $2)
-			ON CONFLICT (customer_id, product_id) DO NOTHING`,
-			customerID, pid)
-		if err != nil {
-			return fmt.Errorf("insert favorite %d: %w", pid, err)
+	if len(productIDs) > 0 {
+		batch := &pgx.Batch{}
+		for _, pid := range productIDs {
+			batch.Queue(`
+				INSERT INTO customer_favorites (customer_id, product_id)
+				VALUES ($1, $2)
+				ON CONFLICT (customer_id, product_id) DO NOTHING`,
+				customerID, pid)
+		}
+		br := tx.SendBatch(ctx, batch)
+		if err := br.Close(); err != nil {
+			return fmt.Errorf("batch insert favorites: %w", err)
 		}
 	}
 
 	return tx.Commit(ctx)
 }
-
-// Ensure pgx import is used (for compilation)
-var _ pgx.Rows
