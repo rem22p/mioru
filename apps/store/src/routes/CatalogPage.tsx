@@ -44,7 +44,12 @@ export default function CatalogPage() {
   const [sortBy, setSortBy] = useState<"price-asc" | "price-desc" | "newest">(
     "newest",
   );
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [dynamicFiltersOpen, setDynamicFiltersOpen] = useState(true);
+  const [filterSubsectionsOpen, setFilterSubsectionsOpen] = useState({
+    sizes: true,
+    brands: true,
+    colors: true,
+  });
   const [page, setPage] = useState(1);
   const addItem = useCartStore((state) => state.addItem);
 
@@ -316,35 +321,44 @@ export default function CatalogPage() {
                       <span className="shrink-0 self-center text-xs text-[var(--color-text-muted)] mr-1">
                         Подкатегории:
                       </span>
-                      <button
-                        onClick={() => handleCategoryChange(parent!.slug)}
-                        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                          selectedCategory === parent!.slug
-                            ? "bg-[#44944A] text-black shadow-[0_0_15px_rgba(68,148,74,0.3)]"
-                            : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
-                        }`}
-                      >
-                        Все
-                      </button>
-                      {subCats.map((ch) => (
                         <button
-                          key={ch.id}
-                          onClick={() => handleCategoryChange(ch.slug)}
+                          onClick={() => handleCategoryChange(parent!.slug)}
                           className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                            selectedCategory === ch.slug
-                              ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)] shadow-[0_0_15px_rgba(255,255,255,0.12)]"
+                            selectedCategory === parent!.slug
+                              ? "bg-[#44944A] text-black shadow-[0_0_15px_rgba(68,148,74,0.3)]"
                               : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
                           }`}
                         >
-                          {ch.name}
+                          Все
                         </button>
-                      ))}
-                    </div>
+                        {subCats.map((ch) => (
+                          <button
+                            key={ch.id}
+                            onClick={() => handleCategoryChange(ch.slug)}
+                            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                              selectedCategory === ch.slug
+                                ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)] shadow-[0_0_15px_rgba(255,255,255,0.12)]"
+                                : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
+                            }`}
+                          >
+                            {ch.name}
+                          </button>
+                        ))}
+                      </div>
                   );
                 })()}
 
-              {/* Dynamic filters — after any category selected */}
+              {/* Dynamic filters section — after any category selected */}
               {selectedCategory !== "all" && (
+                <div className="mt-4">
+                  <button
+                    onClick={() => setDynamicFiltersOpen(!dynamicFiltersOpen)}
+                    className="w-full flex items-center justify-between rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-5 py-3 text-sm font-semibold uppercase tracking-wider text-[var(--color-text-primary)] hover:border-[#44944A]/50 transition-colors"
+                  >
+                    Фильтры
+                    <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${dynamicFiltersOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {dynamicFiltersOpen && (
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={selectedCategory}
@@ -353,24 +367,19 @@ export default function CatalogPage() {
                     exit={{ opacity: 0, height: 0 }}
                     className="mb-6 overflow-hidden"
                   >
-                    <div className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-5 space-y-5">
-                      <button
-                        onClick={() => setFiltersOpen(!filtersOpen)}
-                        className="w-full flex items-center justify-between text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
-                      >
-                        Фильтры
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform duration-300 ${filtersOpen ? "rotate-180" : ""}`}
-                        />
-                      </button>
-                      {filtersOpen && (
+                    <div className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-5 space-y-5 mt-3">
                         <div className="space-y-5">
                           {/* Sizes */}
                           {availableFilters.sizes.length > 0 && (
                             <div>
-                              <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
+                              <button
+                                onClick={() => setFilterSubsectionsOpen(prev => ({ ...prev, sizes: !prev.sizes }))}
+                                className="w-full flex items-center justify-between text-xs font-semibold text-[var(--color-text-primary)] mb-2 hover:text-[#44944A] transition-colors"
+                              >
                                 Размер
-                              </h4>
+                                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-300 ${filterSubsectionsOpen.sizes ? "rotate-180" : ""}`} />
+                              </button>
+                              {filterSubsectionsOpen.sizes && (
                               <div className="flex flex-wrap gap-2">
                                 {availableFilters.sizes.map((s) => (
                                   <button
@@ -388,15 +397,21 @@ export default function CatalogPage() {
                                   </button>
                                 ))}
                               </div>
+                              )}
                             </div>
                           )}
 
                           {/* Brands */}
                           {availableFilters.brands.length > 0 && (
                             <div>
-                              <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
+                              <button
+                                onClick={() => setFilterSubsectionsOpen(prev => ({ ...prev, brands: !prev.brands }))}
+                                className="w-full flex items-center justify-between text-xs font-semibold text-[var(--color-text-primary)] mb-2 hover:text-[#44944A] transition-colors"
+                              >
                                 Бренд
-                              </h4>
+                                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-300 ${filterSubsectionsOpen.brands ? "rotate-180" : ""}`} />
+                              </button>
+                              {filterSubsectionsOpen.brands && (
                               <div className="flex flex-wrap gap-2">
                                 {availableFilters.brands.map((b) => (
                                   <button
@@ -414,15 +429,21 @@ export default function CatalogPage() {
                                   </button>
                                 ))}
                               </div>
+                              )}
                             </div>
                           )}
 
                           {/* Colors */}
                           {availableFilters.colors.length > 0 && (
                             <div>
-                              <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">
+                              <button
+                                onClick={() => setFilterSubsectionsOpen(prev => ({ ...prev, colors: !prev.colors }))}
+                                className="w-full flex items-center justify-between text-xs font-semibold text-[var(--color-text-primary)] mb-2 hover:text-[#44944A] transition-colors"
+                              >
                                 Цвет
-                              </h4>
+                                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-300 ${filterSubsectionsOpen.colors ? "rotate-180" : ""}`} />
+                              </button>
+                              {filterSubsectionsOpen.colors && (
                               <div className="flex flex-wrap gap-2">
                                 {availableFilters.colors.map((c) => (
                                   <button
@@ -440,6 +461,7 @@ export default function CatalogPage() {
                                   </button>
                                 ))}
                               </div>
+                              )}
                             </div>
                           )}
 
@@ -457,10 +479,11 @@ export default function CatalogPage() {
                             </button>
                           )}
                         </div>
-                      )}
                     </div>
                   </motion.div>
                 </AnimatePresence>
+                  )}
+                </div>
               )}
 
               {/* Sort + price row */}
