@@ -23,11 +23,8 @@ export default function Footer() {
       <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
         <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2 lg:col-span-1">
-            <Link
-              to="/"
-              className="text-3xl font-bold tracking-tighter text-[var(--color-text-primary)]"
-            >
-              MIORU
+            <Link to="/" className="inline-block">
+              <img src="/favicon.ico" alt="MIORU" className="h-10 w-10" />
             </Link>
             <p className="mt-4 text-sm leading-relaxed text-[var(--color-text-muted)]">
               {t("footer.description")}

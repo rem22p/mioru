@@ -29,6 +29,7 @@ function toUser(c: CustomerProfile): User {
     email: c.email,
     avatarParams: {} as AvatarParams,
     xpBalance: 0,
+    vipLevel: 0,
   };
 }
 

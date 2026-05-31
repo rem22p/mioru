@@ -75,12 +75,12 @@ export default function Header({
         <div className="relative mx-auto flex h-20 max-w-7xl items-center justify-between md:justify-end px-6 lg:px-8">
           {/* Logo */}
           <Link to="/" className="md:absolute md:left-6 lg:left-8">
-            <motion.span
-              className={`text-2xl font-bold tracking-tighter ${isLight ? "text-gray-900" : "text-[var(--color-text-primary)]"}`}
-              whileHover={{ scale: 1.05 }}
-            >
-              MIORU
-            </motion.span>
+            <motion.img
+              src="/favicon.ico"
+              alt="MIORU"
+              className="h-10 w-10"
+              whileHover={{ scale: 1.1 }}
+            />
           </Link>
 
           {/* Desktop Nav — centered */}
