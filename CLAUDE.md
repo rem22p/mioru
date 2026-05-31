@@ -24,7 +24,21 @@ Single source of truth for agents working in this repo. `AGENTS.md` is just a po
 
 ## Workflow rule (hard)
 
-Every change: **plan → user approves → make change → user checks → user says commit → agent commits.** No commits without explicit approval; no code changes before presenting a plan. Remote is HTTPS (`https://github.com/rem22p/mioru`) with a stored token, so `GIT_TERMINAL_PROMPT=0 git push origin <branch>` works non-interactively — but the agent does NOT push by default; same approval gate as commit, unless the user pre-authorized a batch waiver (e.g. a scoped autonomous run).
+**Agent workflow (every change):**
+1. Create a feature branch (`fix/<slug>`, `feat/<slug>`, `chore/<slug>` — kebab-case, ≤50 chars)
+2. Present a plan → user approves
+3. Make the change → user checks
+4. User says commit → agent commits
+5. Push the branch → create a PR → user reviews and merges
+
+No commits without explicit user approval; no code changes before presenting a plan.
+
+- **Agent never pushes to `main`.** Every agent change reaches main via a user-approved PR.
+- **Human pushes to main remain unrestricted.** Branch protection is intentionally absent.
+- **Agent may push the feature branch and create a PR but never merges** — merge is the user's gate.
+- **PR should reference an existing issue** (e.g. `Closes #N`).
+- **Branch is deleted after merge** (agent or user cleans up).
+- Remote: `git@github.com:rem22p/mioru.git` (SSH). The agent commits/branches but push requires the user's SSH passphrase; the user pushes or the agent uses a GitHub PAT (temporary, scoped to `repo`).
 
 ## What this is
 
