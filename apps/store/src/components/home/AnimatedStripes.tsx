@@ -34,9 +34,7 @@ export default function AnimatedStripes() {
             transition={{ duration: 0.8 }}
             className="mt-4 text-4xl font-bold tracking-tighter text-[var(--color-text-primary)] sm:text-6xl"
           >
-            {t('home.about.title1')}
-            <br />
-            <span className="text-[#44944A]">{t('home.about.title2')}</span>
+            {t('home.about.title')}
           </motion.h2>
         </div>
 
@@ -56,7 +54,11 @@ export default function AnimatedStripes() {
                   <span className="text-xs font-mono text-[var(--color-text-muted)]">
                     0{index + 1}
                   </span>
-                  <h3 className="text-xl font-semibold text-[var(--color-text-primary)] transition-colors group-hover:text-[#44944A]">
+                  <h3 className={`text-xl font-semibold transition-colors group-hover:text-[#44944A] ${
+                    item.label.includes("скоро") || item.label.includes("coming") || item.label.includes("curând")
+                      ? "text-[#44944A]"
+                      : "text-[var(--color-text-primary)]"
+                  }`}>
                     {item.label}
                   </h3>
                 </div>

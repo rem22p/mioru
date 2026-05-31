@@ -41,7 +41,7 @@ export default function CTASection() {
           className="mt-12"
         >
           <Link
-            to="/avatar"
+            to="/catalog"
             className="group inline-flex items-center gap-3 rounded-full bg-white px-8 py-4 text-sm font-semibold text-black transition-all hover:shadow-[0_0_40px_rgba(255,255,255,0.2)]"
           >
             {t('home.cta.button')}
