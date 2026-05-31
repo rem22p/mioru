@@ -45,10 +45,12 @@
     "afterSubmit": "În curând managerul nostru te va contacta pe Telegram cu informații despre comanda ta. Dacă acest format de comunicare nu este posibil pentru tine, te rugăm să ne scrii pe Instagram @mioru.store."
   },
   "nav": {
-    "catalog": "Catalog",
-    "avatar": "Avatar",
-    "profile": "Profil",
-    "cart": "Coș"
+    "inStock": "ÎN STOC",
+    "customOrder": "COMANDĂ",
+    "avatar": "AVATAR",
+    "cart": "COȘ",
+    "favorites": "FAVORITE",
+    "profile": "Profil"
   },
   "home": {
     "hero": {

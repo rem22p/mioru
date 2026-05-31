@@ -1,14 +1,22 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Menu, X, Sun, Moon, Globe, User } from "lucide-react";
+import { Menu, X, Sun, Moon, Globe, User, ShoppingBag, Heart } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
 import { motion, AnimatePresence } from "framer-motion";
 
-const navLinks = [
-  { href: "/catalog", labelKey: "nav.catalog" },
+const desktopLinks = [
+  { href: "/catalog", labelKey: "nav.inStock" },
+  { href: "/custom-order", labelKey: "nav.customOrder" },
+  { href: "/avatar", labelKey: "nav.avatar" },
+];
+
+const mobileLinks = [
+  { href: "/catalog", labelKey: "nav.inStock" },
+  { href: "/custom-order", labelKey: "nav.customOrder" },
   { href: "/avatar", labelKey: "nav.avatar" },
   { href: "/cart", labelKey: "nav.cart" },
+  { href: "/favorites", labelKey: "nav.favorites" },
 ];
 
 const languages = [
@@ -64,9 +72,22 @@ export default function Header({
             : "bg-transparent"
         }`}
       >
-        <div className="relative mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-8">
+        <div className="relative mx-auto flex h-20 max-w-7xl items-center justify-between md:justify-end px-6 lg:px-8">
+          {/* Mobile menu button — left side */}
+          <button
+            className="h-11 w-11 flex items-center justify-center md:hidden transition-colors rounded-lg order-first"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label={menuOpen ? t("common.close") : "Menu"}
+          >
+            {menuOpen ? (
+              <X className="h-6 w-6 text-[var(--color-text-primary)]" />
+            ) : (
+              <Menu className="h-6 w-6 text-[var(--color-text-primary)]" />
+            )}
+          </button>
+
           {/* Logo */}
-          <Link to="/">
+          <Link to="/" className="md:absolute md:left-6 lg:left-8">
             <motion.span
               className={`text-2xl font-bold tracking-tighter ${isLight ? "text-gray-900" : "text-[var(--color-text-primary)]"}`}
               whileHover={{ scale: 1.05 }}
@@ -75,14 +96,14 @@ export default function Header({
             </motion.span>
           </Link>
 
-          {/* Desktop Nav */}
+          {/* Desktop Nav — centered */}
           <nav className="hidden md:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
             <div className="flex items-center gap-10">
-              {navLinks.map((link) => (
+              {desktopLinks.map((link) => (
                 <Link
                   key={link.href}
                   to={link.href}
-                  className={`group relative text-sm font-medium transition-colors ${
+                  className={`group relative text-sm font-bold tracking-wider transition-colors ${
                     isLight
                       ? "text-gray-500 hover:text-gray-900"
                       : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
@@ -95,8 +116,31 @@ export default function Header({
             </div>
           </nav>
 
-          {/* Actions */}
-          <div className="flex items-center gap-3">
+          {/* Right-side icons */}
+          <div className="flex items-center gap-1">
+            {/* Favorites */}
+            <Link
+              to="/favorites"
+              className="h-11 w-11 hidden md:flex items-center justify-center transition-colors rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+              aria-label={t("nav.favorites")}
+            >
+              <Heart className="h-5 w-5" />
+            </Link>
+
+            {/* Cart */}
+            <Link
+              to="/cart"
+              className="h-11 w-11 hidden md:flex items-center justify-center transition-colors rounded-lg relative text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+              aria-label={t("nav.cart")}
+            >
+              <ShoppingBag className="h-5 w-5" />
+              {totalItems > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#44944A] text-[10px] font-bold text-black">
+                  {totalItems > 9 ? "9+" : totalItems}
+                </span>
+              )}
+            </Link>
+
             {/* Language Switcher */}
             <div className="relative">
               <button
@@ -171,62 +215,69 @@ export default function Header({
             >
               <User className="h-5 w-5" />
             </Link>
-
-            {/* Mobile Menu Toggle */}
-            <button
-              className={`h-11 w-11 flex items-center justify-center md:hidden transition-colors rounded-lg ${
-                isLight
-                  ? "text-gray-500 hover:text-gray-900"
-                  : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
-              }`}
-              onClick={() => setMenuOpen(!menuOpen)}
-              aria-label={menuOpen ? t("common.close") : "Menu"}
-            >
-              {menuOpen ? (
-                <X className="h-6 w-6" />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
-            </button>
           </div>
         </div>
       </header>
 
-      {/* Mobile Menu */}
+      {/* Mobile slide-out menu */}
       <AnimatePresence>
         {menuOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className={`fixed inset-0 z-40 md:hidden ${
-              isLight ? "bg-white/98" : "bg-[var(--color-bg-primary)]/98"
-            } backdrop-blur-xl`}
-          >
-            <nav className="flex h-full flex-col items-center justify-center gap-8">
-              {navLinks.map((link, i) => (
-                <motion.div
-                  key={link.href}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-black md:hidden"
+              onClick={() => setMenuOpen(false)}
+            />
+            {/* Slide-out panel */}
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className={`fixed top-0 left-0 bottom-0 z-50 w-72 md:hidden ${
+                isLight ? "bg-white" : "bg-[var(--color-bg-primary)]"
+              } pt-[env(safe-area-inset-top)]`}
+            >
+              <div className="flex items-center justify-between px-6 h-20">
+                <Link to="/" onClick={() => setMenuOpen(false)}>
+                  <span className={`text-2xl font-bold tracking-tighter ${isLight ? "text-gray-900" : "text-[var(--color-text-primary)]"}`}>
+                    MIORU
+                  </span>
+                </Link>
+                <button
+                  onClick={() => setMenuOpen(false)}
+                  className="h-11 w-11 flex items-center justify-center"
                 >
-                  <Link
-                    to={link.href}
-                    className={`text-3xl font-bold block py-2 px-4 transition-colors ${
-                      isLight
-                        ? "text-gray-900 hover:text-[#44944A]"
-                        : "text-[var(--color-text-primary)] hover:text-[#44944A]"
-                    }`}
-                    onClick={() => setMenuOpen(false)}
+                  <X className={`h-6 w-6 ${isLight ? "text-gray-900" : "text-[var(--color-text-primary)]"}`} />
+                </button>
+              </div>
+              <nav className="flex flex-col px-6 pt-4 gap-1">
+                {mobileLinks.map((link, i) => (
+                  <motion.div
+                    key={link.href}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.08 }}
                   >
-                    {t(link.labelKey)}
-                  </Link>
-                </motion.div>
-              ))}
-            </nav>
-          </motion.div>
+                    <Link
+                      to={link.href}
+                      className={`block py-3 text-lg font-bold tracking-wider transition-colors ${
+                        isLight
+                          ? "text-gray-900 hover:text-[#44944A]"
+                          : "text-[var(--color-text-primary)] hover:text-[#44944A]"
+                      }`}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      {t(link.labelKey)}
+                    </Link>
+                  </motion.div>
+                ))}
+              </nav>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </>

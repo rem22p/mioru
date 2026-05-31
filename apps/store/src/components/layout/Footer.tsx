@@ -5,10 +5,10 @@ export default function Footer() {
   const { t } = useTranslation();
 
   const navLinks = [
-    { labelKey: "nav.catalog", href: "/catalog" },
+    { labelKey: "nav.inStock", href: "/catalog" },
+    { labelKey: "nav.customOrder", href: "/custom-order" },
     { labelKey: "nav.avatar", href: "/avatar" },
     { labelKey: "nav.cart", href: "/cart" },
-    { labelKey: "nav.profile", href: "/profile" },
   ];
 
   const infoLinks = [
