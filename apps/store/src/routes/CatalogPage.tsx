@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useCatalogStore } from "@/stores/catalogStore";
 import { useCartStore } from "@/stores/cartStore";
 import { getImageUrl } from "@/lib/api";
@@ -36,6 +36,7 @@ export default function CatalogPage() {
   } = useCatalogStore();
 
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const { categorySlug } = useParams<{ categorySlug?: string }>();
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
   const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
@@ -77,6 +78,23 @@ export default function CatalogPage() {
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
+
+  // When navigated from homepage with a category slug, select it
+  useEffect(() => {
+    if (categorySlug && categories.length > 0) {
+      // Check if the slug exists in the category tree
+      const walk = (cats: typeof categories): boolean => {
+        for (const c of cats) {
+          if (c.slug === categorySlug) return true;
+          if (c.children && walk(c.children)) return true;
+        }
+        return false;
+      };
+      if (walk(categories)) {
+        setSelectedCategory(categorySlug);
+      }
+    }
+  }, [categorySlug, categories]);
 
   // category_id → slug lookup (used for product cards when no image is set).
   const categorySlugById = useMemo(() => {
