@@ -12,6 +12,7 @@ import (
 	"mioru/internal/cookieauth"
 	"mioru/internal/middleware"
 	"mioru/internal/model"
+	"mioru/internal/store"
 )
 
 // fakeCustomerStore is a minimal customerStore for the cookie-issuance and
@@ -60,6 +61,22 @@ func (f *fakeCustomerStore) LinkOAuth(ctx context.Context, customerID int64, oa 
 }
 func (f *fakeCustomerStore) ListCustomerOrders(ctx context.Context, customerID int64, page, perPage int) ([]model.Order, int, error) {
 	return nil, 0, nil
+}
+
+func (f *fakeCustomerStore) GetCustomerCart(ctx context.Context, customerID int64) ([]store.CartItem, error) {
+	return nil, nil
+}
+
+func (f *fakeCustomerStore) SaveCustomerCart(ctx context.Context, customerID int64, items []store.CartItem) error {
+	return nil
+}
+
+func (f *fakeCustomerStore) GetCustomerFavorites(ctx context.Context, customerID int64) ([]int, error) {
+	return nil, nil
+}
+
+func (f *fakeCustomerStore) SaveCustomerFavorites(ctx context.Context, customerID int64, productIDs []int) error {
+	return nil
 }
 
 func newCustomerHandlerForTest(fs *fakeCustomerStore) *CustomerHandler {

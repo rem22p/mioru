@@ -14,6 +14,7 @@ import (
 	"mioru/internal/cookieauth"
 	"mioru/internal/middleware"
 	"mioru/internal/model"
+	"mioru/internal/store"
 )
 
 var customerEmailRe = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
@@ -35,6 +36,12 @@ type customerStore interface {
 
 	// Orders
 	ListCustomerOrders(ctx context.Context, customerID int64, page, perPage int) ([]model.Order, int, error)
+
+	// Cart & Favorites
+	GetCustomerCart(ctx context.Context, customerID int64) ([]store.CartItem, error)
+	SaveCustomerCart(ctx context.Context, customerID int64, items []store.CartItem) error
+	GetCustomerFavorites(ctx context.Context, customerID int64) ([]int, error)
+	SaveCustomerFavorites(ctx context.Context, customerID int64, productIDs []int) error
 }
 
 // CustomerHandler handles store customer auth & profile.
@@ -746,4 +753,88 @@ func escapeJSON(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// ── Cart & Favorites handlers ──
+
+type cartItemReq struct {
+	ProductID int    `json:"product_id"`
+	SizeLabel string `json:"size_label"`
+	Quantity  int    `json:"quantity"`
+}
+
+type cartSaveReq struct {
+	Items []cartItemReq `json:"items"`
+}
+
+type favoritesSaveReq struct {
+	ProductIDs []int `json:"product_ids"`
+}
+
+// GetCart returns the customer's saved cart.
+func (h *CustomerHandler) GetCart(w http.ResponseWriter, r *http.Request) {
+	id := middleware.CustomerID(r)
+	items, err := h.store.GetCustomerCart(r.Context(), id)
+	if err != nil {
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if items == nil {
+		items = []store.CartItem{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"items": items})
+}
+
+// SaveCart replaces the customer's cart with the given items.
+func (h *CustomerHandler) SaveCart(w http.ResponseWriter, r *http.Request) {
+	id := middleware.CustomerID(r)
+	var req cartSaveReq
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	items := make([]store.CartItem, len(req.Items))
+	for i, it := range req.Items {
+		items[i] = store.CartItem{
+			ProductID: it.ProductID,
+			SizeLabel: it.SizeLabel,
+			Quantity:  it.Quantity,
+		}
+	}
+	if err := h.store.SaveCustomerCart(r.Context(), id, items); err != nil {
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"ok":true}`))
+}
+
+// GetFavorites returns the customer's saved favorite product IDs.
+func (h *CustomerHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
+	id := middleware.CustomerID(r)
+	ids, err := h.store.GetCustomerFavorites(r.Context(), id)
+	if err != nil {
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if ids == nil {
+		ids = []int{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"product_ids": ids})
+}
+
+// SaveFavorites replaces the customer's favorites with the given IDs.
+func (h *CustomerHandler) SaveFavorites(w http.ResponseWriter, r *http.Request) {
+	id := middleware.CustomerID(r)
+	var req favoritesSaveReq
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if err := h.store.SaveCustomerFavorites(r.Context(), id, req.ProductIDs); err != nil {
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"ok":true}`))
 }
