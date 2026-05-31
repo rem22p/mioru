@@ -33,7 +33,7 @@ func (s *PostgresStore) ListCustomerOrders(ctx context.Context, customerID int64
 		SELECT id, customer_id, total_minor, status, created_at
 		FROM orders
 		WHERE customer_id = $1
-		ORDER BY created_at DESC
+		ORDER BY created_at DESC, id DESC
 		LIMIT $2 OFFSET $3`, customerID, perPage, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list customer orders: %w", err)
