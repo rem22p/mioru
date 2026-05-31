@@ -130,6 +130,12 @@ func main() {
 	mux.Handle("POST /api/store/customers/me/oauth", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.LinkOAuth))))
 	mux.Handle("GET /api/store/customers/me/orders", customerAuthMW(http.HandlerFunc(customerH.ListOrders)))
 
+	// Customer cart & favorites (auth required)
+	mux.Handle("GET /api/store/customers/me/cart", customerAuthMW(http.HandlerFunc(customerH.GetCart)))
+	mux.Handle("PUT /api/store/customers/me/cart", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.SaveCart))))
+	mux.Handle("GET /api/store/customers/me/favorites", customerAuthMW(http.HandlerFunc(customerH.GetFavorites)))
+	mux.Handle("PUT /api/store/customers/me/favorites", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.SaveFavorites))))
+
 	// Store: Public product & category endpoints (no auth)
 	storeH := handler.NewStoreHandler(pgStore)
 	mux.HandleFunc("GET /api/products", cors(storeH.ListProducts))

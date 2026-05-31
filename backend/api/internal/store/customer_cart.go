@@ -1,0 +1,124 @@
+package store
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/jackc/pgx/v5"
+)
+
+// ── Cart ──
+
+// CartItem is a single row in customer_cart.
+type CartItem struct {
+	ProductID  int    `json:"product_id"`
+	SizeLabel  string `json:"size_label"`
+	Quantity   int    `json:"quantity"`
+	ProductSlug string `json:"product_slug"`
+}
+
+// GetCustomerCart returns all cart items for a customer.
+func (s *PostgresStore) GetCustomerCart(ctx context.Context, customerID int64) ([]CartItem, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT c.product_id, c.size_label, c.quantity, p.slug
+		FROM customer_cart c
+		JOIN products p ON p.id = c.product_id
+		WHERE c.customer_id = $1
+		ORDER BY c.created_at`, customerID)
+	if err != nil {
+		return nil, fmt.Errorf("get customer cart: %w", err)
+	}
+	defer rows.Close()
+
+	var items []CartItem
+	for rows.Next() {
+		var item CartItem
+		if err := rows.Scan(&item.ProductID, &item.SizeLabel, &item.Quantity, &item.ProductSlug); err != nil {
+			return nil, fmt.Errorf("scan cart row: %w", err)
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+// SaveCustomerCart replaces the entire cart for a customer atomically.
+func (s *PostgresStore) SaveCustomerCart(ctx context.Context, customerID int64, items []CartItem) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Clear existing cart
+	if _, err := tx.Exec(ctx, `DELETE FROM customer_cart WHERE customer_id = $1`, customerID); err != nil {
+		return fmt.Errorf("clear cart: %w", err)
+	}
+
+	// Insert new items
+	for _, item := range items {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO customer_cart (customer_id, product_id, size_label, quantity)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (customer_id, product_id, size_label)
+			DO UPDATE SET quantity = EXCLUDED.quantity`,
+			customerID, item.ProductID, item.SizeLabel, item.Quantity)
+		if err != nil {
+			return fmt.Errorf("insert cart item %d/%s: %w", item.ProductID, item.SizeLabel, err)
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+// ── Favorites ──
+
+// GetCustomerFavorites returns all favorite product IDs for a customer.
+func (s *PostgresStore) GetCustomerFavorites(ctx context.Context, customerID int64) ([]int, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT product_id FROM customer_favorites
+		WHERE customer_id = $1
+		ORDER BY created_at`, customerID)
+	if err != nil {
+		return nil, fmt.Errorf("get customer favorites: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan favorite row: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// SaveCustomerFavorites replaces all favorites for a customer atomically.
+func (s *PostgresStore) SaveCustomerFavorites(ctx context.Context, customerID int64, productIDs []int) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `DELETE FROM customer_favorites WHERE customer_id = $1`, customerID); err != nil {
+		return fmt.Errorf("clear favorites: %w", err)
+	}
+
+	for _, pid := range productIDs {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO customer_favorites (customer_id, product_id)
+			VALUES ($1, $2)
+			ON CONFLICT (customer_id, product_id) DO NOTHING`,
+			customerID, pid)
+		if err != nil {
+			return fmt.Errorf("insert favorite %d: %w", pid, err)
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+// Ensure pgx import is used (for compilation)
+var _ pgx.Rows
