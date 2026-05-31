@@ -71,8 +71,8 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
     : 0;
 
   const stock = product.stock_quantity || 0;
-  const available = Math.max(0, stock - alreadyInCart);
-  const maxQty = stock > 0 ? available : 999;
+  const available = stock > 0 ? Math.max(0, stock - alreadyInCart) : 999;
+  const maxQty = available;
   const soldOut = stock > 0 && available <= 0;
 
   // Clamp qty when available changes
@@ -229,13 +229,11 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                 </div>
               </div>
 
-              {/* Quantity Selector */}
-              {selectedSize && !soldOut && maxQty > 0 && (
-                <div className="mt-6">
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-primary)] mb-4">
-                    {t("product.quantity")}
-                  </h3>
-                  <div className="flex items-center gap-0 rounded-xl border border-[var(--color-border-custom)] w-fit overflow-hidden">
+              {/* Actions */}
+              <div className="mt-8 flex gap-3">
+                {/* Quantity control — left of add to cart */}
+                {selectedSize && !soldOut && maxQty > 0 && (
+                  <div className="flex items-center gap-1 rounded-xl border border-[var(--color-border-custom)] overflow-hidden">
                     <button
                       onClick={() => setQty((q) => Math.max(1, q - 1))}
                       disabled={safeQty <= 1}
@@ -243,7 +241,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                     >
                       −
                     </button>
-                    <span className="h-11 w-12 flex items-center justify-center text-sm font-bold text-[var(--color-text-primary)] border-x border-[var(--color-border-custom)]">
+                    <span className="w-10 text-center text-sm font-bold text-[var(--color-text-primary)]">
                       {safeQty}
                     </span>
                     <button
@@ -254,11 +252,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                       +
                     </button>
                   </div>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="mt-8 flex gap-3">
+                )}
                 <button
                   onClick={handleAddToCart}
                   disabled={!selectedSize || soldOut}
