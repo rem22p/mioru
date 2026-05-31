@@ -452,7 +452,7 @@ func (h *CustomerHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) 
 		Hash:      req.Hash,
 	}
 
-	if err := auth.VerifyTelegramAuth(data, h.botToken, 24*time.Hour); err != nil {
+	if err := auth.VerifyTelegramAuth(data, h.botToken, 24*time.Hour, time.Now()); err != nil {
 		jsonError(w, "неверная Telegram подпись", http.StatusUnauthorized)
 		return
 	}
@@ -483,8 +483,13 @@ func (h *CustomerHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// New OAuth customer — create atomically with the oauth link.
-	profileData := fmt.Sprintf(`{"first_name":"%s","last_name":"%s","username":"%s","photo_url":"%s"}`,
-		escapeJSON(req.FirstName), escapeJSON(req.LastName), escapeJSON(req.Username), escapeJSON(req.PhotoURL))
+	profileBytes, _ := json.Marshal(map[string]string{
+		"first_name": req.FirstName,
+		"last_name":  req.LastName,
+		"username":   req.Username,
+		"photo_url":  req.PhotoURL,
+	})
+	profileData := string(profileBytes)
 
 	c := model.Customer{
 		FirstName:   req.FirstName,
@@ -501,10 +506,29 @@ func (h *CustomerHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) 
 
 	if err := h.store.CreateCustomerWithOAuth(r.Context(), c, oa); err != nil {
 		if strings.Contains(err.Error(), "already linked") {
-			jsonError(w, "этот Telegram аккаунт уже привязан", http.StatusConflict)
-		} else {
-			jsonError(w, "internal error", http.StatusInternalServerError)
+			// Race: another request created the link between our GetCustomerByOAuth
+			// and CreateCustomerWithOAuth. Retry — fetch the now-existing customer.
+			cust, _, err2 := h.store.GetCustomerByOAuth(r.Context(), "telegram", oauthID)
+			if err2 != nil || cust == nil {
+				jsonError(w, "internal error", http.StatusInternalServerError)
+				return
+			}
+			if err := h.issueSession(w, cust.ID); err != nil {
+				jsonError(w, "internal error", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(customerProfileResp{
+				ID:          cust.ID,
+				Email:       cust.Email,
+				FirstName:   cust.FirstName,
+				LastName:    cust.LastName,
+				Phone:       cust.Phone,
+				AvatarColor: cust.AvatarColor,
+			})
+			return
 		}
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
@@ -639,7 +663,7 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 			Hash:      body.Hash,
 		}
 
-		if err := auth.VerifyTelegramAuth(data, h.botToken, 24*time.Hour); err != nil {
+		if err := auth.VerifyTelegramAuth(data, h.botToken, 24*time.Hour, time.Now()); err != nil {
 			jsonError(w, "неверная Telegram подпись", http.StatusUnauthorized)
 			return
 		}
@@ -727,34 +751,6 @@ func (h *CustomerHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// escapeJSON escapes a string for safe inclusion in a JSON string value.
-// It handles the characters that must be escaped per RFC 8259: backslash,
-// double quote, and control characters.
-func escapeJSON(s string) string {
-	var b strings.Builder
-	for _, r := range s {
-		switch r {
-		case '\\':
-			b.WriteString(`\\`)
-		case '"':
-			b.WriteString(`\"`)
-		case '\n':
-			b.WriteString(`\n`)
-		case '\r':
-			b.WriteString(`\r`)
-		case '\t':
-			b.WriteString(`\t`)
-		default:
-			if r < 0x20 {
-				b.WriteString(fmt.Sprintf(`\u%04x`, r))
-			} else {
-				b.WriteRune(r)
-			}
-		}
-	}
-	return b.String()
-}
-
 // ── Cart & Favorites handlers ──
 
 const (
@@ -778,32 +774,12 @@ type favoritesSaveReq struct {
 	ProductIDs []int `json:"product_ids"`
 }
 
-// validationError writes a 400 with {error, code}.
-func validationError(w http.ResponseWriter, msg string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusBadRequest)
-	json.NewEncoder(w).Encode(map[string]string{
-		"error": msg,
-		"code":  "VALIDATION_FAILED",
-	})
-}
-
-// internalError writes a 500 with {error, code}.
-func internalError(w http.ResponseWriter, msg string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusInternalServerError)
-	json.NewEncoder(w).Encode(map[string]string{
-		"error": msg,
-		"code":  "INTERNAL",
-	})
-}
-
 // GetCart returns the customer's saved cart.
 func (h *CustomerHandler) GetCart(w http.ResponseWriter, r *http.Request) {
 	id := middleware.CustomerID(r)
 	items, err := h.store.GetCustomerCart(r.Context(), id)
 	if err != nil {
-		internalError(w, "internal error")
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	if items == nil {
@@ -822,22 +798,22 @@ func (h *CustomerHandler) SaveCart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(req.Items) > maxCartItems {
-		validationError(w, "too many items")
+		jsonError(w, "too many items", http.StatusBadRequest)
 		return
 	}
 
 	items := make([]store.CartItem, 0, len(req.Items))
 	for _, it := range req.Items {
 		if it.ProductID <= 0 {
-			validationError(w, "invalid product_id")
+			jsonError(w, "invalid product_id", http.StatusBadRequest)
 			return
 		}
 		if it.Quantity < 1 || it.Quantity > maxQuantity {
-			validationError(w, "quantity out of range")
+			jsonError(w, "quantity out of range", http.StatusBadRequest)
 			return
 		}
 		if len(it.SizeLabel) > maxSizeLabelLen {
-			validationError(w, "size_label too long")
+			jsonError(w, "size_label too long", http.StatusBadRequest)
 			return
 		}
 		items = append(items, store.CartItem{
@@ -848,7 +824,7 @@ func (h *CustomerHandler) SaveCart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.store.SaveCustomerCart(r.Context(), id, items); err != nil {
-		internalError(w, "internal error")
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -860,7 +836,7 @@ func (h *CustomerHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 	id := middleware.CustomerID(r)
 	ids, err := h.store.GetCustomerFavorites(r.Context(), id)
 	if err != nil {
-		internalError(w, "internal error")
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	if ids == nil {
@@ -879,18 +855,18 @@ func (h *CustomerHandler) SaveFavorites(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if len(req.ProductIDs) > maxFavoritesItems {
-		validationError(w, "too many product_ids")
+		jsonError(w, "too many product_ids", http.StatusBadRequest)
 		return
 	}
 	for _, pid := range req.ProductIDs {
 		if pid <= 0 {
-			validationError(w, "invalid product_id")
+			jsonError(w, "invalid product_id", http.StatusBadRequest)
 			return
 		}
 	}
 
 	if err := h.store.SaveCustomerFavorites(r.Context(), id, req.ProductIDs); err != nil {
-		internalError(w, "internal error")
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
