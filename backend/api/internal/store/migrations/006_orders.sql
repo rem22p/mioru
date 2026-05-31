@@ -1,6 +1,7 @@
--- 007_orders: customer order history.
+-- 006_orders: customer order history.
 -- total_minor is in minor currency units (kopecks/cents).
--- FK defaults to RESTRICT — orders preserved when customer deleted.
+-- FK ON DELETE NO ACTION (RESTRICT) — prevents deleting a customer that has orders,
+-- preserving the financial record for audit.
 
 CREATE TABLE IF NOT EXISTS orders (
     id          BIGSERIAL PRIMARY KEY,

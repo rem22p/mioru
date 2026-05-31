@@ -30,7 +30,7 @@ func (s *PostgresStore) ListCustomerOrders(ctx context.Context, customerID int64
 
 	offset := (page - 1) * perPage
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, customer_id, total_minor, status, created_at::text as created_at
+		SELECT id, customer_id, total_minor, status, created_at
 		FROM orders
 		WHERE customer_id = $1
 		ORDER BY created_at DESC

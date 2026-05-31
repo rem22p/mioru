@@ -697,10 +697,10 @@ func (h *CustomerHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type orderResp struct {
-		ID         int64  `json:"id"`
-		TotalMinor int64  `json:"total_minor"`
-		Status     string `json:"status"`
-		CreatedAt  string `json:"created_at"`
+		ID         int64     `json:"id"`
+		TotalMinor int64     `json:"total_minor"`
+		Status     string    `json:"status"`
+		CreatedAt  time.Time `json:"created_at"`
 	}
 	out := make([]orderResp, 0, len(orders))
 	for _, o := range orders {
