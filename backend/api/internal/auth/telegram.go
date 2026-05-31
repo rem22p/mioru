@@ -27,8 +27,9 @@ type TelegramAuthData struct {
 
 // VerifyTelegramAuth checks the HMAC-SHA256 signature on the Telegram Login
 // Widget data. The HMAC key is SHA256(botToken) — not the raw bot token.
-// maxAge caps how old auth_date may be to prevent replay (0 = no check).
-func VerifyTelegramAuth(data TelegramAuthData, botToken string, maxAge time.Duration) error {
+// maxAge caps how old auth_date may be (0 = no check); now is the current
+// time, injected for determinism/testability (no time.Now() in business logic).
+func VerifyTelegramAuth(data TelegramAuthData, botToken string, maxAge time.Duration, now time.Time) error {
 	if botToken == "" {
 		return fmt.Errorf("telegram bot token not configured")
 	}
@@ -80,7 +81,7 @@ func VerifyTelegramAuth(data TelegramAuthData, botToken string, maxAge time.Dura
 
 	if maxAge > 0 {
 		authTime := time.Unix(data.AuthDate, 0)
-		if time.Since(authTime) > maxAge {
+		if now.Sub(authTime) > maxAge {
 			return fmt.Errorf("telegram auth data expired")
 		}
 	}

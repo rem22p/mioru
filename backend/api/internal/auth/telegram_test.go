@@ -65,7 +65,7 @@ func TestVerifyTelegramAuth_Valid(t *testing.T) {
 	}
 	data.Hash = signTelegramData(testBotToken, data)
 
-	err := VerifyTelegramAuth(data, testBotToken, 24*time.Hour)
+	err := VerifyTelegramAuth(data, testBotToken, 24*time.Hour, time.Now())
 	if err != nil {
 		t.Fatalf("expected valid signature, got: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestVerifyTelegramAuth_MinimalFields(t *testing.T) {
 	}
 	data.Hash = signTelegramData(testBotToken, data)
 
-	err := VerifyTelegramAuth(data, testBotToken, 24*time.Hour)
+	err := VerifyTelegramAuth(data, testBotToken, 24*time.Hour, time.Now())
 	if err != nil {
 		t.Fatalf("expected valid signature with minimal fields, got: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestVerifyTelegramAuth_FakeHash(t *testing.T) {
 		Hash:      "00001111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff",
 	}
 
-	err := VerifyTelegramAuth(data, testBotToken, 24*time.Hour)
+	err := VerifyTelegramAuth(data, testBotToken, 24*time.Hour, time.Now())
 	if err == nil {
 		t.Fatal("expected error for fake hash, got nil")
 	}
@@ -112,7 +112,7 @@ func TestVerifyTelegramAuth_WrongBotToken(t *testing.T) {
 	data.Hash = signTelegramData(testBotToken, data)
 
 	// Verify with a different bot token.
-	err := VerifyTelegramAuth(data, "000000:OTHER-TOKEN", 24*time.Hour)
+	err := VerifyTelegramAuth(data, "000000:OTHER-TOKEN", 24*time.Hour, time.Now())
 	if err == nil {
 		t.Fatal("expected error for wrong bot token, got nil")
 	}
@@ -126,7 +126,7 @@ func TestVerifyTelegramAuth_Expired(t *testing.T) {
 	}
 	data.Hash = signTelegramData(testBotToken, data)
 
-	err := VerifyTelegramAuth(data, testBotToken, 24*time.Hour)
+	err := VerifyTelegramAuth(data, testBotToken, 24*time.Hour, time.Now())
 	if err == nil {
 		t.Fatal("expected error for expired auth_date, got nil")
 	}
@@ -143,7 +143,7 @@ func TestVerifyTelegramAuth_EmptyBotToken(t *testing.T) {
 		Hash:      "any",
 	}
 
-	err := VerifyTelegramAuth(data, "", 24*time.Hour)
+	err := VerifyTelegramAuth(data, "", 24*time.Hour, time.Now())
 	if err == nil {
 		t.Fatal("expected error for empty bot token, got nil")
 	}
@@ -163,7 +163,7 @@ func TestVerifyTelegramAuth_TamperedID(t *testing.T) {
 	// Tamper with ID after signing.
 	data.ID = 99999
 
-	err := VerifyTelegramAuth(data, testBotToken, 24*time.Hour)
+	err := VerifyTelegramAuth(data, testBotToken, 24*time.Hour, time.Now())
 	if err == nil {
 		t.Fatal("expected error for tampered ID, got nil")
 	}
@@ -178,7 +178,7 @@ func TestVerifyTelegramAuth_NoAgeCheck(t *testing.T) {
 	}
 	data.Hash = signTelegramData(testBotToken, data)
 
-	err := VerifyTelegramAuth(data, testBotToken, 0)
+	err := VerifyTelegramAuth(data, testBotToken, 0, time.Now())
 	if err != nil {
 		t.Fatalf("expected success with maxAge=0, got: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestVerifyTelegramAuth_FirstNameEmpty(t *testing.T) {
 	}
 	data.Hash = signTelegramData(testBotToken, data)
 
-	err := VerifyTelegramAuth(data, testBotToken, 24*time.Hour)
+	err := VerifyTelegramAuth(data, testBotToken, 24*time.Hour, time.Now())
 	if err != nil {
 		t.Fatalf("empty first_name still validates (hash doesn't care), got: %v", err)
 	}
@@ -210,7 +210,7 @@ func ExampleVerifyTelegramAuth() {
 	// In tests, sign with the helper; in production Telegram signs it.
 	data.Hash = signTelegramData(testBotToken, data)
 
-	err := VerifyTelegramAuth(data, testBotToken, 24*time.Hour)
+	err := VerifyTelegramAuth(data, testBotToken, 24*time.Hour, time.Now())
 	if err != nil {
 		fmt.Println("invalid:", err)
 	} else {

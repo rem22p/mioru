@@ -504,7 +504,31 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	json.NewEncoder(w).Encode(map[string]string{
+		"error": msg,
+		"code":  httpCodeToErrorCode(code),
+	})
+}
+
+// httpCodeToErrorCode maps HTTP status codes to machine-readable error codes
+// for the SPA to branch on. Unknown codes default to "INTERNAL".
+func httpCodeToErrorCode(code int) string {
+	switch code {
+	case http.StatusBadRequest, http.StatusUnprocessableEntity:
+		return "VALIDATION_FAILED"
+	case http.StatusUnauthorized:
+		return "AUTH_REQUIRED"
+	case http.StatusForbidden:
+		return "FORBIDDEN"
+	case http.StatusNotFound:
+		return "NOT_FOUND"
+	case http.StatusConflict:
+		return "CONFLICT"
+	case http.StatusTooManyRequests:
+		return "RATE_LIMITED"
+	default:
+		return "INTERNAL"
+	}
 }
 
 // maxJSONBody bounds the size of a JSON request body. Auth and profile payloads
