@@ -60,7 +60,9 @@ function renderHeader(theme: "dark" | "light" = "dark") {
 describe("Header — layout & rendering", () => {
   it("renders logo", () => {
     renderHeader();
-    expect(screen.getByText("MIORU")).toBeInTheDocument();
+    const logo = screen.getByAltText("MIORU");
+    expect(logo).toBeInTheDocument();
+    expect(logo.tagName).toBe("IMG");
   });
 
   it("renders all nav links", () => {
