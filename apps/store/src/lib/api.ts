@@ -256,4 +256,30 @@ export function getCategoryEmoji(slugOrName: string): string {
   return "👤";
 }
 
+// ── Cart & Favorites sync ──
+
+export interface CartSyncItem {
+  product_id: number;
+  size_label: string;
+  quantity: number;
+}
+
+export const fetchCustomerCart = () =>
+  api<{ items: CartSyncItem[] }>("/api/store/customers/me/cart");
+
+export const saveCustomerCart = (items: CartSyncItem[]) =>
+  api<{ ok: true }>("/api/store/customers/me/cart", {
+    method: "PUT",
+    body: JSON.stringify({ items }),
+  });
+
+export const fetchCustomerFavorites = () =>
+  api<{ product_ids: number[] }>("/api/store/customers/me/favorites");
+
+export const saveCustomerFavorites = (product_ids: number[]) =>
+  api<{ ok: true }>("/api/store/customers/me/favorites", {
+    method: "PUT",
+    body: JSON.stringify({ product_ids }),
+  });
+
 export { api, API_URL };
