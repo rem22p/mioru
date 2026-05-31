@@ -1,8 +1,40 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useCartStore } from '@/stores/cartStore';
-import { products } from '@/lib/data';
+import type { Product } from '@/types';
 
-const mockProduct = products[0];
+const mockProduct: Product = {
+  id: 1,
+  name: 'Test Sneaker',
+  slug: 'test-sneaker',
+  description: '',
+  brand: 'Test',
+  price: 5000,
+  xp_reward: 100,
+  in_stock: true,
+  status: 'active',
+  stock_quantity: 20,
+  category_id: 12,
+  category_name: 'Кроссовки',
+  images: [],
+  sizes: ['42', '43', '44'],
+  color: '#000',
+  model: '',
+  fit: '',
+  material: '',
+  size_chart: [],
+  care: [],
+  created_by: 'admin',
+  created_at: '2024-01-01',
+  updated_at: '2024-01-01',
+};
+
+const mockProduct2: Product = {
+  ...mockProduct,
+  id: 2,
+  name: 'Test Boot',
+  slug: 'test-boot',
+  price: 8000,
+};
 
 describe('cartStore', () => {
   beforeEach(() => {
@@ -54,7 +86,7 @@ describe('cartStore', () => {
   it('calculates total items correctly', () => {
     useCartStore.getState().addItem(mockProduct, '42');
     useCartStore.getState().addItem(mockProduct, '42');
-    useCartStore.getState().addItem(products[1], '40');
+    useCartStore.getState().addItem(mockProduct2, '40');
     expect(useCartStore.getState().totalItems()).toBe(3);
   });
 

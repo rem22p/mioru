@@ -48,8 +48,7 @@
     "catalog": "Catalog",
     "avatar": "Avatar",
     "profile": "Profil",
-    "cart": "Coș",
-    "admin": "Panou admin"
+    "cart": "Coș"
   },
   "home": {
     "hero": {
@@ -213,7 +212,6 @@
     "xp": "{{xp}} XP",
     "toNextLevel": "Până la {{level}}: {{xp}} XP",
     "myAvatar": "Avatarul meu",
-    "adminPanel": "Panou admin",
     "orderHistory": "Istoric comenzi"
   },
   "avatar": {
@@ -230,36 +228,6 @@
     "tip": "Sfat",
     "tipText": "Pentru o probă precisă, introdu măsurătorile reale ale corpului. Avatarul este folosit pentru a vizualiza cum se potrivesc hainele.",
     "loading": "Se încarcă 3D..."
-  },
-  "admin": {
-    "title": "Panou admin",
-    "tabs": {
-      "products": "Produse",
-      "orders": "Comenzi"
-    },
-    "addProduct": "Adaugă produs",
-    "productForm": {
-      "name": "Denumire",
-      "price": "Preț",
-      "category": "Categorie",
-      "description": "Descriere",
-      "sizes": "Mărimi",
-      "photo": "Fotografie produs",
-      "photoHint": "Trage o fotografie aici sau apasă pentru încărcare",
-      "photoRecommendation": "Recomandat: flat lay, fundal alb",
-      "save": "Salvează",
-      "cancel": "Anulează"
-    },
-    "table": {
-      "product": "Produs",
-      "category": "Categorie",
-      "price": "Preț",
-      "actions": "Acțiuni",
-      "order": "Comandă",
-      "date": "Dată",
-      "amount": "Sumă",
-      "status": "Status"
-    }
   },
   "footer": {
     "description": "Probă virtuală de haine. Creează-ți avatarul. Găsește potrivirea perfectă.",

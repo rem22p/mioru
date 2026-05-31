@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { mockOrders } from "@/lib/data";
 import { VIP_LEVELS } from "@/lib/constants";
-import { User, Settings, Package, Star, ChevronRight, LogOut } from "lucide-react";
+import { User, Settings, Package, ChevronRight, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
@@ -144,18 +144,6 @@ export default function ProfilePage() {
               <Settings className="h-5 w-5 text-[#44944A]" />
               <span className="text-sm font-medium text-[var(--color-text-primary)]">
                 {t("profile.myAvatar")}
-              </span>
-            </div>
-            <ChevronRight className="h-4 w-4 text-[var(--color-text-muted)]" />
-          </Link>
-          <Link
-            to="/admin"
-            className="flex items-center justify-between rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-5 transition-all hover:border-[#44944A]/50"
-          >
-            <div className="flex items-center gap-3">
-              <Star className="h-5 w-5 text-[#44944A]" />
-              <span className="text-sm font-medium text-[var(--color-text-primary)]">
-                {t("profile.adminPanel")}
               </span>
             </div>
             <ChevronRight className="h-4 w-4 text-[var(--color-text-muted)]" />

@@ -13,7 +13,6 @@ const CartPage = lazy(() => import("@/routes/CartPage"));
 const CheckoutPage = lazy(() => import("@/routes/CheckoutPage"));
 const AvatarPage = lazy(() => import("@/routes/AvatarPage"));
 const ProfilePage = lazy(() => import("@/routes/ProfilePage"));
-const AdminPage = lazy(() => import("@/routes/AdminPage"));
 const CustomOrderPage = lazy(() => import("@/routes/CustomOrderPage"));
 const ContactsPage = lazy(() => import("@/routes/ContactsPage"));
 
@@ -81,7 +80,6 @@ export default function App() {
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/avatar" element={<AvatarPage />} />
               <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/admin" element={<AdminPage />} />
               <Route path="/custom-order" element={<CustomOrderPage />} />
               <Route path="/contacts" element={<ContactsPage />} />
             </Routes>

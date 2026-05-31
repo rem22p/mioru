@@ -1,12 +1,6 @@
-import type { User, Order, Product, Category } from "@/types";
+import type { User, Order } from "@/types";
 
-// Static mock data is replaced by API calls.
-// Products and categories now come from the backend via lib/api.ts and stores/catalogStore.ts.
-// This file keeps only the mock user and orders for the profile page (not yet in the backend).
-
-// Kept for backward compatibility (store's deprecated AdminPage)
-export const products: Product[] = [];
-export const categories: Category[] = [];
+// Static mock data for the profile page (orders not yet in the backend).
 
 export const mockUser: User = {
   id: "1",
