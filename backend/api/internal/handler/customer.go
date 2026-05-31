@@ -35,20 +35,16 @@ type customerStore interface {
 
 // CustomerHandler handles store customer auth & profile.
 type CustomerHandler struct {
-	store    customerStore
-	secret   string
-	expiry   int
-	// secure controls the Secure attribute on the auth/CSRF cookies. true in
-	// production (HTTPS), false in dev (so the cookie isn't silently dropped
-	// over plain HTTP).
-	secure bool
-	// botToken is the Telegram Bot Token from @BotFather. When empty, the
-	// Telegram login endpoint returns 503 (disabled).
-	botToken string
+	store        customerStore
+	secret       string
+	expiry       int
+	secure       bool
+	botToken     string
+	cookieDomain string
 }
 
-func NewCustomerHandler(s customerStore, secret string, expiry int, secure bool, botToken string) *CustomerHandler {
-	return &CustomerHandler{store: s, secret: secret, expiry: expiry, secure: secure, botToken: botToken}
+func NewCustomerHandler(s customerStore, secret string, expiry int, secure bool, botToken string, cookieDomain string) *CustomerHandler {
+	return &CustomerHandler{store: s, secret: secret, expiry: expiry, secure: secure, botToken: botToken, cookieDomain: cookieDomain}
 }
 
 // ── Request / response types ──
@@ -198,8 +194,8 @@ func (h *CustomerHandler) issueSession(w http.ResponseWriter, id int64) error {
 		return err
 	}
 	maxAge := h.expiry * 60
-	cookieauth.SetAuthCookie(w, cookieauth.StoreAuthCookie, tok, h.secure, maxAge)
-	cookieauth.SetCSRFCookie(w, cookieauth.StoreCSRFCookie, csrf, h.secure, maxAge)
+	cookieauth.SetAuthCookie(w, cookieauth.StoreAuthCookie, tok, h.secure, maxAge, h.cookieDomain)
+	cookieauth.SetCSRFCookie(w, cookieauth.StoreCSRFCookie, csrf, h.secure, maxAge, h.cookieDomain)
 	return nil
 }
 
@@ -247,8 +243,8 @@ func (h *CustomerHandler) Login(w http.ResponseWriter, r *http.Request) {
 // it any third-party origin could force-log-out a signed-in customer just by
 // triggering a POST. Idempotent: succeeds even if no session was active.
 func (h *CustomerHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	cookieauth.ClearCookie(w, cookieauth.StoreAuthCookie, h.secure)
-	cookieauth.ClearCookie(w, cookieauth.StoreCSRFCookie, h.secure)
+	cookieauth.ClearCookie(w, cookieauth.StoreAuthCookie, h.secure, h.cookieDomain)
+	cookieauth.ClearCookie(w, cookieauth.StoreCSRFCookie, h.secure, h.cookieDomain)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"ok":true}`))
 }

@@ -54,12 +54,16 @@ func (f *fakeUserStore) ConsumeResetToken(ctx context.Context, token string) (st
 	return "", nil
 }
 
+func (f *fakeUserStore) ListUsers(ctx context.Context) ([]model.User, error) {
+	return nil, nil
+}
+
 // TestRegisterDoesNotIssueToken guards that admin-created registration returns
 // the new account's summary (201) and never a session token — issuing one would
 // log the creating admin in as the new user.
 func TestRegisterDoesNotIssueToken(t *testing.T) {
 	fs := &fakeUserStore{}
-	h := NewAuthHandler(fs, email.NewService(), "test-secret-key-at-least-32-chars-long!!", 60, false)
+	h := NewAuthHandler(fs, email.NewService(), "test-secret-key-at-least-32-chars-long!!", 60, false, "")
 
 	body := `{"first_name":"Alice","last_name":"B","email":"alice@example.com","username":"alice","password":"Tr0ubadour-x9"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/register", strings.NewReader(body))
@@ -87,7 +91,7 @@ func TestRegisterDoesNotIssueToken(t *testing.T) {
 }
 
 func newAuthHandlerForTest(fs *fakeUserStore) *AuthHandler {
-	return NewAuthHandler(fs, email.NewService(), "test-secret-key-at-least-32-chars-long!!", 60, false)
+	return NewAuthHandler(fs, email.NewService(), "test-secret-key-at-least-32-chars-long!!", 60, false, "")
 }
 
 // TestDecodeJSONRejectsOversizedBody verifies the per-request JSON body cap:

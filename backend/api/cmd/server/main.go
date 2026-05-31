@@ -52,9 +52,9 @@ func main() {
 	// in development the cookie must be sent over plain HTTP, so Secure stays
 	// off or the browser silently drops it and the SPA fails to authenticate.
 	secureCookies := cfg.IsProduction()
-	authH := handler.NewAuthHandler(pgStore, emailSvc, cfg.SecretKey, cfg.TokenExpiry, secureCookies)
+	authH := handler.NewAuthHandler(pgStore, emailSvc, cfg.SecretKey, cfg.TokenExpiry, secureCookies, cfg.CookieDomain)
 	productH := handler.NewProductHandler(pgStore, cfg.UploadDir)
-	customerH := handler.NewCustomerHandler(pgStore, cfg.SecretKey, cfg.TokenExpiry, secureCookies, cfg.TelegramBotToken)
+	customerH := handler.NewCustomerHandler(pgStore, cfg.SecretKey, cfg.TokenExpiry, secureCookies, cfg.TelegramBotToken, cfg.CookieDomain)
 
 	// getRole resolves an authenticated user's role from the DB for RequireAdmin.
 	getRole := func(ctx context.Context, username string) (string, error) {

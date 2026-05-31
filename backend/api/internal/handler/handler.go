@@ -35,18 +35,16 @@ type userStore interface {
 }
 
 type AuthHandler struct {
-	store  userStore
-	email  *email.Service
-	secret string
-	expiry int
-	// secure controls the Secure attribute on the auth/CSRF cookies. true in
-	// production, false in dev (so the cookie is not silently dropped over
-	// plain HTTP outside the localhost-secure-context browser exception).
-	secure bool
+	store        userStore
+	email        *email.Service
+	secret       string
+	expiry       int
+	secure       bool
+	cookieDomain string
 }
 
-func NewAuthHandler(pgStore userStore, emailSvc *email.Service, secret string, expiry int, secure bool) *AuthHandler {
-	return &AuthHandler{store: pgStore, email: emailSvc, secret: secret, expiry: expiry, secure: secure}
+func NewAuthHandler(pgStore userStore, emailSvc *email.Service, secret string, expiry int, secure bool, cookieDomain string) *AuthHandler {
+	return &AuthHandler{store: pgStore, email: emailSvc, secret: secret, expiry: expiry, secure: secure, cookieDomain: cookieDomain}
 }
 
 type registerReq struct {
@@ -214,8 +212,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// browser wants seconds. Both cookies share the same MaxAge so the CSRF
 	// token can't outlive the session it protects, and vice versa.
 	maxAge := h.expiry * 60
-	cookieauth.SetAuthCookie(w, cookieauth.AdminAuthCookie, tok, h.secure, maxAge)
-	cookieauth.SetCSRFCookie(w, cookieauth.AdminCSRFCookie, csrf, h.secure, maxAge)
+	cookieauth.SetAuthCookie(w, cookieauth.AdminAuthCookie, tok, h.secure, maxAge, h.cookieDomain)
+	cookieauth.SetCSRFCookie(w, cookieauth.AdminCSRFCookie, csrf, h.secure, maxAge, h.cookieDomain)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(loginUserResp{
 		ID:          user.ID,
@@ -232,8 +230,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 // authenticated admin. The handler itself is intentionally idempotent: the
 // cookies are cleared whether or not the caller's session was still valid.
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	cookieauth.ClearCookie(w, cookieauth.AdminAuthCookie, h.secure)
-	cookieauth.ClearCookie(w, cookieauth.AdminCSRFCookie, h.secure)
+	cookieauth.ClearCookie(w, cookieauth.AdminAuthCookie, h.secure, h.cookieDomain)
+	cookieauth.ClearCookie(w, cookieauth.AdminCSRFCookie, h.secure, h.cookieDomain)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"ok":true}`))
 }

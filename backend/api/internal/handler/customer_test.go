@@ -59,7 +59,7 @@ func (f *fakeCustomerStore) LinkOAuth(ctx context.Context, customerID int64, oa 
 }
 
 func newCustomerHandlerForTest(fs *fakeCustomerStore) *CustomerHandler {
-	return NewCustomerHandler(fs, "test-secret-key-at-least-32-chars-long!!", 60, false, "")
+	return NewCustomerHandler(fs, "test-secret-key-at-least-32-chars-long!!", 60, false, "", "")
 }
 
 // TestCustomerLoginIssuesCookiesNotAccessToken locks in the cookie-only

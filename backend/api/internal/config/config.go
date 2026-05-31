@@ -21,6 +21,7 @@ type Config struct {
 	UploadDir        string
 	AppEnv           string
 	TelegramBotToken string
+	CookieDomain     string
 }
 
 func Load() Config {
@@ -54,6 +55,8 @@ func Load() Config {
 		log.Printf("WARNING: TELEGRAM_BOT_TOKEN not set — Telegram login is disabled")
 	}
 
+	cookieDomain := os.Getenv("COOKIE_DOMAIN")
+
 	return Config{
 		SecretKey:        secret,
 		TokenExpiry:      1440,
@@ -62,6 +65,7 @@ func Load() Config {
 		UploadDir:        uploadDir,
 		AppEnv:           appEnv,
 		TelegramBotToken: telegramBotToken,
+		CookieDomain:     cookieDomain,
 	}
 }
 

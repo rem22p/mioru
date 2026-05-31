@@ -21,7 +21,7 @@ func findCookie(t *testing.T, rr *httptest.ResponseRecorder, name string) *http.
 
 func TestSetAuthCookieFlags(t *testing.T) {
 	rr := httptest.NewRecorder()
-	SetAuthCookie(rr, AdminAuthCookie, "the-jwt", true, 3600)
+	SetAuthCookie(rr, AdminAuthCookie, "the-jwt", true, 3600, ".example.com")
 
 	c := findCookie(t, rr, AdminAuthCookie)
 	if c == nil {
@@ -45,6 +45,9 @@ func TestSetAuthCookieFlags(t *testing.T) {
 	if c.MaxAge != 3600 {
 		t.Errorf("MaxAge = %d, want 3600", c.MaxAge)
 	}
+	if c.Domain != "example.com" {
+		t.Errorf("Domain = %q, want example.com", c.Domain)
+	}
 }
 
 func TestSetAuthCookieInsecureInDev(t *testing.T) {
@@ -52,7 +55,7 @@ func TestSetAuthCookieInsecureInDev(t *testing.T) {
 	// the browser silently drops the cookie outside localhost-exception
 	// browsers, breaking dev login.
 	rr := httptest.NewRecorder()
-	SetAuthCookie(rr, AdminAuthCookie, "x", false, 60)
+	SetAuthCookie(rr, AdminAuthCookie, "x", false, 60, "")
 
 	c := findCookie(t, rr, AdminAuthCookie)
 	if c == nil {
@@ -65,7 +68,7 @@ func TestSetAuthCookieInsecureInDev(t *testing.T) {
 
 func TestSetCSRFCookieIsReadableByJS(t *testing.T) {
 	rr := httptest.NewRecorder()
-	SetCSRFCookie(rr, AdminCSRFCookie, "csrf-value", true, 3600)
+	SetCSRFCookie(rr, AdminCSRFCookie, "csrf-value", true, 3600, ".example.com")
 
 	c := findCookie(t, rr, AdminCSRFCookie)
 	if c == nil {
@@ -84,7 +87,7 @@ func TestSetCSRFCookieIsReadableByJS(t *testing.T) {
 
 func TestClearCookieMaxAgeNegative(t *testing.T) {
 	rr := httptest.NewRecorder()
-	ClearCookie(rr, AdminAuthCookie, true)
+	ClearCookie(rr, AdminAuthCookie, true, ".example.com")
 
 	c := findCookie(t, rr, AdminAuthCookie)
 	if c == nil {
