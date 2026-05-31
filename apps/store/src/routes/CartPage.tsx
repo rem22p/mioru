@@ -114,7 +114,11 @@ export default function CartPage() {
                           item.quantity + 1,
                         )
                       }
-                      className="rounded-lg border border-[var(--color-border-custom)] min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+                      disabled={
+                        item.product.stock_quantity > 0 &&
+                        item.quantity >= item.product.stock_quantity
+                      }
+                      className="rounded-lg border border-[var(--color-border-custom)] min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-30 transition-colors"
                       aria-label="Увеличить"
                     >
                       <Plus className="h-4 w-4" />
