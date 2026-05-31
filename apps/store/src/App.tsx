@@ -5,6 +5,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import WaveBackground from "@/components/layout/WaveBackground";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
+import { useAuthStore } from "@/stores/authStore";
 
 const HomePage = lazy(() => import("@/routes/HomePage"));
 const CatalogPage = lazy(() => import("@/routes/CatalogPage"));
@@ -60,6 +61,10 @@ export default function App() {
   const changeLanguage = (lng: string) => {
     i18n.changeLanguage(lng);
   };
+
+  // Check auth on mount
+  const fetchMe = useAuthStore((s) => s.fetchMe);
+  useEffect(() => { fetchMe(); }, [fetchMe]);
 
   return (
     <>

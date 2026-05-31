@@ -15,6 +15,18 @@
     "retry": "Reîncearcă",
     "scrollToTop": "Sus"
   },
+  "auth": {
+    "login": "Autentificare",
+    "register": "Înregistrare",
+    "firstName": "Prenume",
+    "lastName": "Nume",
+    "password": "Parolă",
+    "loginPrompt": "Autentifică-te pentru a plasa comanda",
+    "orLoginWith": "sau autentificare prin",
+    "loginWithTelegram": "Autentificare prin Telegram",
+    "telegramError": "Eroare la autentificarea Telegram",
+    "telegramNotConfigured": "Autentificarea Telegram nu este configurată"
+  },
   "customOrder": {
     "title": "Comandă personalizată",
     "managerBlock": "Poți de asemenea să contactezi managerul nostru direct",
@@ -260,11 +272,5 @@
     "dark": "Întunecat",
     "light": "Deschis",
     "toggle": "Comută tema"
-  },
-  "auth": {
-    "orLoginWith": "sau autentificare prin",
-    "loginWithTelegram": "Autentificare prin Telegram",
-    "telegramError": "Eroare la autentificarea Telegram",
-    "telegramNotConfigured": "Autentificarea Telegram nu este configurată"
   }
 }

@@ -15,6 +15,18 @@
     "retry": "Retry",
     "scrollToTop": "Back to top"
   },
+  "auth": {
+    "login": "Sign in",
+    "register": "Sign up",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "password": "Password",
+    "loginPrompt": "Sign in to place an order",
+    "orLoginWith": "or sign in with",
+    "loginWithTelegram": "Sign in with Telegram",
+    "telegramError": "Telegram login error",
+    "telegramNotConfigured": "Telegram login is not configured"
+  },
   "customOrder": {
     "title": "Custom order",
     "managerBlock": "You can also contact our manager directly",
@@ -254,11 +266,5 @@
     "dark": "Dark",
     "light": "Light",
     "toggle": "Toggle theme"
-  },
-  "auth": {
-    "orLoginWith": "or sign in with",
-    "loginWithTelegram": "Sign in with Telegram",
-    "telegramError": "Telegram login error",
-    "telegramNotConfigured": "Telegram login is not configured"
   }
 }

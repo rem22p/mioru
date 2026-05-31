@@ -15,6 +15,18 @@
     "retry": "Повторить",
     "scrollToTop": "Наверх"
   },
+  "auth": {
+    "login": "Войти",
+    "register": "Зарегистрироваться",
+    "firstName": "Имя",
+    "lastName": "Фамилия",
+    "password": "Пароль",
+    "loginPrompt": "Войдите чтобы оформить заказ",
+    "orLoginWith": "или войти через",
+    "loginWithTelegram": "Войти через Telegram",
+    "telegramError": "Ошибка входа через Telegram",
+    "telegramNotConfigured": "Вход через Telegram не настроен"
+  },
   "customOrder": {
     "title": "Индивидуальный заказ",
     "managerBlock": "А так же вы можете написать нашему менеджеру напрямую",
@@ -249,11 +261,5 @@
     "dark": "Тёмная",
     "light": "Светлая",
     "toggle": "Переключить тему"
-  },
-  "auth": {
-    "orLoginWith": "или войти через",
-    "loginWithTelegram": "Войти через Telegram",
-    "telegramError": "Ошибка входа через Telegram",
-    "telegramNotConfigured": "Вход через Telegram не настроен"
   }
 }
