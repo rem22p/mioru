@@ -53,7 +53,7 @@ export default function HorizontalCategories() {
       </div>
 
       {/* Horizontal scroll */}
-      <div className="horizontal-scroll px-6 pb-4 lg:px-8">
+      <div className="horizontal-scroll px-6 pb-4 lg:px-8 pt-2">
         {flatCats.map((category, index) => (
           <motion.div
             key={category.id}
@@ -65,7 +65,7 @@ export default function HorizontalCategories() {
             <Link to={`/catalog/${category.slug}`}>
               <div className="card-hover group relative h-[400px] w-[300px] overflow-hidden rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)]">
                 {/* Background gradient */}
-                <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-bg-primary)] via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
                 {/* Category emoji/icon placeholder */}
                 <div className="absolute inset-0 flex items-center justify-center">

@@ -73,19 +73,6 @@ export default function Header({
         }`}
       >
         <div className="relative mx-auto flex h-20 max-w-7xl items-center justify-between md:justify-end px-6 lg:px-8">
-          {/* Mobile menu button — left side */}
-          <button
-            className="h-11 w-11 flex items-center justify-center md:hidden transition-colors rounded-lg order-first"
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label={menuOpen ? t("common.close") : "Menu"}
-          >
-            {menuOpen ? (
-              <X className="h-6 w-6 text-[var(--color-text-primary)]" />
-            ) : (
-              <Menu className="h-6 w-6 text-[var(--color-text-primary)]" />
-            )}
-          </button>
-
           {/* Logo */}
           <Link to="/" className="md:absolute md:left-6 lg:left-8">
             <motion.span
@@ -215,69 +202,58 @@ export default function Header({
             >
               <User className="h-5 w-5" />
             </Link>
+
+            {/* Mobile menu button */}
+            <button
+              className="h-11 w-11 flex items-center justify-center md:hidden transition-colors rounded-lg text-[var(--color-text-primary)]"
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-label={menuOpen ? t("common.close") : "Menu"}
+            >
+              {menuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Mobile slide-out menu */}
+      {/* Mobile menu — fullscreen overlay */}
       <AnimatePresence>
         {menuOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black md:hidden"
-              onClick={() => setMenuOpen(false)}
-            />
-            {/* Slide-out panel */}
-            <motion.div
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className={`fixed top-0 left-0 bottom-0 z-50 w-72 md:hidden ${
-                isLight ? "bg-white" : "bg-[var(--color-bg-primary)]"
-              } pt-[env(safe-area-inset-top)]`}
-            >
-              <div className="flex items-center justify-between px-6 h-20">
-                <Link to="/" onClick={() => setMenuOpen(false)}>
-                  <span className={`text-2xl font-bold tracking-tighter ${isLight ? "text-gray-900" : "text-[var(--color-text-primary)]"}`}>
-                    MIORU
-                  </span>
-                </Link>
-                <button
-                  onClick={() => setMenuOpen(false)}
-                  className="h-11 w-11 flex items-center justify-center"
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className={`fixed inset-0 z-40 md:hidden ${
+              isLight ? "bg-white/98" : "bg-[var(--color-bg-primary)]/98"
+            } backdrop-blur-xl`}
+          >
+            <nav className="flex h-full flex-col items-center justify-center gap-8">
+              {mobileLinks.map((link, i) => (
+                <motion.div
+                  key={link.href}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.1 }}
                 >
-                  <X className={`h-6 w-6 ${isLight ? "text-gray-900" : "text-[var(--color-text-primary)]"}`} />
-                </button>
-              </div>
-              <nav className="flex flex-col px-6 pt-4 gap-1">
-                {mobileLinks.map((link, i) => (
-                  <motion.div
-                    key={link.href}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.08 }}
+                  <Link
+                    to={link.href}
+                    className={`text-3xl font-bold block py-2 px-4 transition-colors ${
+                      isLight
+                        ? "text-gray-900 hover:text-[#44944A]"
+                        : "text-[var(--color-text-primary)] hover:text-[#44944A]"
+                    }`}
+                    onClick={() => setMenuOpen(false)}
                   >
-                    <Link
-                      to={link.href}
-                      className={`block py-3 text-lg font-bold tracking-wider transition-colors ${
-                        isLight
-                          ? "text-gray-900 hover:text-[#44944A]"
-                          : "text-[var(--color-text-primary)] hover:text-[#44944A]"
-                      }`}
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      {t(link.labelKey)}
-                    </Link>
-                  </motion.div>
-                ))}
-              </nav>
-            </motion.div>
-          </>
+                    {t(link.labelKey)}
+                  </Link>
+                </motion.div>
+              ))}
+            </nav>
+          </motion.div>
         )}
       </AnimatePresence>
     </>
