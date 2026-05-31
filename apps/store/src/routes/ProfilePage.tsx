@@ -16,7 +16,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      fetchStoreCustomerOrders().then(setOrders).catch(() => {});
+      fetchStoreCustomerOrders().then((res) => setOrders(res.orders)).catch(() => {});
     }
   }, [isAuthenticated]);
 
@@ -188,7 +188,7 @@ export default function ProfilePage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                        {order.total.toLocaleString("ru-RU")} ₽
+                        {(order.total_minor / 100).toLocaleString("ru-RU", { minimumFractionDigits: 2 })} ₽
                       </p>
                       <p className="text-xs text-[#44944A]">{order.status}</p>
                     </div>

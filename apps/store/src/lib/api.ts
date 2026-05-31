@@ -200,13 +200,13 @@ export const fetchStoreCustomerChangePassword = (data: {
 
 export interface StoreOrder {
   id: number;
-  total: number;
+  total_minor: number;
   status: string;
   created_at: string;
 }
 
 export const fetchStoreCustomerOrders = () =>
-  api<StoreOrder[]>("/api/store/customers/me/orders");
+  api<{ orders: StoreOrder[]; total: number; page: number; per_page: number }>("/api/store/customers/me/orders");
 
 // ── OAuth ──
 

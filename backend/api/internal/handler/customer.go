@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,7 +34,7 @@ type customerStore interface {
 	LinkOAuth(ctx context.Context, customerID int64, oa model.CustomerOAuth) error
 
 	// Orders
-	ListCustomerOrders(ctx context.Context, customerID int64) ([]model.Order, error)
+	ListCustomerOrders(ctx context.Context, customerID int64, page, perPage int) ([]model.Order, int, error)
 }
 
 // CustomerHandler handles store customer auth & profile.
@@ -672,26 +673,48 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListOrders returns the authenticated customer's order history, newest first.
+// Query params: page (1-based, default 1), per_page (1-100, default 20).
 func (h *CustomerHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 	id := middleware.CustomerID(r)
 
-	orders, err := h.store.ListCustomerOrders(r.Context(), id)
+	q := r.URL.Query()
+	page := 1
+	if v, err := strconv.Atoi(q.Get("page")); err == nil && v > 0 {
+		page = v
+	}
+	perPage := 20
+	if v, err := strconv.Atoi(q.Get("per_page")); err == nil && v > 0 {
+		perPage = v
+	}
+
+	orders, total, err := h.store.ListCustomerOrders(r.Context(), id, page, perPage)
 	if err != nil {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
-	out := make([]map[string]interface{}, 0, len(orders))
+	type orderResp struct {
+		ID         int64  `json:"id"`
+		TotalMinor int64  `json:"total_minor"`
+		Status     string `json:"status"`
+		CreatedAt  string `json:"created_at"`
+	}
+	out := make([]orderResp, 0, len(orders))
 	for _, o := range orders {
-		out = append(out, map[string]interface{}{
-			"id":         o.ID,
-			"total":      o.Total,
-			"status":     o.Status,
-			"created_at": o.CreatedAt,
+		out = append(out, orderResp{
+			ID:         o.ID,
+			TotalMinor: o.TotalMinor,
+			Status:     o.Status,
+			CreatedAt:  o.CreatedAt,
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(out)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"orders":   out,
+		"total":    total,
+		"page":     page,
+		"per_page": perPage,
+	})
 }
 
 // escapeJSON escapes a string for safe inclusion in a JSON string value.

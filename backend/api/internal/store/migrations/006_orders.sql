@@ -1,11 +1,11 @@
 -- 006_orders: customer order history.
--- Minimal schema — status is a text label, total is in minor currency units
--- (kopecks/cents). No payments/stock linkage yet (phase 2).
+-- total_minor is in minor currency units (kopecks/cents).
+-- FK defaults to RESTRICT — orders preserved when customer deleted.
 
 CREATE TABLE IF NOT EXISTS orders (
     id          BIGSERIAL PRIMARY KEY,
     customer_id BIGINT NOT NULL REFERENCES customers(id),
-    total       INT NOT NULL DEFAULT 0,
+    total_minor BIGINT NOT NULL DEFAULT 0,
     status      TEXT NOT NULL DEFAULT 'pending',
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

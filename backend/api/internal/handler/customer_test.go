@@ -58,8 +58,8 @@ func (f *fakeCustomerStore) CreateCustomerWithOAuth(ctx context.Context, c model
 func (f *fakeCustomerStore) LinkOAuth(ctx context.Context, customerID int64, oa model.CustomerOAuth) error {
 	return nil
 }
-func (f *fakeCustomerStore) ListCustomerOrders(ctx context.Context, customerID int64) ([]model.Order, error) {
-	return nil, nil
+func (f *fakeCustomerStore) ListCustomerOrders(ctx context.Context, customerID int64, page, perPage int) ([]model.Order, int, error) {
+	return nil, 0, nil
 }
 
 func newCustomerHandlerForTest(fs *fakeCustomerStore) *CustomerHandler {
@@ -186,9 +186,9 @@ func TestLinkOAuthRejectsUnsignedTelegramID(t *testing.T) {
 	}
 }
 
-// TestListOrdersRequiresAuth verifies the orders endpoint rejects
-// unauthenticated requests and returns orders for authenticated customers.
-func TestListOrdersRequiresAuth(t *testing.T) {
+// TestListOrdersReturnsEmptyWhenNoOrders verifies the handler returns a
+// valid empty response (200) when the customer has no orders.
+func TestListOrdersReturnsEmptyWhenNoOrders(t *testing.T) {
 	h := newCustomerHandlerForTest(&fakeCustomerStore{})
 
 	// Without customer ID in context — should be rejected by handler

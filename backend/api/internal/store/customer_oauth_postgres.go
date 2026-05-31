@@ -105,26 +105,3 @@ func (s *PostgresStore) LinkOAuth(ctx context.Context, customerID int64, oa mode
 	}
 	return nil
 }
-
-// ListCustomerOrders returns all orders for a customer, newest first.
-func (s *PostgresStore) ListCustomerOrders(ctx context.Context, customerID int64) ([]model.Order, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT id, customer_id, total, status, COALESCE(created_at::text, '') as created_at
-		FROM orders
-		WHERE customer_id = $1
-		ORDER BY created_at DESC`, customerID)
-	if err != nil {
-		return nil, fmt.Errorf("list customer orders: %w", err)
-	}
-	defer rows.Close()
-
-	var orders []model.Order
-	for rows.Next() {
-		var o model.Order
-		if err := rows.Scan(&o.ID, &o.CustomerID, &o.Total, &o.Status, &o.CreatedAt); err != nil {
-			return nil, fmt.Errorf("scan order: %w", err)
-		}
-		orders = append(orders, o)
-	}
-	return orders, rows.Err()
-}

@@ -120,11 +120,12 @@ type CustomerOAuth struct {
 	CreatedAt   string `json:"created_at"`
 }
 
-// Order represents a customer order. Minimal for order history display.
+// Order represents a customer order. total_minor is in minor currency
+// units (kopecks/cents). Display as (total_minor / 100) with 2 decimal places.
 type Order struct {
 	ID         int64  `json:"id"`
 	CustomerID int64  `json:"customer_id"`
-	Total      int    `json:"total"`
+	TotalMinor int64  `json:"total_minor"`
 	Status     string `json:"status"`
 	CreatedAt  string `json:"created_at"`
 }
