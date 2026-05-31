@@ -70,7 +70,7 @@ export default function App() {
           toggleTheme={toggleTheme}
           changeLanguage={changeLanguage}
         />
-        <main className="flex-1">
+        <main className="flex-1 flex flex-col">
           <ScrollToTop />
           <Suspense fallback={<PageLoader />}>
             <Routes>
