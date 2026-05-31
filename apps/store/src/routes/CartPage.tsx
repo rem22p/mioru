@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useCartStore } from "@/stores/cartStore";
+import { useAuthStore } from "@/stores/authStore";
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -13,6 +14,7 @@ export default function CartPage() {
   const totalItems = useCartStore((state) => state.totalItems());
   const totalPrice = useCartStore((state) => state.totalPrice());
   const clearCart = useCartStore((state) => state.clearCart);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   if (items.length === 0) {
     return (
@@ -177,7 +179,7 @@ export default function CartPage() {
 
           <div className="mt-6 flex gap-4">
             <Link
-              to="/checkout"
+              to={isAuthenticated ? "/checkout" : "/profile?redirect=/checkout"}
               className="flex-1 rounded-xl bg-[#44944A] px-6 py-4 text-center text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(192,254,57,0.3)]"
             >
               {t("cart.checkout")}

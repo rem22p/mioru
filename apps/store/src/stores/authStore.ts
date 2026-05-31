@@ -1,98 +1,92 @@
-import { create } from 'zustand';
-import type { User } from '@/types';
+import { create } from "zustand";
+import type { User, AvatarParams } from "@/types";
 import {
   fetchStoreLogin,
   fetchStoreRegister,
   fetchStoreLogout,
   fetchStoreCustomerMe,
+  type CustomerProfile,
   type CustomerRegisterData,
-  type CustomerLoginData,
-} from '@/lib/api';
+} from "@/lib/api";
 
 interface AuthStore {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
-  checkAuth: () => Promise<void>;
+  error: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (data: CustomerRegisterData) => Promise<void>;
-  setUser: (user: User) => void;
   logout: () => Promise<void>;
+  fetchMe: () => Promise<void>;
   updateXp: (amount: number) => void;
+  clearError: () => void;
 }
 
-export const useAuthStore = create<AuthStore>((set, get) => ({
+function toUser(c: CustomerProfile): User {
+  return {
+    id: String(c.id),
+    name: [c.first_name, c.last_name].filter(Boolean).join(" ") || c.email,
+    email: c.email,
+    avatarParams: {} as AvatarParams,
+    xpBalance: 0,
+  };
+}
+
+export const useAuthStore = create<AuthStore>()((set, get) => ({
   user: null,
   isAuthenticated: false,
   loading: true,
+  error: null,
 
-  checkAuth: async () => {
+  login: async (email, password) => {
+    set({ loading: true, error: null });
     try {
-      const profile = await fetchStoreCustomerMe();
-      set({
-        user: {
-          id: String(profile.id),
-          name: [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'User',
-          email: profile.email || null,
-          avatarParams: { gender: 'male', height: 170, weight: 70, fatPercentage: 20, musclePercentage: 40 },
-          xpBalance: 0,
-          vipLevel: 0,
-        },
-        isAuthenticated: true,
-        loading: false,
-      });
-    } catch {
-      set({ user: null, isAuthenticated: false, loading: false });
+      const customer = await fetchStoreLogin({ email, password });
+      set({ user: toUser(customer), isAuthenticated: true, loading: false });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Login failed";
+      set({ error: msg, loading: false });
+      throw err;
     }
   },
 
-  login: async (email: string, password: string) => {
-    const profile = await fetchStoreLogin({ email, password });
-    set({
-      user: {
-        id: String(profile.id),
-        name: [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'User',
-        email: profile.email || null,
-        avatarParams: { gender: 'male', height: 170, weight: 70, fatPercentage: 20, musclePercentage: 40 },
-        xpBalance: 0,
-        vipLevel: 0,
-      },
-      isAuthenticated: true,
-      loading: false,
-    });
+  register: async (data) => {
+    set({ loading: true, error: null });
+    try {
+      const customer = await fetchStoreRegister(data);
+      set({ user: toUser(customer), isAuthenticated: true, loading: false });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Registration failed";
+      set({ error: msg, loading: false });
+      throw err;
+    }
   },
-
-  register: async (data: CustomerRegisterData) => {
-    const profile = await fetchStoreRegister(data);
-    set({
-      user: {
-        id: String(profile.id),
-        name: [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'User',
-        email: profile.email || null,
-        avatarParams: { gender: 'male', height: 170, weight: 70, fatPercentage: 20, musclePercentage: 40 },
-        xpBalance: 0,
-        vipLevel: 0,
-      },
-      isAuthenticated: true,
-      loading: false,
-    });
-  },
-
-  setUser: (user) => set({ user, isAuthenticated: true, loading: false }),
 
   logout: async () => {
     try {
       await fetchStoreLogout();
     } catch {
-      // cookie cleared even if request fails
+      // ignore network errors during logout
     }
-    set({ user: null, isAuthenticated: false, loading: false });
+    set({ user: null, isAuthenticated: false, loading: false, error: null });
   },
 
-  updateXp: (amount) =>
-    set((state) => ({
-      user: state.user
-        ? { ...state.user, xpBalance: state.user.xpBalance + amount }
-        : null,
-    })),
+  fetchMe: async () => {
+    set({ loading: true });
+    try {
+      const customer = await fetchStoreCustomerMe();
+      set({ user: toUser(customer), isAuthenticated: true, loading: false });
+    } catch {
+      set({ user: null, isAuthenticated: false, loading: false });
+    }
+  },
+
+  updateXp: (amount) => {
+    const user = get().user;
+    if (user) {
+      set({ user: { ...user, xpBalance: user.xpBalance + amount } });
+    }
+  },
+
+  clearError: () => set({ error: null }),
 }));
