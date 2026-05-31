@@ -1,0 +1,22 @@
+# SPA history fallback for the storefront (react-router BrowserRouter).
+#
+# Without this, a direct hit / refresh / shared link on a client-side route
+# (/catalog, /product/:slug, /favorites, /profile, ...) is requested from the
+# static host, which looks for a matching file/dir, finds none, and returns its
+# own 404 instead of the app shell. This rule serves index.html for any path
+# that is not a real file or directory, letting the client router take over.
+#
+# Lives in apps/store/public/ so Vite copies it into dist/ on every build —
+# the fallback ships with the deploy and survives redeploys.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Never rewrite real files or directories (assets, favicon, models, etc.).
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Everything else → the SPA entry point.
+  RewriteRule ^ index.html [L]
+</IfModule>

@@ -1,0 +1,32 @@
+# Reference nginx server block for serving the storefront static build
+# (apps/store/dist) — e.g. if the frontend is migrated off shared hosting
+# onto the VPS provisioned by scripts/setup-vps.sh.
+#
+# This is intentionally NOT wired into setup-vps.sh, which provisions only the
+# backend (api.mioru.store, proxied to 127.0.0.1:8000). It documents the correct
+# frontend block so the SPA history fallback is not lost on migration.
+#
+# The load-bearing line is `try_files $uri $uri/ /index.html`: it gives
+# react-router's BrowserRouter a history fallback so deep links and refresh on
+# routes like /catalog or /product/:slug return the app shell instead of 404.
+# (On Apache shared hosting the equivalent ships as apps/store/public/.htaccess.)
+
+server {
+    listen 80;
+    server_name mioru.store www.mioru.store;
+
+    # Document root = where `apps/store/dist` is deployed.
+    root /var/www/mioru-store;
+    index index.html;
+
+    # Hashed, content-addressed assets — safe to cache hard.
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # SPA history fallback: any unknown path returns the app shell, not a 404.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
