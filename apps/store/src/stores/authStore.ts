@@ -33,6 +33,40 @@ function toUser(c: CustomerProfile): User {
   };
 }
 
+// Push local stores to server, then pull server state back.
+// Merges anonymous data with account data on login.
+async function syncOnAuth() {
+  try {
+    const { pushCartToServer, hydrateCartFromServer } = await import(
+      "@/stores/cartStore"
+    );
+    const { pushFavoritesToServer, hydrateFavoritesFromServer } = await import(
+      "@/stores/favoritesStore"
+    );
+
+    // Push anonymous items to server first.
+    await pushCartToServer();
+    await pushFavoritesToServer();
+
+    // Then hydrate from server (cross-device merge).
+    await hydrateCartFromServer();
+    await hydrateFavoritesFromServer();
+  } catch {
+    // best-effort
+  }
+}
+
+async function clearLocalStores() {
+  try {
+    const { useCartStore } = await import("@/stores/cartStore");
+    const { useFavoritesStore } = await import("@/stores/favoritesStore");
+    useCartStore.getState().clearCart();
+    useFavoritesStore.getState().clearAll();
+  } catch {
+    // best effort
+  }
+}
+
 export const useAuthStore = create<AuthStore>()((set, get) => ({
   user: null,
   isAuthenticated: false,
@@ -44,6 +78,7 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
     try {
       const customer = await fetchStoreLogin({ email, password });
       set({ user: toUser(customer), isAuthenticated: true, loading: false });
+      await syncOnAuth();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Login failed";
       set({ error: msg, loading: false });
@@ -56,6 +91,7 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
     try {
       const customer = await fetchStoreRegister(data);
       set({ user: toUser(customer), isAuthenticated: true, loading: false });
+      await syncOnAuth();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Registration failed";
       set({ error: msg, loading: false });
@@ -69,6 +105,7 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
     } catch {
       // ignore network errors during logout
     }
+    await clearLocalStores();
     set({ user: null, isAuthenticated: false, loading: false, error: null });
   },
 
@@ -77,6 +114,13 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
     try {
       const customer = await fetchStoreCustomerMe();
       set({ user: toUser(customer), isAuthenticated: true, loading: false });
+      // Hydrate from server on app init with existing session.
+      const { hydrateCartFromServer } = await import("@/stores/cartStore");
+      const { hydrateFavoritesFromServer } = await import(
+        "@/stores/favoritesStore"
+      );
+      await hydrateCartFromServer();
+      await hydrateFavoritesFromServer();
     } catch {
       set({ user: null, isAuthenticated: false, loading: false });
     }
