@@ -45,10 +45,12 @@
     "afterSubmit": "Our manager will contact you soon on Telegram with information about your order. If this format of communication doesn't work for you, please reach out to us on Instagram @mioru.store."
   },
   "nav": {
-    "catalog": "Catalog",
-    "avatar": "Avatar",
-    "profile": "Profile",
-    "cart": "Cart"
+    "inStock": "IN STOCK",
+    "customOrder": "CUSTOM",
+    "avatar": "AVATAR",
+    "cart": "CART",
+    "favorites": "FAVORITES",
+    "profile": "Profile"
   },
   "home": {
     "hero": {

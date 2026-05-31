@@ -15,6 +15,7 @@ const AvatarPage = lazy(() => import("@/routes/AvatarPage"));
 const ProfilePage = lazy(() => import("@/routes/ProfilePage"));
 const CustomOrderPage = lazy(() => import("@/routes/CustomOrderPage"));
 const ContactsPage = lazy(() => import("@/routes/ContactsPage"));
+const FavoritesPage = lazy(() => import("@/routes/FavoritesPage"));
 
 function PageLoader() {
   const { t } = useTranslation();
@@ -82,6 +83,7 @@ export default function App() {
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/custom-order" element={<CustomOrderPage />} />
               <Route path="/contacts" element={<ContactsPage />} />
+              <Route path="/favorites" element={<FavoritesPage />} />
             </Routes>
           </Suspense>
         </main>

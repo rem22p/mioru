@@ -10,9 +10,11 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => {
       const map: Record<string, string> = {
-        "nav.catalog": "Каталог",
-        "nav.avatar": "Аватар",
-        "nav.cart": "Корзина",
+        "nav.inStock": "В НАЛИЧИИ",
+        "nav.customOrder": "ПОД ЗАКАЗ",
+        "nav.avatar": "АВАТАР",
+        "nav.cart": "КОРЗИНА",
+        "nav.favorites": "ИЗБРАННОЕ",
         "nav.profile": "Профиль",
         "theme.toggle": "Переключить тему",
         "common.close": "Закрыть",
@@ -63,9 +65,9 @@ describe("Header — layout & rendering", () => {
 
   it("renders all nav links", () => {
     renderHeader();
-    expect(screen.getByText("Каталог")).toBeInTheDocument();
-    expect(screen.getByText("Аватар")).toBeInTheDocument();
-    expect(screen.getByText("Корзина")).toBeInTheDocument();
+    expect(screen.getByText("В НАЛИЧИИ")).toBeInTheDocument();
+    expect(screen.getByText("ПОД ЗАКАЗ")).toBeInTheDocument();
+    expect(screen.getByText("АВАТАР")).toBeInTheDocument();
   });
 
   it("renders theme toggle button", () => {
@@ -99,14 +101,16 @@ describe("Header — layout & rendering", () => {
     const hrefs = links.map((l) => l.getAttribute("href"));
 
     expect(hrefs).toContain("/catalog");
+    expect(hrefs).toContain("/custom-order");
     expect(hrefs).toContain("/avatar");
     expect(hrefs).toContain("/cart");
+    expect(hrefs).toContain("/favorites");
     expect(hrefs).toContain("/profile");
   });
 
   it("does not show mobile menu overlay by default", () => {
     renderHeader();
-    const catalogLinks = screen.getAllByText("Каталог");
+    const catalogLinks = screen.getAllByText("В НАЛИЧИИ");
     // Only one set of nav links (desktop) when menu is closed
     expect(catalogLinks.length).toBe(1);
   });
