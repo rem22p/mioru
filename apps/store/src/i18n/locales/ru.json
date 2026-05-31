@@ -203,7 +203,15 @@
     "xp": "{{xp}} XP",
     "toNextLevel": "До {{level}}: {{xp}} XP",
     "myAvatar": "Мой аватар",
-    "orderHistory": "История заказов"
+    "orderHistory": "История заказов",
+    "noOrders": "У вас пока нет заказов",
+    "orderStatus": {
+      "pending": "Ожидает",
+      "processing": "В обработке",
+      "shipped": "Отправлен",
+      "delivered": "Доставлен",
+      "cancelled": "Отменён"
+    }
   },
   "avatar": {
     "title": "Редактор аватара",

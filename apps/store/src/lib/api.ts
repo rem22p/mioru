@@ -1,6 +1,6 @@
 import type { Product, Category } from "@/types";
 
-const API_URL = import.meta.env.VITE_API_URL || "https://api.mioru.store";
+const API_URL = import.meta.env.VITE_API_URL ?? "https://api.mioru.store";
 
 export function getImageUrl(path: string): string {
   if (!path) return "";
@@ -195,6 +195,18 @@ export const fetchStoreCustomerChangePassword = (data: {
     method: "PUT",
     body: JSON.stringify(data),
   });
+
+// ── Orders ──
+
+export interface StoreOrder {
+  id: number;
+  total_minor: number;
+  status: string;
+  created_at: string;
+}
+
+export const fetchStoreCustomerOrders = () =>
+  api<{ orders: StoreOrder[]; total: number; page: number; per_page: number }>("/api/store/customers/me/orders");
 
 // ── OAuth ──
 

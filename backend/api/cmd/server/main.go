@@ -128,6 +128,7 @@ func main() {
 	mux.Handle("PUT /api/store/customers/me/password", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.ChangePassword))))
 	mux.Handle("POST /api/store/customers/me/set-password", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.SetPassword))))
 	mux.Handle("POST /api/store/customers/me/oauth", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.LinkOAuth))))
+	mux.Handle("GET /api/store/customers/me/orders", customerAuthMW(http.HandlerFunc(customerH.ListOrders)))
 
 	// Store: Public product & category endpoints (no auth)
 	storeH := handler.NewStoreHandler(pgStore)

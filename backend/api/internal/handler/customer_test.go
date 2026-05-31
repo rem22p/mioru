@@ -58,6 +58,9 @@ func (f *fakeCustomerStore) CreateCustomerWithOAuth(ctx context.Context, c model
 func (f *fakeCustomerStore) LinkOAuth(ctx context.Context, customerID int64, oa model.CustomerOAuth) error {
 	return nil
 }
+func (f *fakeCustomerStore) ListCustomerOrders(ctx context.Context, customerID int64, page, perPage int) ([]model.Order, int, error) {
+	return nil, 0, nil
+}
 
 func newCustomerHandlerForTest(fs *fakeCustomerStore) *CustomerHandler {
 	return NewCustomerHandler(fs, "test-secret-key-at-least-32-chars-long!!", 60, false, "", "")
@@ -180,5 +183,22 @@ func TestLinkOAuthRejectsUnsignedTelegramID(t *testing.T) {
 
 	if rr.Code != http.StatusBadRequest && rr.Code != http.StatusUnauthorized {
 		t.Errorf("unsigned telegram oauth link must be rejected, got HTTP %d (want 400 or 401)", rr.Code)
+	}
+}
+
+// TestListOrdersReturnsEmptyWhenNoOrders verifies the handler returns a
+// valid empty response (200) when the customer has no orders.
+func TestListOrdersReturnsEmptyWhenNoOrders(t *testing.T) {
+	h := newCustomerHandlerForTest(&fakeCustomerStore{})
+
+	// Without customer ID in context — should be rejected by handler
+	req := httptest.NewRequest(http.MethodGet, "/api/store/customers/me/orders", nil)
+	rr := httptest.NewRecorder()
+	h.ListOrders(rr, req)
+
+	// CustomerID returns 0 without auth context — handler proceeds but finds no orders
+	// (empty list is valid). The auth gate is enforced by CustomerAuthMW in main.go.
+	if rr.Code != http.StatusOK {
+		t.Errorf("orders without auth context should return 200 (empty), got %d", rr.Code)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,6 +32,9 @@ type customerStore interface {
 	GetCustomerByOAuth(ctx context.Context, provider, oauthID string) (*model.Customer, *model.CustomerOAuth, error)
 	CreateCustomerWithOAuth(ctx context.Context, c model.Customer, oa model.CustomerOAuth) error
 	LinkOAuth(ctx context.Context, customerID int64, oa model.CustomerOAuth) error
+
+	// Orders
+	ListCustomerOrders(ctx context.Context, customerID int64, page, perPage int) ([]model.Order, int, error)
 }
 
 // CustomerHandler handles store customer auth & profile.
@@ -666,6 +670,54 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"ok":true}`))
+}
+
+// ListOrders returns the authenticated customer's order history, newest first.
+// Query params: page (1-based, default 1), per_page (1-100, default 20).
+func (h *CustomerHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
+	id := middleware.CustomerID(r)
+
+	q := r.URL.Query()
+	page := 1
+	if v, err := strconv.Atoi(q.Get("page")); err == nil && v > 0 {
+		page = v
+	}
+	perPage := 20
+	if v, err := strconv.Atoi(q.Get("per_page")); err == nil && v > 0 {
+		perPage = v
+	}
+	if perPage > 100 {
+		perPage = 100
+	}
+
+	orders, total, err := h.store.ListCustomerOrders(r.Context(), id, page, perPage)
+	if err != nil {
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	type orderResp struct {
+		ID         int64     `json:"id"`
+		TotalMinor int64     `json:"total_minor"`
+		Status     string    `json:"status"`
+		CreatedAt  time.Time `json:"created_at"`
+	}
+	out := make([]orderResp, 0, len(orders))
+	for _, o := range orders {
+		out = append(out, orderResp{
+			ID:         o.ID,
+			TotalMinor: o.TotalMinor,
+			Status:     o.Status,
+			CreatedAt:  o.CreatedAt,
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"orders":   out,
+		"total":    total,
+		"page":     page,
+		"per_page": perPage,
+	})
 }
 
 // escapeJSON escapes a string for safe inclusion in a JSON string value.
