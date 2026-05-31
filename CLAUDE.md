@@ -34,11 +34,11 @@ Single source of truth for agents working in this repo. `AGENTS.md` is just a po
 No commits without explicit user approval; no code changes before presenting a plan.
 
 - **Agent never pushes to `main`.** Every agent change reaches main via a user-approved PR.
-- **Human pushes to main remain unrestricted.** Branch protection is intentionally absent.
+- **Human pushes to main are unrestricted**, but changes touching security, auth, or OAuth paths should go through a PR when possible.
 - **Agent may push the feature branch and create a PR but never merges** — merge is the user's gate.
 - **PR should reference an existing issue** (e.g. `Closes #N`).
 - **Branch is deleted after merge** (agent or user cleans up).
-- Remote: `git@github.com:rem22p/mioru.git` (SSH). The agent commits/branches but push requires the user's SSH passphrase; the user pushes or the agent uses a GitHub PAT (temporary, scoped to `repo`).
+- Remote: `git@github.com:rem22p/mioru.git` (SSH) for the user. The agent uses HTTPS with a temporary GitHub PAT (`repo` scope) to push feature branches and create PRs.
 
 ## What this is
 
