@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import type { Product, Review } from "@/types";
 import { toSizeChart } from "@/types";
 import { useCartStore } from "@/stores/cartStore";
+import { useFavoritesStore } from "@/stores/favoritesStore";
 import { useTranslation } from "react-i18next";
 import {
   ShoppingBag,
@@ -44,11 +45,12 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   const { t } = useTranslation();
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [showSizeChart, setShowSizeChart] = useState(false);
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [qty, setQty] = useState(1);
   const addItem = useCartStore((state) => state.addItem);
   const cartItems = useCartStore((state) => state.items);
+  const isFav = useFavoritesStore((s) => s.isFavorite(product.id));
+  const toggleFav = useFavoritesStore((s) => s.toggleFavorite);
 
   // Transform backend size_chart rows into UI format
   const sizeChart = toSizeChart(product.size_chart);
@@ -279,20 +281,20 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   )}
                 </button>
                 <button
-                  onClick={() => setIsWishlisted(!isWishlisted)}
+                  onClick={() => toggleFav(product)}
                   className={`flex items-center justify-center gap-2 rounded-xl border px-5 py-4 text-sm transition-all min-h-[44px] min-w-[44px] ${
-                    isWishlisted
+                    isFav
                       ? "border-[#44944A] text-[#44944A]"
                       : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                   }`}
                   aria-label={
-                    isWishlisted
+                    isFav
                       ? t("product.unwishlist")
                       : t("product.wishlist")
                   }
                 >
                   <Heart
-                    className={`h-4 w-4 ${isWishlisted ? "fill-[#44944A]" : ""}`}
+                    className={`h-4 w-4 ${isFav ? "fill-[#44944A]" : ""}`}
                   />
                 </button>
                 <button

@@ -53,6 +53,9 @@
     "favorites": "ИЗБРАННОЕ",
     "profile": "Профиль"
   },
+  "favorites": {
+    "empty": "Вы пока ничего не добавили в избранное"
+  },
   "home": {
     "hero": {
       "badge": "3D Avatar Try-On",
