@@ -11,7 +11,7 @@ vi.mock("react-i18next", () => ({
     t: (key: string) => {
       const map: Record<string, string> = {
         "nav.inStock": "В НАЛИЧИИ",
-        "nav.customOrder": "ПОД ЗАКАЗ",
+        "nav.customOrder": "ИНДИВИДУАЛЬНЫЙ ЗАКАЗ",
         "nav.avatar": "АВАТАР",
         "nav.cart": "КОРЗИНА",
         "nav.favorites": "ИЗБРАННОЕ",
