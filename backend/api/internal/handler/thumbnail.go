@@ -1,12 +1,19 @@
 package handler
 
 import (
+	"fmt"
 	"image"
 	"image/png"
 	"os"
 
 	"golang.org/x/image/draw"
 )
+
+// maxPixels is the maximum allowed image size in pixels (width × height)
+// for decompression-bomb protection. 50 megapixels is generous for a
+// product photo (e.g. 10000×5000) while blocking degenerate inputs that
+// claim tiny file size but massive pixel dimensions.
+const maxPixels = 50_000_000
 
 // generateThumbnail reads a PNG from srcPath, resizes it to the target
 // dimensions maintaining aspect ratio within the box (letterbox), and writes
@@ -19,9 +26,22 @@ func generateThumbnail(srcPath, dstPath string, maxWidth, maxHeight int) error {
 	}
 	defer src.Close()
 
+	// Decompression-bomb guard: read dimensions without allocating pixels.
+	cfg, err := png.DecodeConfig(src)
+	if err != nil {
+		return fmt.Errorf("decode config: %w", err)
+	}
+	if cfg.Width*cfg.Height > maxPixels {
+		return fmt.Errorf("image too large: %d×%d (max %d pixels)", cfg.Width, cfg.Height, maxPixels)
+	}
+	// Rewind to start for full decode.
+	if _, err := src.Seek(0, 0); err != nil {
+		return fmt.Errorf("seek: %w", err)
+	}
+
 	img, err := png.Decode(src)
 	if err != nil {
-		return err
+		return fmt.Errorf("decode: %w", err)
 	}
 
 	srcBounds := img.Bounds()
@@ -45,5 +65,9 @@ func generateThumbnail(srcPath, dstPath string, maxWidth, maxHeight int) error {
 	}
 	defer out.Close()
 
-	return png.Encode(out, dst)
+	if err := png.Encode(out, dst); err != nil {
+		return fmt.Errorf("encode: %w", err)
+	}
+	// Close must be checked — a flush error means truncated file.
+	return out.Close()
 }
