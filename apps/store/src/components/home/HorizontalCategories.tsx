@@ -104,14 +104,17 @@ export default function HorizontalCategories() {
                       alt={category.name}
                       className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                       loading="lazy"
+                      onError={(e) => {
+                        // Hide broken image, show emoji underneath.
+                        e.currentTarget.style.display = "none";
+                      }}
                     />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-8xl opacity-30 transition-transform duration-500 group-hover:scale-110">
-                        {categoryEmoji(category.slug)}
-                      </span>
-                    </div>
-                  )}
+                  ) : null}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-8xl opacity-30 transition-transform duration-500 group-hover:scale-110">
+                      {categoryEmoji(category.slug)}
+                    </span>
+                  </div>
 
                   {/* Background gradient */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
