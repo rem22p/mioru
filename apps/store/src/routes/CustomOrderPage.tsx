@@ -66,8 +66,6 @@ export default function CustomOrderPage() {
   const removePhoto = (index: number) => {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
     setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
-    // Revalidate after removal
-    setTimeout(() => validate(), 50);
   };
 
   const validate = () => {
@@ -99,7 +97,6 @@ export default function CustomOrderPage() {
 
   const handleBlur = (field: string) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
-    validate();
   };
 
   const canSubmit =
@@ -189,7 +186,6 @@ export default function CustomOrderPage() {
                   accept="image/*"
                   multiple
                   onChange={handlePhotos}
-                  onBlur={() => handleBlur("photos")}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                 />
                 <div
@@ -238,7 +234,6 @@ export default function CustomOrderPage() {
                     if (raw && Number(raw) > 250) {
                       setHeight("250");
                     }
-                    validate();
                   }}
                   onBlur={() => {
                     handleBlur("body");
@@ -276,7 +271,6 @@ export default function CustomOrderPage() {
                     if (raw && Number(raw) > 200) {
                       setWeight("200");
                     }
-                    validate();
                   }}
                   onBlur={() => {
                     handleBlur("body");
@@ -314,7 +308,6 @@ export default function CustomOrderPage() {
                 onChange={(e) => {
                   const val = e.target.value.replace(/[0-9]/g, "");
                   setCity(val);
-                  validate();
                 }}
                 onBlur={() => handleBlur("city")}
                 className={`${inputClass} ${touched.city && errors.city ? "!border-red-500" : ""}`}
@@ -383,7 +376,6 @@ export default function CustomOrderPage() {
                           ...prev,
                           deliveryMethod: true,
                         }));
-                        validate();
                       }}
                       className="mt-0.5 accent-[#44944A]"
                     />
