@@ -46,6 +46,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [showSizeChart, setShowSizeChart] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [copied, setCopied] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const cartItems = useCartStore((state) => state.items);
@@ -295,22 +296,28 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   />
                 </button>
                 <button
-                  onClick={() => {
-                    if (typeof window !== "undefined") {
-                      if (navigator.share) {
-                        navigator.share({
+                  onClick={async () => {
+                    if (navigator.share) {
+                      try {
+                        await navigator.share({
                           title: product.name,
                           url: window.location.href,
                         });
-                      } else {
-                        navigator.clipboard.writeText(window.location.href);
-                      }
+                        return;
+                      } catch {}
                     }
+                    await navigator.clipboard.writeText(window.location.href);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1500);
                   }}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-[var(--color-border-custom)] px-5 py-4 text-sm text-[var(--color-text-secondary)] transition-all hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] min-h-[44px] min-w-[44px]"
+                  className={`flex items-center justify-center gap-2 rounded-xl border px-5 py-4 text-sm transition-all min-h-[44px] min-w-[44px] ${
+                    copied
+                      ? "border-[#44944A] text-[#44944A] bg-[#44944A]/10"
+                      : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                  }`}
                   aria-label={t("product.share")}
                 >
-                  <Share2 className="h-4 w-4" />
+                  {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
                 </button>
               </div>
 
