@@ -8,6 +8,17 @@ export function getImageUrl(path: string): string {
   return `${API_URL}${path}`;
 }
 
+// getThumbUrl returns the thumbnail URL for an image path.
+// Thumbnails follow the naming convention: /uploads/xxx.png → /uploads/thumb_xxx.png
+export function getThumbUrl(path: string): string {
+  if (!path) return "";
+  const base = getImageUrl(path);
+  // Replace last path segment: xxx.png → thumb_xxx.png
+  const i = base.lastIndexOf("/");
+  if (i < 0) return base;
+  return base.slice(0, i + 1) + "thumb_" + base.slice(i + 1);
+}
+
 interface ApiError {
   error: string;
 }

@@ -15,13 +15,13 @@ var errUnsupportedImage = errors.New("file content is not a supported image")
 // excluded: it is an XML document that can embed <script>, so a stored SVG
 // becomes stored XSS.
 var allowedImageExts = map[string]bool{
-	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
+	".png": true,
 }
 
 // allowedImageMIMEs is the set of content types accepted after sniffing the real
 // file bytes (raster images only).
 var allowedImageMIMEs = map[string]bool{
-	"image/jpeg": true, "image/png": true, "image/gif": true, "image/webp": true,
+	"image/png": true,
 }
 
 // allowedImageExt reports whether ext (with leading dot) is an accepted image

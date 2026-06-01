@@ -176,7 +176,7 @@ export default function ProductForm({
     if (!files) return;
     setUploading(true);
     for (const file of Array.from(files)) {
-      if (!file.type.startsWith("image/")) continue;
+      if (file.type !== "image/png") continue;
       try {
         const result = await uploadImage(file);
         setImages((prev) => [
@@ -806,7 +806,7 @@ export default function ProductForm({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/png"
                   multiple
                   className="hidden"
                   onChange={(e) => handleImageUpload(e.target.files)}
