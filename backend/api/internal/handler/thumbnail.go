@@ -13,7 +13,8 @@ import (
 // for decompression-bomb protection. 50 megapixels is generous for a
 // product photo (e.g. 10000×5000) while blocking degenerate inputs that
 // claim tiny file size but massive pixel dimensions.
-const maxPixels = 50_000_000
+// Package-level var so tests can temporarily lower the limit.
+var maxPixels = 50_000_000
 
 // generateThumbnail reads a PNG from srcPath, resizes it to the target
 // dimensions maintaining aspect ratio within the box (letterbox), and writes

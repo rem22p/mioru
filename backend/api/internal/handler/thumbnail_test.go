@@ -41,23 +41,22 @@ func TestGenerateThumbnail(t *testing.T) {
 	}
 }
 
-func TestGenerateThumbnailTooLarge(t *testing.T) {
+func TestGenerateThumbnailRejectsTooLarge(t *testing.T) {
+	saved := maxPixels
+	maxPixels = 100 // tiny limit for testing
+	defer func() { maxPixels = saved }()
+
 	dir := t.TempDir()
 	src := filepath.Join(dir, "src.png")
 	dst := filepath.Join(dir, "thumb.png")
 
-	// Create a 1×1 PNG (valid), then test with a fake header that claims huge dimensions.
-	// Since we validate via DecodeConfig, we can test the limit by creating a
-	// very small PNG and verifying the guard doesn't reject normal images.
-	createTestPNG(t, src, 640, 480)
-	if err := generateThumbnail(src, dst, 400, 300); err != nil {
-		t.Fatalf("generateThumbnail normal image: %v", err)
-	}
+	// 20×20 = 400 pixels > 100 → should be rejected.
+	createTestPNG(t, src, 20, 20)
 
-	// 640×480 = 307200 < 50M — should pass.
-	// A real decompression bomb would be caught by DecodeConfig before Decode.
-	// The guard is tested implicitly: normal images pass, and the test
-	// verifies DecodeConfig runs (via the Seek+Decode flow).
+	err := generateThumbnail(src, dst, 10, 10)
+	if err == nil {
+		t.Fatal("expected rejection for image exceeding pixel limit, got nil")
+	}
 }
 
 func TestGenerateThumbnailSourceNotFound(t *testing.T) {
