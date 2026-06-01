@@ -119,14 +119,15 @@ func TestVerifyTelegramAuth_WrongBotToken(t *testing.T) {
 }
 
 func TestVerifyTelegramAuth_Expired(t *testing.T) {
+	now := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
 	data := TelegramAuthData{
 		ID:        12345,
 		FirstName: "Pavel",
-		AuthDate:  time.Now().Add(-25 * time.Hour).Unix(), // older than 24h
+		AuthDate:  now.Add(-25 * time.Hour).Unix(), // older than 24h
 	}
 	data.Hash = signTelegramData(testBotToken, data)
 
-	err := VerifyTelegramAuth(data, testBotToken, 24*time.Hour, time.Now())
+	err := VerifyTelegramAuth(data, testBotToken, 24*time.Hour, now)
 	if err == nil {
 		t.Fatal("expected error for expired auth_date, got nil")
 	}

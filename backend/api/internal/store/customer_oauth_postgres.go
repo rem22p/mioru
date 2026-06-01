@@ -11,6 +11,10 @@ import (
 	"mioru/internal/model"
 )
 
+// ErrOAuthAlreadyLinked is returned by CreateCustomerWithOAuth when the
+// OAuth provider+ID pair is already associated with another customer.
+var ErrOAuthAlreadyLinked = errors.New("telegram account already linked to another user")
+
 // ── Customer OAuth operations on PostgreSQL ──
 
 // GetCustomerByOAuth looks up a customer by OAuth provider and provider-side
@@ -82,7 +86,7 @@ func (s *PostgresStore) CreateCustomerWithOAuth(ctx context.Context, c model.Cus
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return fmt.Errorf("telegram account already linked to another user")
+			return ErrOAuthAlreadyLinked
 		}
 		return fmt.Errorf("insert customer_oauth: %w", err)
 	}

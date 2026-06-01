@@ -232,3 +232,48 @@ func TestLogoutClearsCookies(t *testing.T) {
 		}
 	}
 }
+
+func TestHTTPCodeToErrorCode(t *testing.T) {
+	tests := []struct {
+		status int
+		want   string
+	}{
+		{400, "VALIDATION_FAILED"},
+		{401, "AUTH_REQUIRED"},
+		{403, "CSRF_INVALID"},
+		{404, "NOT_FOUND"},
+		{409, "CONFLICT"},
+		{413, "PAYLOAD_TOO_LARGE"},
+		{422, "VALIDATION_FAILED"},
+		{429, "RATE_LIMITED"},
+		{500, "INTERNAL"},
+		{502, "INTERNAL"},
+		{999, "INTERNAL"},
+	}
+	for _, tt := range tests {
+		got := httpCodeToErrorCode(tt.status)
+		if got != tt.want {
+			t.Errorf("httpCodeToErrorCode(%d) = %q, want %q", tt.status, got, tt.want)
+		}
+	}
+}
+
+func TestJSONErrorCode(t *testing.T) {
+	rr := httptest.NewRecorder()
+	jsonErrorCode(rr, "bad credentials", 401, "AUTH_INVALID")
+
+	if rr.Code != 401 {
+		t.Errorf("status = %d, want 401", rr.Code)
+	}
+
+	var body map[string]string
+	if err := json.NewDecoder(rr.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body["error"] != "bad credentials" {
+		t.Errorf("error = %q, want 'bad credentials'", body["error"])
+	}
+	if body["code"] != "AUTH_INVALID" {
+		t.Errorf("code = %q, want AUTH_INVALID", body["code"])
+	}
+}
