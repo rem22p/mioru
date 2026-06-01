@@ -61,6 +61,17 @@ export default function Header({
     };
   }, [menuOpen]);
 
+  // Close language dropdown on outside click
+  useEffect(() => {
+    if (!langOpen) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-lang-switcher]")) setLangOpen(false);
+    };
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [langOpen]);
+
   const isLight = theme === "light";
 
   return (
@@ -136,7 +147,7 @@ export default function Header({
             </Link>
 
             {/* Language Switcher */}
-            <div className="relative">
+            <div className="relative" data-lang-switcher>
               <button
                 onClick={() => setLangOpen(!langOpen)}
                 className={`flex items-center gap-1 h-11 px-2 text-sm font-medium transition-colors rounded-lg ${
@@ -147,9 +158,6 @@ export default function Header({
                 aria-label="Change language"
               >
                 <Globe className="h-4 w-4" />
-                <span className="hidden sm:inline">
-                  {i18n.language?.toUpperCase()}
-                </span>
               </button>
               {langOpen && (
                 <div
