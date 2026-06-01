@@ -7,6 +7,7 @@ import (
 
 	"mioru/internal/auth"
 	"mioru/internal/cookieauth"
+	"mioru/internal/jsonerr"
 )
 
 type ctxKey struct{}
@@ -27,23 +28,23 @@ func AuthMW(secret string, userEpoch UserEpochFunc) func(http.Handler) http.Hand
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			c, err := r.Cookie(cookieauth.AdminAuthCookie)
 			if err != nil || c.Value == "" {
-				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+				jsonerr.ErrorCode(w, "authentication required", http.StatusUnauthorized, "AUTH_REQUIRED")
 				return
 			}
 			username, iat, err := auth.ParseToken(c.Value, secret, auth.TokenTypeUser)
 			if err != nil {
-				http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
+				jsonerr.ErrorCode(w, "invalid or expired token", http.StatusUnauthorized, "AUTH_INVALID")
 				return
 			}
 			changedAt, ok, err := userEpoch(r.Context(), username)
 			if err != nil {
-				http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
+				jsonerr.ErrorCode(w, "internal error", http.StatusInternalServerError, "INTERNAL")
 				return
 			}
 			// Compare at second granularity (iat is Unix seconds): a token issued
 			// in the same second as the change is accepted, anything older is not.
 			if !ok || iat < changedAt.Unix() {
-				http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
+				jsonerr.ErrorCode(w, "session revoked", http.StatusUnauthorized, "AUTH_INVALID")
 				return
 			}
 			ctx := context.WithValue(r.Context(), ctxKey{}, username)
@@ -62,22 +63,22 @@ func Username(r *http.Request) string {
 
 // RequireAdmin must be composed *after* AuthMW. It looks up the authenticated
 // user's role via getRole (DB-backed — it never trusts a token claim) and
-// rejects any non-admin with 403.
+// rejects any non-admin with 403. super_admin inherits all admin privileges.
 func RequireAdmin(getRole func(context.Context, string) (string, error)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			username := Username(r)
 			if username == "" {
-				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+				jsonerr.ErrorCode(w, "authentication required", http.StatusUnauthorized, "AUTH_REQUIRED")
 				return
 			}
 			role, err := getRole(r.Context(), username)
 			if err != nil {
-				http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
+				jsonerr.ErrorCode(w, "internal error", http.StatusInternalServerError, "INTERNAL")
 				return
 			}
 			if role != "admin" && role != "super_admin" {
-				http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+				jsonerr.ErrorCode(w, "forbidden", http.StatusForbidden, "FORBIDDEN")
 				return
 			}
 			next.ServeHTTP(w, r)

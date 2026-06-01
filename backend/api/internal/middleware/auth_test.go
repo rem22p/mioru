@@ -46,6 +46,7 @@ func TestAuthMWSessionRevocation(t *testing.T) {
 		epoch     UserEpochFunc
 		wantCode  int
 		wantReach bool
+		wantErrCode string
 	}{
 		{
 			// Password changed an hour ago; a token minted now is newer → allowed.
@@ -61,6 +62,7 @@ func TestAuthMWSessionRevocation(t *testing.T) {
 			epoch:     epochOK(time.Now().Add(time.Hour)),
 			wantCode:  http.StatusUnauthorized,
 			wantReach: false,
+			wantErrCode: "AUTH_INVALID",
 		},
 		{
 			// User no longer exists → reject.
@@ -70,6 +72,7 @@ func TestAuthMWSessionRevocation(t *testing.T) {
 			},
 			wantCode:  http.StatusUnauthorized,
 			wantReach: false,
+			wantErrCode: "AUTH_INVALID",
 		},
 		{
 			// Epoch lookup failed → 500, never silently allow.
@@ -79,6 +82,7 @@ func TestAuthMWSessionRevocation(t *testing.T) {
 			},
 			wantCode:  http.StatusInternalServerError,
 			wantReach: false,
+			wantErrCode: "INTERNAL",
 		},
 	}
 
@@ -95,6 +99,9 @@ func TestAuthMWSessionRevocation(t *testing.T) {
 			}
 			if reached != tt.wantReach {
 				t.Errorf("handler reached = %v, want %v", reached, tt.wantReach)
+			}
+			if tt.wantErrCode != "" {
+				assertJSONError(t, rr, tt.wantErrCode)
 			}
 		})
 	}
@@ -115,6 +122,7 @@ func TestAuthMWRejectsMissingCookie(t *testing.T) {
 	if reached {
 		t.Error("handler must not be reached without an auth cookie")
 	}
+	assertJSONError(t, rr, "AUTH_REQUIRED")
 }
 
 // TestAuthMWIgnoresAuthorizationHeader guards that the Bearer/Authorization

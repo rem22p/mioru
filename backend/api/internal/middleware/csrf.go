@@ -3,6 +3,8 @@ package middleware
 import (
 	"crypto/subtle"
 	"net/http"
+
+	"mioru/internal/jsonerr"
 )
 
 // CSRF returns the double-submit-cookie middleware for a given CSRF cookie
@@ -11,7 +13,8 @@ import (
 // the request to carry the same value in BOTH places: the cookie (set on
 // login, readable by the SPA via document.cookie) and the X-CSRF-Token
 // header (echoed by the SPA on each mutation). They are compared in
-// constant time; a missing, empty, or mismatching token returns 403.
+// constant time; a missing, empty, or mismatching token returns 403 with
+// code CSRF_INVALID.
 //
 // Safe methods (GET / HEAD / OPTIONS) are passed through unchecked — they
 // must not have side effects, so an attacker forcing one from a foreign
@@ -30,18 +33,18 @@ func CSRF(cookieName string) func(http.Handler) http.Handler {
 
 			c, err := r.Cookie(cookieName)
 			if err != nil || c.Value == "" {
-				http.Error(w, `{"error":"csrf token missing"}`, http.StatusForbidden)
+				jsonerr.ErrorCode(w, "csrf token missing", http.StatusForbidden, "CSRF_INVALID")
 				return
 			}
 			header := r.Header.Get("X-CSRF-Token")
 			if header == "" {
-				http.Error(w, `{"error":"csrf token missing"}`, http.StatusForbidden)
+				jsonerr.ErrorCode(w, "csrf token missing", http.StatusForbidden, "CSRF_INVALID")
 				return
 			}
 			// ConstantTimeCompare returns 0 also for length mismatches, so it
 			// short-circuits safely on unequal-length inputs.
 			if subtle.ConstantTimeCompare([]byte(header), []byte(c.Value)) != 1 {
-				http.Error(w, `{"error":"csrf token mismatch"}`, http.StatusForbidden)
+				jsonerr.ErrorCode(w, "csrf token mismatch", http.StatusForbidden, "CSRF_INVALID")
 				return
 			}
 			next.ServeHTTP(w, r)

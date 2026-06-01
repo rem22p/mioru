@@ -67,9 +67,10 @@ func TestCSRFRejectsMissingHeaderOrCookie(t *testing.T) {
 			if rr.Code != http.StatusForbidden {
 				t.Errorf("status = %d, want %d", rr.Code, http.StatusForbidden)
 			}
-			if reached {
-				t.Error("handler must not be reached when CSRF check fails")
-			}
+		if reached {
+			t.Error("handler must not be reached when CSRF check fails")
+		}
+		assertJSONError(t, rr, "CSRF_INVALID")
 		})
 	}
 }
@@ -91,6 +92,7 @@ func TestCSRFRejectsMismatch(t *testing.T) {
 	if reached {
 		t.Error("handler must not be reached when CSRF tokens differ")
 	}
+	assertJSONError(t, rr, "CSRF_INVALID")
 }
 
 func TestCSRFAcceptsMatchingPair(t *testing.T) {

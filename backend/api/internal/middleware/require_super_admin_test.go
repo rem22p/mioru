@@ -9,9 +9,10 @@ import (
 
 func TestRequireSuperAdmin(t *testing.T) {
 	tests := []struct {
-		name     string
-		getRole  func(context.Context, string) (string, error)
-		wantCode int
+		name        string
+		getRole     func(context.Context, string) (string, error)
+		wantCode    int
+		wantErrCode string
 	}{
 		{
 			name: "super_admin passes",
@@ -25,14 +26,16 @@ func TestRequireSuperAdmin(t *testing.T) {
 			getRole: func(ctx context.Context, user string) (string, error) {
 				return "admin", nil
 			},
-			wantCode: http.StatusForbidden,
+			wantCode:    http.StatusForbidden,
+			wantErrCode: "FORBIDDEN",
 		},
 		{
 			name: "unknown role forbidden",
 			getRole: func(ctx context.Context, user string) (string, error) {
 				return "viewer", nil
 			},
-			wantCode: http.StatusForbidden,
+			wantCode:    http.StatusForbidden,
+			wantErrCode: "FORBIDDEN",
 		},
 	}
 
@@ -53,12 +56,15 @@ func TestRequireSuperAdmin(t *testing.T) {
 			if rr.Code != tt.wantCode {
 				t.Errorf("status = %d, want %d", rr.Code, tt.wantCode)
 			}
+
+			if tt.wantErrCode != "" {
+				assertJSONError(t, rr, tt.wantErrCode)
+			}
 		})
 	}
 }
 
 func TestRequireSuperAdminNoUsername(t *testing.T) {
-	// Without AuthMW setting the username, RequireSuperAdmin should 401.
 	getRole := func(ctx context.Context, user string) (string, error) {
 		return "super_admin", nil
 	}
@@ -74,4 +80,5 @@ func TestRequireSuperAdminNoUsername(t *testing.T) {
 	if rr.Code != http.StatusUnauthorized {
 		t.Errorf("status = %d, want %d", rr.Code, http.StatusUnauthorized)
 	}
+	assertJSONError(t, rr, "AUTH_REQUIRED")
 }
