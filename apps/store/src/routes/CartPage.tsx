@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useCartStore } from "@/stores/cartStore";
 import { useAuthStore } from "@/stores/authStore";
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
+import { getThumbUrl, getImageUrl } from "@/lib/api";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
@@ -74,8 +75,25 @@ export default function CartPage() {
               animate={{ opacity: 1, y: 0 }}
               className="flex gap-4 rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-4"
             >
-              <div className="h-24 w-24 shrink-0 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] flex items-center justify-center text-3xl">
-                📦
+              <div className="relative aspect-[4/5] w-20 shrink-0 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] overflow-hidden">
+                {item.product.images?.[0]?.url ? (
+                  <img
+                    src={getThumbUrl(item.product.images[0].url)}
+                    alt={item.product.name}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => {
+                      const t = e.currentTarget;
+                      if (!t.dataset.fallback) {
+                        t.dataset.fallback = "1";
+                        t.src = getImageUrl(item.product.images[0].url);
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-2xl">
+                    📦
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-1 flex-col justify-between">

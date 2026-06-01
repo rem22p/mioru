@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useAuthStore } from "@/stores/authStore";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
-import { User, Mail, Lock, ArrowRight } from "lucide-react";
+import { User, Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 
 export default function AuthPage() {
   const { t } = useTranslation();
@@ -15,6 +15,7 @@ export default function AuthPage() {
   const { login, register, loading, error, clearError } = useAuthStore();
 
   const [mode, setMode] = useState<"login" | "register">("login");
+  const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -63,7 +64,7 @@ export default function AuthPage() {
           {/* Tabs */}
           <div className="flex rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-1 mb-8">
             <button
-              onClick={() => { setMode("login"); clearError(); }}
+              onClick={() => { setMode("login"); clearError(); setShowPassword(false); }}
               className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${
                 mode === "login"
                   ? "bg-[#44944A] text-black"
@@ -126,14 +127,22 @@ export default function AuthPage() {
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)]" />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={form.password}
                 onChange={(e) => update("password", e.target.value)}
-                className={`${inputClass} pl-11`}
+                className={`${inputClass} pl-11 pr-11`}
                 placeholder={t("auth.password")}
                 required
                 minLength={8}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
 
             {error && (
