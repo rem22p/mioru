@@ -9,23 +9,30 @@ import { Helmet } from "react-helmet-async";
 import CityAutocomplete from "@/components/ui/CityAutocomplete";
 
 const deliveryMethods = [
-  { key: "personal", price: "Бесплатно", priceColor: "text-[#44944A]" },
-  { key: "address", price: "25 руб", priceColor: "text-[var(--color-text-secondary)]" },
-  { key: "bus", price: "до 50 руб", priceColor: "text-[var(--color-text-secondary)]" },
-  { key: "express", price: "до 50 руб", priceColor: "text-[var(--color-text-secondary)]" },
-  { key: "moldovaPost", price: "до 50 руб", priceColor: "text-[var(--color-text-secondary)]" },
+  { key: "personal", label: "Личная встреча", price: "Бесплатно", priceColor: "text-[#44944A]" },
+  { key: "address", label: "Доставка по адресу", price: "25 руб", priceColor: "text-[var(--color-text-secondary)]" },
+  { key: "bus", label: "Отправка автобусом", price: "до 50 руб", priceColor: "text-[var(--color-text-secondary)]" },
+  { key: "express", label: "Экспресс-почта", price: "до 50 руб", priceColor: "text-[var(--color-text-secondary)]" },
+  { key: "moldovaPost", label: "Почта Молдовы", price: "до 50 руб", priceColor: "text-[var(--color-text-secondary)]" },
 ];
 
-// Delivery methods blocked in all PMR cities
-const PNR_BLOCKED = new Set(["moldovaPost"]);
-// Cities where express delivery is additionally blocked
-const EXPRESS_BLOCKED_CITIES = new Set(["тирасполь", "бендеры"]);
+const deliveryLabel = Object.fromEntries(deliveryMethods.map(m => [m.key, m.label]));
+const paymentLabel: Record<string, string> = { card: "Картой онлайн", cod: "При получении" };
+
+// Delivery methods blocked in PMR cities
+// Each method has its own city allowlist:
+//   personal, address — only Tiraspol & Bendery
+//   bus — PMR + Chișinău
+//   express — PMR except Tiraspol & Bendery
+//   moldovaPost — all cities
 
 const PNR_CITIES = new Set([
   "тирасполь", "бендеры", "дубоссары", "рыбница", "григориополь",
   "днестровск", "каменка", "слободзея", "парканы", "ближний хутор",
   "красное", "новотираспольский", "терновка", "маяк", "суклея",
 ]);
+
+const TIRASPOL_BENDERY = new Set(["тирасполь", "бендеры"]);
 
 export default function CheckoutPage() {
   const { t } = useTranslation();
@@ -41,13 +48,15 @@ export default function CheckoutPage() {
     }
   }, [isAuthenticated, navigate]);
 
+  const [submitted, setSubmitted] = useState(false);
+
   const [formData, setFormData] = useState({
     city: "",
     street: "",
     house: "",
     apartment: "",
     deliveryMethod: "" as string,
-    paymentMethod: "card" as "card" | "cod" | "sbp",
+    paymentMethod: "card" as "card" | "cod",
   });
 
   const steps = [
@@ -56,12 +65,25 @@ export default function CheckoutPage() {
     { id: 3, label: t("checkout.steps.confirmation"), icon: Check },
   ];
 
-  const isPnrCity = PNR_CITIES.has(formData.city.toLowerCase());
-  const isExpressBlockedCity = EXPRESS_BLOCKED_CITIES.has(formData.city.toLowerCase());
+  const cityLower = formData.city.toLowerCase();
+  const isPnrCity = PNR_CITIES.has(cityLower);
+  const isTiraspolBendery = TIRASPOL_BENDERY.has(cityLower);
+  const isChisinau = cityLower === "кишинев";
 
-  const isMethodBlocked = (key: string) =>
-    (isPnrCity && PNR_BLOCKED.has(key)) ||
-    (isExpressBlockedCity && key === "express");
+  const isMethodBlocked = (key: string): boolean => {
+    if (!formData.city) return true; // all blocked until city selected
+    switch (key) {
+      case "personal":
+      case "address":
+        return !isTiraspolBendery;
+      case "bus":
+        return !(isPnrCity || isChisinau);
+      case "express":
+        return !(isPnrCity && !isTiraspolBendery);
+      default:
+        return false;
+    }
+  };
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -137,11 +159,7 @@ export default function CheckoutPage() {
                     />
                     <div className="flex items-center justify-between w-full">
                       <span className="text-sm text-[var(--color-text-primary)]">
-                        {method.key === "personal" && "Личная встреча"}
-                        {method.key === "address" && "Доставка по адресу"}
-                        {method.key === "bus" && "Отправка автобусом"}
-                        {method.key === "express" && "Экспресс-почта"}
-                        {method.key === "moldovaPost" && "Почта Молдовы"}
+                        {method.label}
                       </span>
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--color-bg-secondary)] ${method.priceColor} shrink-0`}>
                         {method.price}
@@ -205,18 +223,13 @@ export default function CheckoutPage() {
             {[
               {
                 id: "card",
-                label: t("checkout.payment.card"),
-                desc: t("checkout.payment.cardDesc"),
-              },
-              {
-                id: "sbp",
-                label: t("checkout.payment.sbp"),
-                desc: t("checkout.payment.sbpDesc"),
+                label: "Картой онлайн",
+                desc: "MIA, клевер",
               },
               {
                 id: "cod",
-                label: t("checkout.payment.cod"),
-                desc: t("checkout.payment.codDesc"),
+                label: "При получении",
+                desc: "Наличными или переводом по месту",
               },
             ].map((method) => (
               <button
@@ -252,12 +265,55 @@ export default function CheckoutPage() {
           </div>
         );
       case 3:
+        if (submitted) {
+          return (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-8 text-center"
+            >
+              <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-[#44944A]/10 flex items-center justify-center">
+                <Check className="h-8 w-8 text-[#44944A]" />
+              </div>
+              <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
+                Заявка отправлена
+              </h3>
+              <p className="mt-3 text-sm text-[var(--color-text-secondary)] max-w-md mx-auto leading-relaxed">
+                Ваши данные будут проверены. Если всё в порядке — вам напишут в Telegram с реквизитами для оплаты.
+              </p>
+            </motion.div>
+          );
+        }
         return (
           <div className="space-y-6">
             <div className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-6">
               <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-muted)] mb-4">
                 {t("checkout.orderSummary")}
               </h3>
+
+              {/* City, delivery, payment info */}
+              <div className="space-y-2 mb-4 pb-4 border-b border-[var(--color-border-custom)]">
+                <div className="flex justify-between text-sm">
+                  <span className="text-[var(--color-text-muted)]">Город</span>
+                  <span className="text-[var(--color-text-primary)]">{formData.city}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[var(--color-text-muted)]">Способ доставки</span>
+                  <span className="text-[var(--color-text-primary)]">{deliveryLabel[formData.deliveryMethod] || formData.deliveryMethod}</span>
+                </div>
+                {formData.deliveryMethod === "address" && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[var(--color-text-muted)]">Адрес</span>
+                    <span className="text-[var(--color-text-primary)]">{formData.street}, {formData.house}{formData.apartment ? `, кв. ${formData.apartment}` : ""}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-[var(--color-text-muted)]">Способ оплаты</span>
+                  <span className="text-[var(--color-text-primary)]">{paymentLabel[formData.paymentMethod]}</span>
+                </div>
+              </div>
+
+              {/* Order items */}
               <div className="space-y-3">
                 {items.map((item) => (
                   <div
@@ -283,7 +339,7 @@ export default function CheckoutPage() {
               </div>
             </div>
             <button
-              onClick={() => alert("Заказ оформлен! (Mock)")}
+              onClick={() => setSubmitted(true)}
               className="w-full rounded-xl bg-[#44944A] px-6 py-4 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(192,254,57,0.3)]"
             >
               {t("checkout.confirm")}
