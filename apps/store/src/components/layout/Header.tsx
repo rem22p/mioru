@@ -89,7 +89,7 @@ export default function Header({
           {/* Logo */}
           <Link to="/" className="md:absolute md:left-6 lg:left-8">
             <motion.img
-              src="/favicon.ico"
+              src={isLight ? "/favicon-black.ico" : "/favicon.ico"}
               alt="MIORU"
               className="h-10 w-10"
               whileHover={{ scale: 1.1 }}
