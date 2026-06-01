@@ -42,10 +42,10 @@ func okHandler(reached *bool) http.Handler {
 
 func TestAuthMWSessionRevocation(t *testing.T) {
 	tests := []struct {
-		name      string
-		epoch     UserEpochFunc
-		wantCode  int
-		wantReach bool
+		name        string
+		epoch       UserEpochFunc
+		wantCode    int
+		wantReach   bool
 		wantErrCode string
 	}{
 		{
@@ -58,10 +58,10 @@ func TestAuthMWSessionRevocation(t *testing.T) {
 		{
 			// Password changed in the future relative to the token's iat → the token
 			// predates the change and must be rejected (session revoked).
-			name:      "stale token rejected",
-			epoch:     epochOK(time.Now().Add(time.Hour)),
-			wantCode:  http.StatusUnauthorized,
-			wantReach: false,
+			name:        "stale token rejected",
+			epoch:       epochOK(time.Now().Add(time.Hour)),
+			wantCode:    http.StatusUnauthorized,
+			wantReach:   false,
 			wantErrCode: "AUTH_INVALID",
 		},
 		{
@@ -70,8 +70,8 @@ func TestAuthMWSessionRevocation(t *testing.T) {
 			epoch: func(context.Context, string) (time.Time, bool, error) {
 				return time.Time{}, false, nil
 			},
-			wantCode:  http.StatusUnauthorized,
-			wantReach: false,
+			wantCode:    http.StatusUnauthorized,
+			wantReach:   false,
 			wantErrCode: "AUTH_INVALID",
 		},
 		{
@@ -80,8 +80,8 @@ func TestAuthMWSessionRevocation(t *testing.T) {
 			epoch: func(context.Context, string) (time.Time, bool, error) {
 				return time.Time{}, false, context.DeadlineExceeded
 			},
-			wantCode:  http.StatusInternalServerError,
-			wantReach: false,
+			wantCode:    http.StatusInternalServerError,
+			wantReach:   false,
 			wantErrCode: "INTERNAL",
 		},
 	}

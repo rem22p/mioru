@@ -10,9 +10,9 @@ import (
 
 func TestRequireAdmin(t *testing.T) {
 	tests := []struct {
-		name       string
-		getRole    func(context.Context, string) (string, error)
-		wantCode   int
+		name        string
+		getRole     func(context.Context, string) (string, error)
+		wantCode    int
 		wantErrCode string // empty when 200 expected
 	}{
 		{
