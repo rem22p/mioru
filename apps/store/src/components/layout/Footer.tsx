@@ -1,8 +1,14 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
+function useTheme(): "dark" | "light" {
+  if (typeof window === "undefined") return "dark";
+  return (localStorage.getItem("theme") as "dark" | "light") || "dark";
+}
+
 export default function Footer() {
   const { t } = useTranslation();
+  const isLight = useTheme() === "light";
 
   const navLinks = [
     { labelKey: "nav.inStock", href: "/catalog" },
@@ -24,7 +30,7 @@ export default function Footer() {
         <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2 lg:col-span-1">
             <Link to="/" className="inline-block">
-              <img src="/favicon.ico" alt="MIORU" className="h-10 w-10" />
+              <img src={isLight ? "/favicon-black.ico" : "/favicon.ico"} alt="MIORU" className="h-10 w-10" />
             </Link>
             <p className="mt-4 text-sm leading-relaxed text-[var(--color-text-muted)]">
               {t("footer.description")}
