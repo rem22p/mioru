@@ -381,8 +381,8 @@ export default function CatalogPage() {
                   );
                 })()}
 
-              {/* Dynamic filters section — after any category selected */}
-              {selectedCategory !== "all" && (
+              {/* Dynamic filters section — only when facets are available */}
+              {selectedCategory !== "all" && (availableFilters.sizes.length > 0 || availableFilters.brands.length > 0 || availableFilters.colors.length > 0) && (
                 <div className="mt-4">
                   <button
                     onClick={() => setDynamicFiltersOpen(!dynamicFiltersOpen)}
