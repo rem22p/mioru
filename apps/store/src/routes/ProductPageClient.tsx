@@ -209,15 +209,13 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-primary)]">
                     {t("product.size")}
                   </h3>
-                  {sizeChart && (
-                    <button
-                      onClick={() => setShowSizeChart(true)}
-                      className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[#44944A] transition-colors min-h-[44px] px-2"
-                    >
-                      <Ruler className="h-3.5 w-3.5" />
-                      {t("product.sizeChart")}
-                    </button>
-                  )}
+                  <button
+                    onClick={() => sizeChart && setShowSizeChart(true)}
+                    className={`inline-flex items-center gap-1.5 text-xs transition-colors min-h-[44px] px-2 ${sizeChart ? "text-[var(--color-text-secondary)] hover:text-[#44944A]" : "text-[var(--color-text-muted)] cursor-default"}`}
+                  >
+                    <Ruler className="h-3.5 w-3.5" />
+                    {t("product.sizeChart")}
+                  </button>
                 </div>
                 <div className="flex flex-wrap gap-3">
                   {product.sizes.map((size) => (
