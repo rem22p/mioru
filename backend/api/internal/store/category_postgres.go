@@ -12,7 +12,7 @@ import (
 
 const categoryQuery = `SELECT
 		c.id, c.parent_id, c.name, c.slug, c.criteria, c.sort_order,
-		(SELECT '/uploads/thumb_' || regexp_replace(pi.url, '^/uploads/', '')
+		(SELECT pi.url
 		 FROM products p
 		 JOIN product_images pi ON pi.product_id = p.id
 		 WHERE p.category_id = c.id
