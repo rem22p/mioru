@@ -10,39 +10,34 @@ import (
 
 // ── Categories ──
 
+const categoryQuery = `SELECT
+		c.id, c.parent_id, c.name, c.slug, c.criteria, c.sort_order,
+		(SELECT '/uploads/thumb_' || regexp_replace(pi.url, '^/uploads/', '')
+		 FROM products p
+		 JOIN product_images pi ON pi.product_id = p.id
+		 WHERE p.category_id = c.id
+		    OR p.category_id IN (SELECT id FROM categories WHERE parent_id = c.id)
+		 ORDER BY p.stock_quantity DESC, pi.sort_order
+		 LIMIT 1) AS cover_image
+	FROM categories c
+	ORDER BY c.sort_order, c.id`
+
 // GetCategories returns all categories organized as a tree.
 func (s *PostgresStore) GetCategories(ctx context.Context) ([]model.Category, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id, parent_id, name, slug, criteria, sort_order FROM categories ORDER BY sort_order, id`)
+	all, err := s.queryCategories(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("query categories: %w", err)
+		return nil, err
 	}
-	defer rows.Close()
-
-	var all []model.Category
-	for rows.Next() {
-		var c model.Category
-		var parentID *int
-		var criteriaJSON string
-		if err := rows.Scan(&c.ID, &parentID, &c.Name, &c.Slug, &criteriaJSON, &c.SortOrder); err != nil {
-			return nil, fmt.Errorf("scan category: %w", err)
-		}
-		c.ParentID = parentID
-		json.Unmarshal([]byte(criteriaJSON), &c.Criteria)
-		if c.Criteria == nil {
-			c.Criteria = []string{}
-		}
-		all = append(all, c)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows iteration: %w", err)
-	}
-
 	return buildCategoryTree(all), nil
 }
 
 // GetCategoriesFlat returns all categories as a flat list with ParentID references.
 func (s *PostgresStore) GetCategoriesFlat(ctx context.Context) ([]model.Category, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id, parent_id, name, slug, criteria, sort_order FROM categories ORDER BY sort_order, id`)
+	return s.queryCategories(ctx)
+}
+
+func (s *PostgresStore) queryCategories(ctx context.Context) ([]model.Category, error) {
+	rows, err := s.pool.Query(ctx, categoryQuery)
 	if err != nil {
 		return nil, fmt.Errorf("query categories: %w", err)
 	}
@@ -53,7 +48,7 @@ func (s *PostgresStore) GetCategoriesFlat(ctx context.Context) ([]model.Category
 		var c model.Category
 		var parentID *int
 		var criteriaJSON string
-		if err := rows.Scan(&c.ID, &parentID, &c.Name, &c.Slug, &criteriaJSON, &c.SortOrder); err != nil {
+		if err := rows.Scan(&c.ID, &parentID, &c.Name, &c.Slug, &criteriaJSON, &c.SortOrder, &c.CoverImage); err != nil {
 			return nil, fmt.Errorf("scan category: %w", err)
 		}
 		c.ParentID = parentID

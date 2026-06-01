@@ -7,6 +7,7 @@ export interface Category {
   slug: string;
   criteria: string[];
   sort_order: number;
+  cover_image?: string | null;
   children?: Category[];
 }
 
