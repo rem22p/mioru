@@ -45,11 +45,11 @@ export default function CatalogPage() {
   const [sortBy, setSortBy] = useState<"price-asc" | "price-desc" | "newest">(
     "newest",
   );
-  const [dynamicFiltersOpen, setDynamicFiltersOpen] = useState(true);
+  const [dynamicFiltersOpen, setDynamicFiltersOpen] = useState(false);
   const [filterSubsectionsOpen, setFilterSubsectionsOpen] = useState({
-    sizes: true,
-    brands: true,
-    colors: true,
+    sizes: false,
+    brands: false,
+    colors: false,
   });
   const [page, setPage] = useState(1);
   const addItem = useCartStore((state) => state.addItem);
