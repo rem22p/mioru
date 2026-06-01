@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, lazy, Suspense, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import type { Product, Review } from "@/types";
@@ -51,6 +51,14 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   const cartItems = useCartStore((state) => state.items);
   const isFav = useFavoritesStore((s) => s.isFavorite(product.id));
   const toggleFav = useFavoritesStore((s) => s.toggleFavorite);
+
+  // Auto-select size if product is already in cart
+  useEffect(() => {
+    const inCart = cartItems.find((item) => item.product.id === product.id);
+    if (inCart && !selectedSize) {
+      setSelectedSize(inCart.size);
+    }
+  }, [cartItems, product.id, selectedSize]);
 
   // Transform backend size_chart rows into UI format
   const sizeChart = toSizeChart(product.size_chart);
