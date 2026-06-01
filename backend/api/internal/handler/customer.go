@@ -227,7 +227,7 @@ func (h *CustomerHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(req.Email) > 100 || len(req.Password) > 72 {
-		jsonError(w, "неверный email или пароль", http.StatusUnauthorized)
+		jsonErrorCode(w, "неверный email или пароль", http.StatusUnauthorized, "AUTH_INVALID")
 		return
 	}
 
@@ -237,11 +237,11 @@ func (h *CustomerHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil || cust == nil {
 		// Constant-time dummy check to prevent timing attacks
 		auth.CheckDummyPassword(req.Password)
-		jsonError(w, "неверный email или пароль", http.StatusUnauthorized)
+		jsonErrorCode(w, "неверный email или пароль", http.StatusUnauthorized, "AUTH_INVALID")
 		return
 	}
 	if !auth.CheckPassword(req.Password, cust.HashedPW) {
-		jsonError(w, "неверный email или пароль", http.StatusUnauthorized)
+		jsonErrorCode(w, "неверный email или пароль", http.StatusUnauthorized, "AUTH_INVALID")
 		return
 	}
 
@@ -454,7 +454,7 @@ func (h *CustomerHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := auth.VerifyTelegramAuth(data, h.botToken, 24*time.Hour, time.Now()); err != nil {
-		jsonError(w, "неверная Telegram подпись", http.StatusUnauthorized)
+		jsonErrorCode(w, "неверная Telegram подпись", http.StatusUnauthorized, "AUTH_INVALID")
 		return
 	}
 
@@ -665,7 +665,7 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := auth.VerifyTelegramAuth(data, h.botToken, 24*time.Hour, time.Now()); err != nil {
-			jsonError(w, "неверная Telegram подпись", http.StatusUnauthorized)
+			jsonErrorCode(w, "неверная Telegram подпись", http.StatusUnauthorized, "AUTH_INVALID")
 			return
 		}
 
