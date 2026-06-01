@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useCatalogStore } from "@/stores/catalogStore";
-import { fetchStoreProducts, getThumbUrl } from "@/lib/api";
+import { getThumbUrl } from "@/lib/api";
 import { ArrowUpRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -20,40 +19,9 @@ function categoryEmoji(slug: string): string {
 export default function HorizontalCategories() {
   const { t } = useTranslation();
   const { categories } = useCatalogStore();
-  const [categoryImages, setCategoryImages] = useState<Record<number, string>>({});
 
   // Top-level categories only
   const topCats = categories;
-
-  // Fetch top product image per category (max stock).
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      const images: Record<number, string> = {};
-      await Promise.all(
-        topCats.map(async (cat) => {
-          try {
-            const res = await fetchStoreProducts({ category_id: String(cat.id), per_page: "20" });
-            let best = null as { stock: number; url: string } | null;
-            for (const p of res.products) {
-              if (p.images?.[0]?.url) {
-                const stock = p.stock_quantity || 0;
-                if (!best || stock > best.stock) {
-                  best = { stock, url: getThumbUrl(p.images[0].url) };
-                }
-              }
-            }
-            if (best) images[cat.id] = best.url;
-          } catch {
-            // best-effort: keep emoji fallback
-          }
-        }),
-      );
-      if (!cancelled) setCategoryImages(images);
-    }
-    if (topCats.length > 0) load();
-    return () => { cancelled = true; };
-  }, [topCats]);
 
   return (
     <section className="relative py-24">
@@ -86,7 +54,9 @@ export default function HorizontalCategories() {
       {/* Horizontal scroll */}
       <div className="horizontal-scroll mx-auto max-w-7xl px-6 pb-4 lg:px-8 pt-2">
         {topCats.map((category, index) => {
-          const imageUrl = categoryImages[category.id];
+          const imageUrl = category.cover_image
+            ? getThumbUrl(category.cover_image)
+            : null;
           return (
             <motion.div
               key={category.id}
@@ -105,7 +75,6 @@ export default function HorizontalCategories() {
                       className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                       loading="lazy"
                       onError={(e) => {
-                        // Hide broken image, show emoji underneath.
                         e.currentTarget.style.display = "none";
                       }}
                     />

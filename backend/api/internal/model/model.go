@@ -18,13 +18,14 @@ type User struct {
 
 // Category represents a product category with tree structure
 type Category struct {
-	ID        int        `json:"id"`
-	ParentID  *int       `json:"parent_id"`
-	Name      string     `json:"name"`
-	Slug      string     `json:"slug"`
-	Criteria  []string   `json:"criteria"`
-	SortOrder int        `json:"sort_order"`
-	Children  []Category `json:"children,omitempty"`
+	ID         int        `json:"id"`
+	ParentID   *int       `json:"parent_id"`
+	Name       string     `json:"name"`
+	Slug       string     `json:"slug"`
+	Criteria   []string   `json:"criteria"`
+	SortOrder  int        `json:"sort_order"`
+	CoverImage *string    `json:"cover_image,omitempty"`
+	Children   []Category `json:"children,omitempty"`
 }
 
 // Product represents a product in the catalog
