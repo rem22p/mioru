@@ -185,7 +185,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if len(req.Username) > 100 || len(req.Password) > 72 {
 		// Out-of-bounds credentials can't match any account; reject with the
 		// same generic message (bcrypt ignores bytes past 72 anyway).
-		jsonError(w, "неверный логин или пароль", http.StatusUnauthorized)
+		jsonErrorCode(w, "неверный логин или пароль", http.StatusUnauthorized, "AUTH_INVALID")
 		return
 	}
 
@@ -193,11 +193,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil || user == nil {
 		// Constant-time: fake bcrypt call to prevent timing attack
 		auth.CheckDummyPassword(req.Password)
-		jsonError(w, "неверный логин или пароль", http.StatusUnauthorized)
+		jsonErrorCode(w, "неверный логин или пароль", http.StatusUnauthorized, "AUTH_INVALID")
 		return
 	}
 	if !auth.CheckPassword(req.Password, user.HashedPW) {
-		jsonError(w, "неверный логин или пароль", http.StatusUnauthorized)
+		jsonErrorCode(w, "неверный логин или пароль", http.StatusUnauthorized, "AUTH_INVALID")
 		return
 	}
 

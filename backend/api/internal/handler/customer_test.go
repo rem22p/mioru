@@ -2,11 +2,17 @@ package handler
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"mioru/internal/auth"
 	"mioru/internal/cookieauth"
@@ -79,7 +85,7 @@ func (f *fakeCustomerStore) SaveCustomerFavorites(ctx context.Context, customerI
 	return nil
 }
 
-func newCustomerHandlerForTest(fs *fakeCustomerStore) *CustomerHandler {
+func newCustomerHandlerForTest(fs customerStore) *CustomerHandler {
 	return NewCustomerHandler(fs, "test-secret-key-at-least-32-chars-long!!", 60, false, "", "")
 }
 
@@ -218,4 +224,105 @@ func TestListOrdersReturnsEmptyWhenNoOrders(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Errorf("orders without auth context should return 200 (empty), got %d", rr.Code)
 	}
+}
+
+// fakeCustomerStoreWithRace simulates a race: the first GetCustomerByOAuth
+// returns nil (no existing link), then CreateCustomerWithOAuth returns
+// ErrOAuthAlreadyLinked (another request won the race).
+type fakeCustomerStoreWithRace struct {
+	fakeCustomerStore
+	createCalled bool
+}
+
+func (f *fakeCustomerStoreWithRace) GetCustomerByOAuth(ctx context.Context, provider, oauthID string) (*model.Customer, *model.CustomerOAuth, error) {
+	if f.createCalled {
+		// After the conflict, return the customer that won the race.
+		return &model.Customer{ID: 42, Email: "race@test.com", FirstName: "Race"}, nil, nil
+	}
+	return nil, nil, nil
+}
+
+func (f *fakeCustomerStoreWithRace) CreateCustomerWithOAuth(ctx context.Context, c model.Customer, oa model.CustomerOAuth) error {
+	f.createCalled = true
+	return store.ErrOAuthAlreadyLinked
+}
+
+func TestTelegramLoginRaceRetry(t *testing.T) {
+	fs := &fakeCustomerStoreWithRace{}
+	h := newCustomerHandlerForTestWithToken(fs, "000000:TEST-TOKEN")
+
+	// Build a signed Telegram auth payload.
+	now := time.Now()
+	data := auth.TelegramAuthData{
+		ID:        12345,
+		FirstName: "Pavel",
+		AuthDate:  now.Unix(),
+	}
+	data.Hash = signTelegramDataForTest(t, data)
+
+	body := fmt.Sprintf(`{"id":%d,"first_name":"%s","auth_date":%d,"hash":"%s"}`,
+		data.ID, data.FirstName, data.AuthDate, data.Hash)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/store/auth/telegram", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	h.TelegramLogin(rr, req)
+
+	// Race-retry should issue a session for the now-linked customer (ID 42),
+	// not return 409 or 500.
+	if rr.Code != http.StatusOK {
+		t.Errorf("race-retry: want 200, got %d (body: %s)", rr.Code, rr.Body.String())
+	}
+
+	var resp customerProfileResp
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.ID != 42 {
+		t.Errorf("race-retry: want customer ID 42, got %d", resp.ID)
+	}
+}
+
+func signTelegramDataForTest(t *testing.T, data auth.TelegramAuthData) string {
+	t.Helper()
+	pairs := map[string]string{
+		"auth_date":  fmt.Sprintf("%d", data.AuthDate),
+		"first_name": data.FirstName,
+		"id":         fmt.Sprintf("%d", data.ID),
+	}
+	if data.LastName != "" {
+		pairs["last_name"] = data.LastName
+	}
+	if data.Username != "" {
+		pairs["username"] = data.Username
+	}
+	if data.PhotoURL != "" {
+		pairs["photo_url"] = data.PhotoURL
+	}
+
+	keys := make([]string, 0, len(pairs))
+	for k := range pairs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var sb strings.Builder
+	for i, k := range keys {
+		if i > 0 {
+			sb.WriteByte('\n')
+		}
+		sb.WriteString(k)
+		sb.WriteByte('=')
+		sb.WriteString(pairs[k])
+	}
+
+	secretHash := sha256.Sum256([]byte("000000:TEST-TOKEN"))
+	mac := hmac.New(sha256.New, secretHash[:])
+	mac.Write([]byte(sb.String()))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func newCustomerHandlerForTestWithToken(fs customerStore, botToken string) *CustomerHandler {
+	return NewCustomerHandler(fs, "test-secret-key-at-least-32-chars-long!!", 60, false, botToken, "")
 }
