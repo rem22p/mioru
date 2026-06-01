@@ -76,7 +76,7 @@ func RequireAdmin(getRole func(context.Context, string) (string, error)) func(ht
 				http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
 				return
 			}
-			if role != "admin" {
+			if role != "admin" && role != "super_admin" {
 				http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
 				return
 			}
