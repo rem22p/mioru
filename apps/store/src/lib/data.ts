@@ -4,8 +4,11 @@ import type { User, Order } from "@/types";
 
 export const mockUser: User = {
   id: "1",
+  firstName: "Иван",
+  lastName: "",
   name: "Иван",
   email: "ivan@mioru.store",
+  phone: "",
   avatarParams: {
     gender: "male",
     height: 180,

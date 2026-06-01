@@ -4,6 +4,7 @@ import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Upload, Send } from "lucide-react";
+import CityAutocomplete from "@/components/ui/CityAutocomplete";
 
 const deliveryTimeOptions = ["fast", "medium", "slow"] as const;
 
@@ -292,24 +293,9 @@ export default function CustomOrderPage() {
               <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                 {t("customOrder.city")}
               </label>
-              <input
-                type="text"
+              <CityAutocomplete
                 value={city}
-                onKeyDown={(e) => {
-                  if (
-                    /[0-9]/.test(e.key) &&
-                    e.key !== "Backspace" &&
-                    e.key !== "Tab" &&
-                    !e.key.startsWith("Arrow")
-                  ) {
-                    e.preventDefault();
-                  }
-                }}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/[0-9]/g, "");
-                  setCity(val);
-                }}
-                onBlur={() => handleBlur("city")}
+                onChange={setCity}
                 className={`${inputClass} ${touched.city && errors.city ? "!border-red-500" : ""}`}
                 placeholder={t("customOrder.cityPlaceholder")}
               />
