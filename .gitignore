@@ -50,3 +50,5 @@ next-app/
 .claude/
 .tldr/
 .tldrignore
+dist.tar.gz
+dump.rdb

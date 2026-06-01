@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,9 +10,10 @@ import (
 
 func TestRequireAdmin(t *testing.T) {
 	tests := []struct {
-		name     string
-		getRole  func(context.Context, string) (string, error)
-		wantCode int
+		name        string
+		getRole     func(context.Context, string) (string, error)
+		wantCode    int
+		wantErrCode string // empty when 200 expected
 	}{
 		{
 			name: "admin passes",
@@ -32,21 +34,24 @@ func TestRequireAdmin(t *testing.T) {
 			getRole: func(ctx context.Context, user string) (string, error) {
 				return "customer", nil
 			},
-			wantCode: http.StatusForbidden,
+			wantCode:    http.StatusForbidden,
+			wantErrCode: "FORBIDDEN",
 		},
 		{
 			name: "unknown role forbidden",
 			getRole: func(ctx context.Context, user string) (string, error) {
 				return "viewer", nil
 			},
-			wantCode: http.StatusForbidden,
+			wantCode:    http.StatusForbidden,
+			wantErrCode: "FORBIDDEN",
 		},
 		{
 			name: "getRole error is 500",
 			getRole: func(ctx context.Context, user string) (string, error) {
 				return "", context.DeadlineExceeded
 			},
-			wantCode: http.StatusInternalServerError,
+			wantCode:    http.StatusInternalServerError,
+			wantErrCode: "INTERNAL",
 		},
 	}
 
@@ -67,6 +72,10 @@ func TestRequireAdmin(t *testing.T) {
 			if rr.Code != tt.wantCode {
 				t.Errorf("status = %d, want %d", rr.Code, tt.wantCode)
 			}
+
+			if tt.wantErrCode != "" {
+				assertJSONError(t, rr, tt.wantErrCode)
+			}
 		})
 	}
 }
@@ -86,5 +95,24 @@ func TestRequireAdminNoUsername(t *testing.T) {
 
 	if rr.Code != http.StatusUnauthorized {
 		t.Errorf("status = %d, want %d", rr.Code, http.StatusUnauthorized)
+	}
+	assertJSONError(t, rr, "AUTH_REQUIRED")
+}
+
+// assertJSONError checks Content-Type is application/json and the body contains
+// the expected machine "code".
+func assertJSONError(t *testing.T, rr *httptest.ResponseRecorder, wantCode string) {
+	t.Helper()
+	if ct := rr.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("Content-Type = %q, want application/json", ct)
+	}
+	var body struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&body); err != nil {
+		t.Fatalf("decode error body: %v", err)
+	}
+	if body.Code != wantCode {
+		t.Errorf("code = %q, want %q", body.Code, wantCode)
 	}
 }

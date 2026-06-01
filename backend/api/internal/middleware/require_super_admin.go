@@ -3,6 +3,8 @@ package middleware
 import (
 	"context"
 	"net/http"
+
+	"mioru/internal/jsonerr"
 )
 
 // RequireSuperAdmin must be composed *after* AuthMW. It calls getRole (DB-backed
@@ -14,16 +16,16 @@ func RequireSuperAdmin(getRole func(context.Context, string) (string, error)) fu
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			username := Username(r)
 			if username == "" {
-				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+				jsonerr.ErrorCode(w, "authentication required", http.StatusUnauthorized, "AUTH_REQUIRED")
 				return
 			}
 			role, err := getRole(r.Context(), username)
 			if err != nil {
-				http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
+				jsonerr.ErrorCode(w, "internal error", http.StatusInternalServerError, "INTERNAL")
 				return
 			}
 			if role != "super_admin" {
-				http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+				jsonerr.ErrorCode(w, "forbidden", http.StatusForbidden, "FORBIDDEN")
 				return
 			}
 			next.ServeHTTP(w, r)

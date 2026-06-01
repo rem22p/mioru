@@ -240,7 +240,7 @@ func TestHTTPCodeToErrorCode(t *testing.T) {
 	}{
 		{400, "VALIDATION_FAILED"},
 		{401, "AUTH_REQUIRED"},
-		{403, "CSRF_INVALID"},
+		{403, "FORBIDDEN"},
 		{404, "NOT_FOUND"},
 		{409, "CONFLICT"},
 		{413, "PAYLOAD_TOO_LARGE"},

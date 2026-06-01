@@ -42,10 +42,11 @@ func okHandler(reached *bool) http.Handler {
 
 func TestAuthMWSessionRevocation(t *testing.T) {
 	tests := []struct {
-		name      string
-		epoch     UserEpochFunc
-		wantCode  int
-		wantReach bool
+		name        string
+		epoch       UserEpochFunc
+		wantCode    int
+		wantReach   bool
+		wantErrCode string
 	}{
 		{
 			// Password changed an hour ago; a token minted now is newer → allowed.
@@ -57,10 +58,11 @@ func TestAuthMWSessionRevocation(t *testing.T) {
 		{
 			// Password changed in the future relative to the token's iat → the token
 			// predates the change and must be rejected (session revoked).
-			name:      "stale token rejected",
-			epoch:     epochOK(time.Now().Add(time.Hour)),
-			wantCode:  http.StatusUnauthorized,
-			wantReach: false,
+			name:        "stale token rejected",
+			epoch:       epochOK(time.Now().Add(time.Hour)),
+			wantCode:    http.StatusUnauthorized,
+			wantReach:   false,
+			wantErrCode: "AUTH_INVALID",
 		},
 		{
 			// User no longer exists → reject.
@@ -68,8 +70,9 @@ func TestAuthMWSessionRevocation(t *testing.T) {
 			epoch: func(context.Context, string) (time.Time, bool, error) {
 				return time.Time{}, false, nil
 			},
-			wantCode:  http.StatusUnauthorized,
-			wantReach: false,
+			wantCode:    http.StatusUnauthorized,
+			wantReach:   false,
+			wantErrCode: "AUTH_INVALID",
 		},
 		{
 			// Epoch lookup failed → 500, never silently allow.
@@ -77,8 +80,9 @@ func TestAuthMWSessionRevocation(t *testing.T) {
 			epoch: func(context.Context, string) (time.Time, bool, error) {
 				return time.Time{}, false, context.DeadlineExceeded
 			},
-			wantCode:  http.StatusInternalServerError,
-			wantReach: false,
+			wantCode:    http.StatusInternalServerError,
+			wantReach:   false,
+			wantErrCode: "INTERNAL",
 		},
 	}
 
@@ -95,6 +99,9 @@ func TestAuthMWSessionRevocation(t *testing.T) {
 			}
 			if reached != tt.wantReach {
 				t.Errorf("handler reached = %v, want %v", reached, tt.wantReach)
+			}
+			if tt.wantErrCode != "" {
+				assertJSONError(t, rr, tt.wantErrCode)
 			}
 		})
 	}
@@ -115,6 +122,7 @@ func TestAuthMWRejectsMissingCookie(t *testing.T) {
 	if reached {
 		t.Error("handler must not be reached without an auth cookie")
 	}
+	assertJSONError(t, rr, "AUTH_REQUIRED")
 }
 
 // TestAuthMWIgnoresAuthorizationHeader guards that the Bearer/Authorization

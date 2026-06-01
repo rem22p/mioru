@@ -14,6 +14,7 @@ import (
 	"mioru/internal/auth"
 	"mioru/internal/cookieauth"
 	"mioru/internal/email"
+	"mioru/internal/jsonerr"
 	"mioru/internal/middleware"
 	"mioru/internal/model"
 	"mioru/internal/store"
@@ -502,12 +503,7 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func jsonError(w http.ResponseWriter, msg string, code int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{
-		"error": msg,
-		"code":  httpCodeToErrorCode(code),
-	})
+	jsonerr.Error(w, msg, code)
 }
 
 // jsonErrorCode is like jsonError but uses an explicit machine-readable error
@@ -515,26 +511,20 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 // status alone doesn't express the semantic (e.g. 401 can be AUTH_INVALID for
 // bad credentials or AUTH_REQUIRED for a missing session).
 func jsonErrorCode(w http.ResponseWriter, msg string, httpStatus int, errorCode string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(httpStatus)
-	json.NewEncoder(w).Encode(map[string]string{
-		"error": msg,
-		"code":  errorCode,
-	})
+	jsonerr.ErrorCode(w, msg, httpStatus, errorCode)
 }
 
-// httpCodeToErrorCode maps HTTP status codes to machine-readable error codes
-// as a reasonable default. Callers that need more specific semantics should
-// use jsonErrorCode instead (e.g. credential errors → AUTH_INVALID, not
-// the default AUTH_REQUIRED which means "missing/expired session").
+// httpCodeToErrorCode maps HTTP status codes to machine-readable error codes.
+// Kept for backward compatibility with direct callers; jsonError now delegates
+// to jsonerr internally.
 func httpCodeToErrorCode(code int) string {
 	switch code {
 	case http.StatusBadRequest, http.StatusUnprocessableEntity:
 		return "VALIDATION_FAILED"
 	case http.StatusUnauthorized:
-		return "AUTH_REQUIRED" // session missing/expired; use jsonErrorCode for bad credentials
+		return "AUTH_REQUIRED"
 	case http.StatusForbidden:
-		return "CSRF_INVALID"
+		return "FORBIDDEN"
 	case http.StatusNotFound:
 		return "NOT_FOUND"
 	case http.StatusConflict:
