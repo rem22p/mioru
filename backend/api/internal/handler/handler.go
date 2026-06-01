@@ -370,7 +370,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !auth.CheckPassword(body.CurrentPW, user.HashedPW) {
-		jsonError(w, "неверный текущий пароль", http.StatusUnauthorized)
+		jsonErrorCode(w, "неверный текущий пароль", http.StatusUnauthorized, "AUTH_INVALID")
 		return
 	}
 	if len(body.NewPW) < 8 {
@@ -510,22 +510,39 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 	})
 }
 
+// jsonErrorCode is like jsonError but uses an explicit machine-readable error
+// code instead of deriving one from the HTTP status. Use this when the HTTP
+// status alone doesn't express the semantic (e.g. 401 can be AUTH_INVALID for
+// bad credentials or AUTH_REQUIRED for a missing session).
+func jsonErrorCode(w http.ResponseWriter, msg string, httpStatus int, errorCode string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(httpStatus)
+	json.NewEncoder(w).Encode(map[string]string{
+		"error": msg,
+		"code":  errorCode,
+	})
+}
+
 // httpCodeToErrorCode maps HTTP status codes to machine-readable error codes
-// for the SPA to branch on. Unknown codes default to "INTERNAL".
+// as a reasonable default. Callers that need more specific semantics should
+// use jsonErrorCode instead (e.g. credential errors → AUTH_INVALID, not
+// the default AUTH_REQUIRED which means "missing/expired session").
 func httpCodeToErrorCode(code int) string {
 	switch code {
 	case http.StatusBadRequest, http.StatusUnprocessableEntity:
 		return "VALIDATION_FAILED"
 	case http.StatusUnauthorized:
-		return "AUTH_REQUIRED"
+		return "AUTH_REQUIRED" // session missing/expired; use jsonErrorCode for bad credentials
 	case http.StatusForbidden:
-		return "FORBIDDEN"
+		return "CSRF_INVALID"
 	case http.StatusNotFound:
 		return "NOT_FOUND"
 	case http.StatusConflict:
 		return "CONFLICT"
 	case http.StatusTooManyRequests:
 		return "RATE_LIMITED"
+	case http.StatusRequestEntityTooLarge:
+		return "PAYLOAD_TOO_LARGE"
 	default:
 		return "INTERNAL"
 	}

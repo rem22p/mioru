@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -354,7 +355,7 @@ func (h *CustomerHandler) ChangePassword(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if !auth.CheckPassword(body.CurrentPW, cust.HashedPW) {
-		jsonError(w, "неверный текущий пароль", http.StatusUnauthorized)
+		jsonErrorCode(w, "неверный текущий пароль", http.StatusUnauthorized, "AUTH_INVALID")
 		return
 	}
 	if len(body.NewPW) < 8 {
@@ -505,7 +506,7 @@ func (h *CustomerHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := h.store.CreateCustomerWithOAuth(r.Context(), c, oa); err != nil {
-		if strings.Contains(err.Error(), "already linked") {
+		if errors.Is(err, store.ErrOAuthAlreadyLinked) {
 			// Race: another request created the link between our GetCustomerByOAuth
 			// and CreateCustomerWithOAuth. Retry — fetch the now-existing customer.
 			cust, _, err2 := h.store.GetCustomerByOAuth(r.Context(), "telegram", oauthID)
