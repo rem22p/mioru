@@ -577,7 +577,7 @@ export default function CatalogPage() {
                 >
                   <Link to={`/product/${product.slug}`}>
                     <div className="card-hover overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)]">
-                      <div className="relative aspect-[3/4] overflow-hidden">
+                      <div className="relative aspect-[4/5] overflow-hidden">
                         {product.images?.[0]?.url ? (
                           <img
                             src={getThumbUrl(product.images[0].url)}

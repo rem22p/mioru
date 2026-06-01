@@ -61,7 +61,7 @@ export default function FavoritesPage() {
             >
               <div className="card-hover overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)]">
                 <Link to={`/product/${item.slug}`}>
-                  <div className="relative aspect-[3/4] overflow-hidden">
+                  <div className="relative aspect-[4/5] overflow-hidden">
                     {item.imageUrl ? (
                       <img
                         src={item.imageUrl}

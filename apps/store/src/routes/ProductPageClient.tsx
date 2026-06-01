@@ -136,7 +136,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
             >
               <Suspense
                 fallback={
-                  <div className="aspect-square rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] animate-pulse" />
+                  <div className="aspect-[4/5] rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] animate-pulse" />
                 }
               >
                 <ProductGallery product={product} />
