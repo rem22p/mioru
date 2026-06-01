@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link, useParams } from "react-router-dom";
 import { useCatalogStore } from "@/stores/catalogStore";
 import { useCartStore } from "@/stores/cartStore";
-import { getImageUrl } from "@/lib/api";
+import { getThumbUrl } from "@/lib/api";
 import { ShoppingBag, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
@@ -580,7 +580,7 @@ export default function CatalogPage() {
                       <div className="relative aspect-[3/4] overflow-hidden">
                         {product.images?.[0]?.url ? (
                           <img
-                            src={getImageUrl(product.images[0].url)}
+                            src={getThumbUrl(product.images[0].url)}
                             alt={product.name}
                             className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                             loading="lazy"

@@ -72,6 +72,14 @@ func (h *ProductHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Generate thumbnail (400×300).
+	thumbName := "thumb_" + safeName
+	thumbPath := filepath.Join(h.uploadDir, thumbName)
+	if err := generateThumbnail(destPath, thumbPath, 400, 300); err != nil {
+		log.Printf("Upload: thumbnail generation failed for %s: %v", safeName, err)
+		// Thumbnail is best-effort — original is already saved.
+	}
+
 	url := "/uploads/" + safeName
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"url": url})
@@ -144,6 +152,13 @@ func (h *ProductHandler) saveUploadedImages(r *http.Request, fieldName string) (
 		}
 		dest.Close()
 		file.Close()
+
+		// Generate thumbnail (400×300).
+		thumbName := "thumb_" + safeName
+		thumbPath := filepath.Join(h.uploadDir, thumbName)
+		if err := generateThumbnail(destPath, thumbPath, 400, 300); err != nil {
+			log.Printf("saveUploadedImages: thumbnail failed for %s: %v", safeName, err)
+		}
 
 		urls = append(urls, "/uploads/"+safeName)
 	}

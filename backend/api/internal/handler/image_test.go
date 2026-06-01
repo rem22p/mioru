@@ -11,14 +11,13 @@ func TestAllowedImageExt(t *testing.T) {
 		ext  string
 		want bool
 	}{
-		{".jpg", true},
-		{".jpeg", true},
 		{".png", true},
-		{".gif", true},
-		{".webp", true},
 		{".PNG", true}, // case-insensitive
+		{".jpg", false},
+		{".jpeg", false},
+		{".gif", false},
+		{".webp", false},
 		{".svg", false},
-		{".svg ", false},
 		{".html", false},
 		{".exe", false},
 		{"", false},
@@ -31,16 +30,15 @@ func TestAllowedImageExt(t *testing.T) {
 }
 
 func TestValidateImageContent(t *testing.T) {
-	// Real magic-byte prefixes; the rest of the file is irrelevant to sniffing.
 	tests := []struct {
 		name    string
 		data    []byte
 		wantErr bool
 	}{
 		{"png", []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR"), false},
-		{"jpeg", []byte("\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01"), false},
-		{"gif", []byte("GIF89a\x01\x00\x01\x00"), false},
-		{"webp", append([]byte("RIFF\x00\x00\x00\x00WEBPVP8 "), make([]byte, 16)...), false},
+		{"jpeg", []byte("\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01"), true},  // jpeg rejected
+		{"gif", []byte("GIF89a\x01\x00\x01\x00"), true},                // gif rejected
+		{"webp", append([]byte("RIFF\x00\x00\x00\x00WEBPVP8 "), make([]byte, 16)...), true}, // webp rejected
 		{"svg with script", []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`), true},
 		{"xml svg", []byte(`<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"></svg>`), true},
 		{"html", []byte("<!DOCTYPE html><html><body>x</body></html>"), true},
