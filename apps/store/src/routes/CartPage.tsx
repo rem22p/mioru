@@ -73,9 +73,10 @@ export default function CartPage() {
               key={`${item.product.id}-${item.size}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex gap-4 rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-4"
+              className="flex items-start gap-3 sm:gap-4 rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-3 sm:p-4"
             >
-              <div className="relative aspect-[4/5] w-20 shrink-0 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] overflow-hidden">
+              {/* Image */}
+              <Link to={`/product/${item.product.slug}`} className="relative aspect-[4/5] w-20 sm:w-24 shrink-0 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] overflow-hidden">
                 {item.product.images?.[0]?.url ? (
                   <img
                     src={getThumbUrl(item.product.images[0].url)}
@@ -94,72 +95,53 @@ export default function CartPage() {
                     📦
                   </div>
                 )}
-              </div>
+              </Link>
 
-              <div className="flex flex-1 flex-col justify-between">
-                <div>
-                  <Link to={`/product/${item.product.slug}`}>
-                    <h3 className="font-medium text-[var(--color-text-primary)] hover:text-[#44944A] transition-colors">
+              {/* Info + controls */}
+              <div className="flex flex-1 flex-col min-w-0 self-stretch">
+                <div className="flex items-start justify-between gap-2">
+                  <Link to={`/product/${item.product.slug}`} className="min-w-0">
+                    <h3 className="font-medium text-[var(--color-text-primary)] hover:text-[#44944A] transition-colors text-sm leading-snug line-clamp-2">
                       {item.product.name}
                     </h3>
                   </Link>
-                  <p className="text-xs font-mono text-[var(--color-text-muted)] mt-1">
-                    {t("cart.size")}: {item.size}
-                  </p>
+                  <span className="text-sm font-bold text-[var(--color-text-primary)] whitespace-nowrap shrink-0">
+                    {(item.product.price * item.quantity).toLocaleString("ru-RU")} ₽
+                  </span>
                 </div>
 
-                <div className="flex items-center justify-between">
+                <p className="text-xs font-mono text-[var(--color-text-muted)] mt-1">
+                  {t("cart.size")}: {item.size}
+                </p>
+
+                <div className="flex items-center justify-between mt-auto pt-2">
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() =>
-                        updateQuantity(
-                          item.product.id,
-                          item.size,
-                          item.quantity - 1,
-                        )
-                      }
-                      className="rounded-lg border border-[var(--color-border-custom)] min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+                      onClick={() => updateQuantity(item.product.id, item.size, item.quantity - 1)}
+                      className="rounded-lg border border-[var(--color-border-custom)] w-8 h-8 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
                       aria-label="Уменьшить"
                     >
-                      <Minus className="h-4 w-4" />
+                      <Minus className="h-3.5 w-3.5" />
                     </button>
-                    <span className="w-10 text-center text-sm font-medium text-[var(--color-text-primary)]">
+                    <span className="w-7 text-center text-sm font-medium text-[var(--color-text-primary)]">
                       {item.quantity}
                     </span>
                     <button
-                      onClick={() =>
-                        updateQuantity(
-                          item.product.id,
-                          item.size,
-                          item.quantity + 1,
-                        )
-                      }
-                      disabled={
-                        item.product.stock_quantity > 0 &&
-                        item.quantity >= item.product.stock_quantity
-                      }
-                      className="rounded-lg border border-[var(--color-border-custom)] min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-30 transition-colors"
+                      onClick={() => updateQuantity(item.product.id, item.size, item.quantity + 1)}
+                      disabled={item.product.stock_quantity > 0 && item.quantity >= item.product.stock_quantity}
+                      className="rounded-lg border border-[var(--color-border-custom)] w-8 h-8 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-30 transition-colors"
                       aria-label="Увеличить"
                     >
-                      <Plus className="h-4 w-4" />
+                      <Plus className="h-3.5 w-3.5" />
                     </button>
                   </div>
-
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-bold text-[var(--color-text-primary)]">
-                      {(item.product.price * item.quantity).toLocaleString(
-                        "ru-RU",
-                      )}{" "}
-                      ₽
-                    </span>
-                    <button
-                      onClick={() => removeItem(item.product.id, item.size)}
-                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--color-text-muted)] hover:text-red-500 transition-colors rounded-lg"
-                      aria-label={t("common.delete")}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => removeItem(item.product.id, item.size)}
+                    className="w-8 h-8 flex items-center justify-center text-[var(--color-text-muted)] hover:text-red-500 transition-colors rounded-lg"
+                    aria-label={t("common.delete")}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             </motion.div>
