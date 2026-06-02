@@ -56,104 +56,124 @@ export default function ProfilePage() {
     );
   }
 
-  const nextLevel = VIP_LEVELS.find((lvl) => lvl.minXp > (user.xpBalance || 0));
-  const xpProgress = nextLevel
-    ? Math.min(
-        100,
-        Math.round(
-          ((user.xpBalance || 0) / nextLevel.minXp) * 100,
-        ),
-      )
+  const currentVip = VIP_LEVELS.reduce((prev, curr) =>
+    user.xpBalance >= curr.minXp ? curr : prev,
+  );
+  const nextVip = VIP_LEVELS.find((v) => v.level > currentVip.level);
+  const progress = nextVip
+    ? ((user.xpBalance - currentVip.minXp) /
+        (nextVip.minXp - currentVip.minXp)) *
+      100
     : 100;
 
   return (
     <div className="px-6 py-24 lg:px-8">
       <Helmet>
         <title>{t("profile.title")} — MIORU</title>
+        <meta
+          name="description"
+          content="Ваш личный кабинет MIORU. Управляйте аватаром, отслеживайте заказы и уровень XP."
+        />
+        <meta property="og:title" content={t("profile.title") + " — MIORU"} />
+        <link rel="canonical" href="https://mioru.store/profile" />
       </Helmet>
-      <div className="mx-auto max-w-2xl space-y-10">
+      <div className="mx-auto max-w-4xl">
+        <div className="flex items-center justify-between">
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-4xl font-bold tracking-tighter text-[var(--color-text-primary)] sm:text-5xl"
+          >
+            {t("profile.title")}
+          </motion.h1>
+          <button
+            onClick={logout}
+            className="flex items-center gap-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            Выйти
+          </button>
+        </div>
+
+        {/* Profile Card */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-8"
+          transition={{ delay: 0.1 }}
+          className="mt-10 rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-6"
         >
-          <div className="flex items-center gap-4 mb-6">
-            <div
-              className="flex h-14 w-14 items-center justify-center rounded-full text-lg font-bold text-white"
-              style={{ backgroundColor: user.avatarParams ? "#44944A" : "#44944A" }}
-            >
-              {(user.name || user.email || "?")[0].toUpperCase()}
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#44944A]/10">
+              <User className="h-8 w-8 text-[#44944A]" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
                 {user.name || user.email}
               </h2>
-              <p className="text-sm text-[var(--color-text-muted)]">
-                {user.email}
-              </p>
+              {user.email && (
+                <p className="text-sm text-[var(--color-text-secondary)]">
+                  {user.email}
+                </p>
+              )}
             </div>
           </div>
-
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-[var(--color-text-secondary)]">
-                {t("profile.level")} {nextLevel ? nextLevel.level : "MAX"}
-              </span>
-              <span className="text-xs text-[var(--color-text-muted)]">
-                {t("profile.xp", { xp: user.xpBalance || 0 })}
-              </span>
-            </div>
-            <div className="h-2 rounded-full bg-[var(--color-bg-hover)] overflow-hidden">
-              <div
-                className="h-full rounded-full bg-[#44944A] transition-all duration-500"
-                style={{ width: `${xpProgress}%` }}
-              />
-            </div>
-            {nextLevel && (
-              <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                {t("profile.toNextLevel", {
-                  level: nextLevel.level,
-                  xp: nextLevel.minXp - (user.xpBalance || 0),
-                })}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Link
-              to="/avatar"
-              className="flex items-center justify-between rounded-xl bg-[var(--color-bg-hover)] px-4 py-3 text-sm text-[var(--color-text-primary)] hover:brightness-110 transition"
-            >
-              <span className="flex items-center gap-3">
-                <User className="h-4 w-4 text-[var(--color-text-muted)]" />
-                {t("profile.myAvatar")}
-              </span>
-              <ChevronRight className="h-4 w-4 text-[var(--color-text-muted)]" />
-            </Link>
-            <Link
-              to="/profile"
-              className="flex items-center justify-between rounded-xl bg-[var(--color-bg-hover)] px-4 py-3 text-sm text-[var(--color-text-primary)] hover:brightness-110 transition"
-            >
-              <span className="flex items-center gap-3">
-                <Settings className="h-4 w-4 text-[var(--color-text-muted)]" />
-                {t("profile.title")}
-              </span>
-              <ChevronRight className="h-4 w-4 text-[var(--color-text-muted)]" />
-            </Link>
-          </div>
-
-          <button
-            onClick={logout}
-            className="mt-4 w-full flex items-center justify-center gap-2 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 hover:bg-red-500/20 transition"
-          >
-            <LogOut className="h-4 w-4" />
-            {t("auth.logout")}
-          </button>
         </motion.div>
 
-        <div>
-          <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-4">
+        {/* XP Progress */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mt-6 rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-primary)]">
+                {t("profile.level")}:{" "}
+                <span className="text-[#44944A]">{currentVip.name}</span>
+              </h3>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+                {t("profile.xp", {
+                  xp: (user.xpBalance || 0).toLocaleString("ru-RU"),
+                })}
+              </p>
+            </div>
+            {nextVip && (
+              <span className="text-xs text-[var(--color-text-muted)] font-mono">
+                {t("profile.toNextLevel", {
+                  level: nextVip.name,
+                  xp: nextVip.minXp.toLocaleString("ru-RU"),
+                })}
+              </span>
+            )}
+          </div>
+          <div className="h-2 rounded-full bg-[var(--color-bg-primary)] overflow-hidden">
+            <div
+              className="h-full rounded-full bg-[#44944A] transition-all"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </motion.div>
+
+        {/* Quick Links */}
+        <div className="mt-6">
+          <Link
+            to="/profile/edit"
+            className="flex items-center justify-between rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-5 transition-all hover:border-[#44944A]/50"
+          >
+            <div className="flex items-center gap-3">
+              <Settings className="h-5 w-5 text-[#44944A]" />
+              <span className="text-sm font-medium text-[var(--color-text-primary)]">
+                {t("profile.edit")}
+              </span>
+            </div>
+            <ChevronRight className="h-4 w-4 text-[var(--color-text-muted)]" />
+          </Link>
+        </div>
+
+        {/* Orders */}
+        <div className="mt-12">
+          <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-6">
             {t("profile.orderHistory")}
           </h3>
           <div className="space-y-4">

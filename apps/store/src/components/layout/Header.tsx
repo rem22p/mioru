@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Menu, X, Sun, Moon, Globe, User, ShoppingBag, Heart } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
+import { useFavoritesStore } from "@/stores/favoritesStore";
 import { motion, AnimatePresence } from "framer-motion";
 
 const desktopLinks = [
@@ -41,6 +42,7 @@ export default function Header({
   const [menuOpen, setMenuOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const totalItems = useCartStore((state) => state.totalItems());
+  const favCount = useFavoritesStore((s) => s.items.length);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -59,6 +61,17 @@ export default function Header({
     };
   }, [menuOpen]);
 
+  // Close language dropdown on outside click
+  useEffect(() => {
+    if (!langOpen) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-lang-switcher]")) setLangOpen(false);
+    };
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [langOpen]);
+
   const isLight = theme === "light";
 
   return (
@@ -76,7 +89,7 @@ export default function Header({
           {/* Logo */}
           <Link to="/" className="md:absolute md:left-6 lg:left-8">
             <motion.img
-              src="/favicon.ico"
+              src={isLight ? "/favicon-black.ico" : "/favicon.ico"}
               alt="MIORU"
               className="h-10 w-10"
               whileHover={{ scale: 1.1 }}
@@ -108,10 +121,15 @@ export default function Header({
             {/* Favorites */}
             <Link
               to="/favorites"
-              className="h-11 w-11 hidden md:flex items-center justify-center transition-colors rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+              className="h-11 w-11 hidden md:flex items-center justify-center transition-colors rounded-lg relative text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
               aria-label={t("nav.favorites")}
             >
               <Heart className="h-5 w-5" />
+              {favCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#44944A] text-[10px] font-bold text-black">
+                  {favCount > 9 ? "9+" : favCount}
+                </span>
+              )}
             </Link>
 
             {/* Cart */}
@@ -129,7 +147,7 @@ export default function Header({
             </Link>
 
             {/* Language Switcher */}
-            <div className="relative">
+            <div className="relative" data-lang-switcher>
               <button
                 onClick={() => setLangOpen(!langOpen)}
                 className={`flex items-center gap-1 h-11 px-2 text-sm font-medium transition-colors rounded-lg ${
@@ -140,9 +158,6 @@ export default function Header({
                 aria-label="Change language"
               >
                 <Globe className="h-4 w-4" />
-                <span className="hidden sm:inline">
-                  {i18n.language?.toUpperCase()}
-                </span>
               </button>
               {langOpen && (
                 <div

@@ -60,7 +60,7 @@
   },
   "nav": {
     "inStock": "ÎN STOC",
-    "customOrder": "COMANDĂ",
+    "customOrder": "COMANDĂ PERSONALIZATĂ",
     "avatar": "AVATAR",
     "cart": "COȘ",
     "favorites": "FAVORITE",
@@ -105,8 +105,8 @@
           "desc": "Câștigă puncte și deblochează recompense"
         },
         {
-          "label": "Mărimi precise",
-          "desc": "Selectare după măsurătorile tale exacte"
+          "label": "Tracking comenzi — în curând",
+          "desc": ""
         }
       ]
     },
@@ -151,6 +151,7 @@
     "sizeChart": "Tabel de mărimi",
     "addToCart": "În coș",
     "addedToCart": "Adăugat",
+    "inCart": "În coș",
     "soldOut": "Epuizat",
     "selectSize": "Selectează mărimea",
     "wishlist": "Adaugă la favorite",
@@ -214,11 +215,31 @@
     },
     "payment": {
       "card": "Card online",
-      "cardDesc": "Visa, Mastercard, MIR",
-      "sbp": "SBP",
-      "sbpDesc": "Sistem de plăți rapide",
+      "cardDesc": "MIA, klever",
       "cod": "Ramburs",
-      "codDesc": "Numerar sau card la livrare"
+      "codDesc": "Numerar sau transfer la fața locului"
+    },
+    "delivery": {
+      "title": "Mod de livrare",
+      "personal": "Întâlnire personală",
+      "address": "Livrare la adresă",
+      "bus": "Expediere cu autobuzul",
+      "express": "Poștă express",
+      "moldovaPost": "Poșta Moldovei",
+      "free": "Gratuit",
+      "price25": "25 lei",
+      "priceUpTo50": "până la 50 lei"
+    },
+    "confirmation": {
+      "title": "Cerere trimisă",
+      "message": "Datele tale vor fi verificate. Dacă totul este în regulă, vei fi contactat prin Telegram cu detaliile de plată."
+    },
+    "summary": {
+      "city": "Oraș",
+      "delivery": "Mod de livrare",
+      "address": "Adresă",
+      "payment": "Mod de plată",
+      "apartment": "ap."
     },
     "back": "Înapoi",
     "next": "Continuă",
@@ -228,6 +249,14 @@
   },
   "profile": {
     "title": "Contul meu",
+    "edit": "Editează profilul",
+    "name": "Nume",
+    "namePlaceholder": "Numele tău",
+    "lastNamePlaceholder": "Prenumele tău",
+    "phone": "Telefon",
+    "confirmPassword": "Confirmă parola",
+    "confirmPasswordHint": "Introdu parola curentă pentru a salva",
+    "passwordRequired": "Parola este necesară",
     "level": "Nivel",
     "xp": "{{xp}} XP",
     "toNextLevel": "Până la {{level}}: {{xp}} XP",

@@ -46,6 +46,11 @@ backend/api/server
 next-app/
 *.png
 
+# Photos and seed docs (case-insensitive, not version-controlled)
+*.[pP][nN][gG]
+/photos/
+/Бурмалда.md
+
 # Local tooling artifacts
 .claude/
 .tldr/

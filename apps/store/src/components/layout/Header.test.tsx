@@ -11,7 +11,7 @@ vi.mock("react-i18next", () => ({
     t: (key: string) => {
       const map: Record<string, string> = {
         "nav.inStock": "В НАЛИЧИИ",
-        "nav.customOrder": "ПОД ЗАКАЗ",
+        "nav.customOrder": "ИНДИВИДУАЛЬНЫЙ ЗАКАЗ",
         "nav.avatar": "АВАТАР",
         "nav.cart": "КОРЗИНА",
         "nav.favorites": "ИЗБРАННОЕ",
@@ -68,7 +68,7 @@ describe("Header — layout & rendering", () => {
   it("renders all nav links", () => {
     renderHeader();
     expect(screen.getByText("В НАЛИЧИИ")).toBeInTheDocument();
-    expect(screen.getByText("ПОД ЗАКАЗ")).toBeInTheDocument();
+    expect(screen.getByText("ИНДИВИДУАЛЬНЫЙ ЗАКАЗ")).toBeInTheDocument();
     expect(screen.getByText("АВАТАР")).toBeInTheDocument();
   });
 

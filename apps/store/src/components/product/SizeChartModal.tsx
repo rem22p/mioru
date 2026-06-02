@@ -115,34 +115,6 @@ export default function SizeChartModal({
                   ))}
                 </tbody>
               </table>
-
-              {/* Fit Info */}
-              {product.fit && (
-                <div className="mt-6 p-4 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)]">
-                  <p className="text-xs font-mono uppercase tracking-wider text-[var(--color-text-secondary)] mb-1">
-                    Посадка
-                  </p>
-                  <p className="text-sm text-[var(--color-text-primary)]">
-                    {product.fit === "slim" &&
-                      "Облегающий крой. Рекомендуем брать размер вверх, если хотите более свободную посадку."}
-                    {product.fit === "regular" &&
-                      "Стандартный крой. Выбирайте свой обычный размер."}
-                    {product.fit === "oversized" &&
-                      "Свободный оверсайз крой. Рекомендуем брать свой обычный размер для заявленного эффекта."}
-                    {product.fit === "loose" &&
-                      "Свободный крой. Рекомендуем брать размер вниз для более прилегающей посадки."}
-                    {product.fit !== "slim" &&
-                      product.fit !== "regular" &&
-                      product.fit !== "oversized" &&
-                      product.fit !== "loose" &&
-                      `Крой: ${product.fit}. Выбирайте свой обычный размер.`}
-                  </p>
-                </div>
-              )}
-
-              <p className="mt-4 text-xs text-[var(--color-text-muted)]">
-                Все замеры даны в сантиметрах. Допускается отклонение ±1–2 см.
-              </p>
             </div>
           </motion.div>
         </motion.div>

@@ -92,6 +92,9 @@ export interface User {
   id: string;
   name: string;
   email: string | null;
+  firstName: string;
+  lastName: string;
+  phone: string;
   avatarParams: AvatarParams;
   xpBalance: number;
   vipLevel: number;

@@ -4,6 +4,7 @@ import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Upload, Send } from "lucide-react";
+import CityAutocomplete from "@/components/ui/CityAutocomplete";
 
 const deliveryTimeOptions = ["fast", "medium", "slow"] as const;
 
@@ -66,8 +67,6 @@ export default function CustomOrderPage() {
   const removePhoto = (index: number) => {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
     setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
-    // Revalidate after removal
-    setTimeout(() => validate(), 50);
   };
 
   const validate = () => {
@@ -99,7 +98,6 @@ export default function CustomOrderPage() {
 
   const handleBlur = (field: string) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
-    validate();
   };
 
   const canSubmit =
@@ -189,7 +187,6 @@ export default function CustomOrderPage() {
                   accept="image/*"
                   multiple
                   onChange={handlePhotos}
-                  onBlur={() => handleBlur("photos")}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                 />
                 <div
@@ -238,7 +235,6 @@ export default function CustomOrderPage() {
                     if (raw && Number(raw) > 250) {
                       setHeight("250");
                     }
-                    validate();
                   }}
                   onBlur={() => {
                     handleBlur("body");
@@ -276,7 +272,6 @@ export default function CustomOrderPage() {
                     if (raw && Number(raw) > 200) {
                       setWeight("200");
                     }
-                    validate();
                   }}
                   onBlur={() => {
                     handleBlur("body");
@@ -298,25 +293,9 @@ export default function CustomOrderPage() {
               <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                 {t("customOrder.city")}
               </label>
-              <input
-                type="text"
+              <CityAutocomplete
                 value={city}
-                onKeyDown={(e) => {
-                  if (
-                    /[0-9]/.test(e.key) &&
-                    e.key !== "Backspace" &&
-                    e.key !== "Tab" &&
-                    !e.key.startsWith("Arrow")
-                  ) {
-                    e.preventDefault();
-                  }
-                }}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/[0-9]/g, "");
-                  setCity(val);
-                  validate();
-                }}
-                onBlur={() => handleBlur("city")}
+                onChange={setCity}
                 className={`${inputClass} ${touched.city && errors.city ? "!border-red-500" : ""}`}
                 placeholder={t("customOrder.cityPlaceholder")}
               />
@@ -383,7 +362,6 @@ export default function CustomOrderPage() {
                           ...prev,
                           deliveryMethod: true,
                         }));
-                        validate();
                       }}
                       className="mt-0.5 accent-[#44944A]"
                     />

@@ -60,7 +60,7 @@
   },
   "nav": {
     "inStock": "IN STOCK",
-    "customOrder": "CUSTOM",
+    "customOrder": "CUSTOM ORDER",
     "avatar": "AVATAR",
     "cart": "CART",
     "favorites": "FAVORITES",
@@ -101,12 +101,12 @@
           "desc": "See how it fits before you buy"
         },
         {
-          "label": "XP System",
+          "label": "XP bonus system",
           "desc": "Earn points and unlock rewards"
         },
         {
-          "label": "Precise Sizing",
-          "desc": "Matched to your exact measurements"
+          "label": "Order tracking — coming soon",
+          "desc": ""
         }
       ]
     },
@@ -151,6 +151,7 @@
     "sizeChart": "Size chart",
     "addToCart": "Add to cart",
     "addedToCart": "Added",
+    "inCart": "In cart",
     "soldOut": "Sold out",
     "selectSize": "Select size",
     "wishlist": "Add to wishlist",
@@ -214,11 +215,31 @@
     },
     "payment": {
       "card": "Card online",
-      "cardDesc": "Visa, Mastercard, MIR",
-      "sbp": "SBP",
-      "sbpDesc": "Fast Payment System",
+      "cardDesc": "MIA, klever",
       "cod": "Cash on delivery",
-      "codDesc": "Cash or card on receipt"
+      "codDesc": "Cash or transfer on the spot"
+    },
+    "delivery": {
+      "title": "Delivery method",
+      "personal": "Personal meeting",
+      "address": "Address delivery",
+      "bus": "Bus delivery",
+      "express": "Express mail",
+      "moldovaPost": "Moldova Post",
+      "free": "Free",
+      "price25": "25 lei",
+      "priceUpTo50": "up to 50 lei"
+    },
+    "confirmation": {
+      "title": "Request submitted",
+      "message": "Your details will be reviewed. If everything is in order, you will be contacted via Telegram with payment details."
+    },
+    "summary": {
+      "city": "City",
+      "delivery": "Delivery method",
+      "address": "Address",
+      "payment": "Payment method",
+      "apartment": "apt."
     },
     "back": "Back",
     "next": "Next",
@@ -228,6 +249,14 @@
   },
   "profile": {
     "title": "My account",
+    "edit": "Edit profile",
+    "name": "Name",
+    "namePlaceholder": "Your name",
+    "lastNamePlaceholder": "Your last name",
+    "phone": "Phone",
+    "confirmPassword": "Confirm password",
+    "confirmPasswordHint": "Enter your current password to save changes",
+    "passwordRequired": "Password required to confirm",
     "level": "Level",
     "xp": "{{xp}} XP",
     "toNextLevel": "To level {{level}}: {{xp}} XP",

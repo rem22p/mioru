@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
-import { Mail, Lock, User, Phone } from "lucide-react";
+import { Mail, Lock, User, Phone, Eye, EyeOff } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import TelegramLoginButton from "@/components/auth/TelegramLoginButton";
 
@@ -14,6 +14,7 @@ export default function AuthSection() {
   const [tab, setTab] = useState<"login" | "register">("login");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
   // Login fields
   const [loginEmail, setLoginEmail] = useState("");
@@ -79,7 +80,7 @@ export default function AuthSection() {
       {/* Tabs */}
       <div className="flex rounded-xl bg-[var(--color-bg-primary)] p-1 mb-6">
         <button
-          onClick={() => { setTab("login"); setError(""); }}
+          onClick={() => { setTab("login"); setError(""); setShowPw(false); }}
           className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
             tab === "login"
               ? "bg-[var(--color-bg-card)] text-[var(--color-text-primary)] shadow-sm"
@@ -121,12 +122,20 @@ export default function AuthSection() {
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)]" />
             <input
-              type="password"
+              type={showPw ? "text" : "password"}
               value={loginPassword}
               onChange={(e) => setLoginPassword(e.target.value)}
               placeholder="Пароль"
-              className="w-full pl-10 pr-4 py-3 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#44944A]/50 transition-colors"
+              className="w-full pl-10 pr-10 py-3 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#44944A]/50 transition-colors"
             />
+            <button
+              type="button"
+              onClick={() => setShowPw(!showPw)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+              tabIndex={-1}
+            >
+              {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
           </div>
           <button
             type="submit"
@@ -184,12 +193,20 @@ export default function AuthSection() {
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)]" />
             <input
-              type="password"
+              type={showPw ? "text" : "password"}
               value={regPassword}
               onChange={(e) => setRegPassword(e.target.value)}
               placeholder="Пароль (мин. 8 символов) *"
-              className="w-full pl-10 pr-4 py-3 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#44944A]/50 transition-colors"
+              className="w-full pl-10 pr-10 py-3 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#44944A]/50 transition-colors"
             />
+            <button
+              type="button"
+              onClick={() => setShowPw(!showPw)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+              tabIndex={-1}
+            >
+              {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
           </div>
           <button
             type="submit"

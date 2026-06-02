@@ -3,9 +3,34 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useCartStore } from "@/stores/cartStore";
 import { useAuthStore } from "@/stores/authStore";
-import { CreditCard, Truck, Check, ChevronRight, Package } from "lucide-react";
+import { CreditCard, Check, ChevronRight, Package } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
+import CityAutocomplete from "@/components/ui/CityAutocomplete";
+
+const deliveryMethods = [
+  { key: "personal", priceFree: true, priceColor: "text-[#44944A]" },
+  { key: "address", priceLabel: "checkout.delivery.price25", priceColor: "text-[var(--color-text-secondary)]" },
+  { key: "bus", priceLabel: "checkout.delivery.priceUpTo50", priceColor: "text-[var(--color-text-secondary)]" },
+  { key: "express", priceLabel: "checkout.delivery.priceUpTo50", priceColor: "text-[var(--color-text-secondary)]" },
+  { key: "moldovaPost", priceLabel: "checkout.delivery.priceUpTo50", priceColor: "text-[var(--color-text-secondary)]" },
+];
+
+
+// Delivery methods blocked in PMR cities
+// Each method has its own city allowlist:
+//   personal, address — only Tiraspol & Bendery
+//   bus — PMR + Chișinău
+//   express — PMR except Tiraspol & Bendery
+//   moldovaPost — all cities
+
+const PNR_CITIES = new Set([
+  "тирасполь", "бендеры", "дубоссары", "рыбница", "григориополь",
+  "днестровск", "каменка", "слободзея", "парканы", "ближний хутор",
+  "красное", "новотираспольский", "терновка", "маяк", "суклея",
+]);
+
+const TIRASPOL_BENDERY = new Set(["тирасполь", "бендеры"]);
 
 export default function CheckoutPage() {
   const { t } = useTranslation();
@@ -15,43 +40,70 @@ export default function CheckoutPage() {
   const items = useCartStore((state) => state.items);
   const totalPrice = useCartStore((state) => state.totalPrice());
 
-  // Guard — redirect to auth if not logged in
   useEffect(() => {
     if (!isAuthenticated) {
       navigate("/profile?redirect=/checkout", { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
+  const [submitted, setSubmitted] = useState(false);
+
   const [formData, setFormData] = useState({
-    name: "",
-    phone: "",
-    email: "",
     city: "",
     street: "",
     house: "",
     apartment: "",
-    paymentMethod: "card" as "card" | "cod" | "sbp",
+    deliveryMethod: "" as string,
+    paymentMethod: "card" as "card" | "cod",
   });
 
   const steps = [
-    { id: 1, label: t("checkout.steps.contacts"), icon: Truck },
-    { id: 2, label: t("checkout.steps.address"), icon: Package },
-    { id: 3, label: t("checkout.steps.payment"), icon: CreditCard },
-    { id: 4, label: t("checkout.steps.confirmation"), icon: Check },
+    { id: 1, label: t("checkout.steps.address"), icon: Package },
+    { id: 2, label: t("checkout.steps.payment"), icon: CreditCard },
+    { id: 3, label: t("checkout.steps.confirmation"), icon: Check },
   ];
+
+  const cityLower = formData.city.toLowerCase();
+  const isPnrCity = PNR_CITIES.has(cityLower);
+  const isTiraspolBendery = TIRASPOL_BENDERY.has(cityLower);
+  const isChisinau = cityLower === "кишинев";
+
+  const isMethodBlocked = (key: string): boolean => {
+    if (!formData.city) return true; // all blocked until city selected
+    switch (key) {
+      case "personal":
+      case "address":
+        return !isTiraspolBendery;
+      case "bus":
+        return !(isPnrCity || isChisinau);
+      case "express":
+        return !(isPnrCity && !isTiraspolBendery);
+      default:
+        return false;
+    }
+  };
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Reset delivery method if blocked by city change
+  useEffect(() => {
+    if (formData.deliveryMethod && isMethodBlocked(formData.deliveryMethod)) {
+      updateField("deliveryMethod", "");
+    }
+  }, [formData.city]);
+
   const canProceed = () => {
     switch (currentStep) {
       case 1:
-        return formData.name && formData.phone && formData.email;
+        if (!formData.city || !formData.deliveryMethod) return false;
+        if (formData.deliveryMethod === "address") {
+          return formData.street !== "" && formData.house !== "";
+        }
+        return true;
       case 2:
-        return formData.city && formData.street && formData.house;
-      case 3:
-        return formData.paymentMethod;
+        return true;
       default:
         return true;
     }
@@ -65,101 +117,105 @@ export default function CheckoutPage() {
       case 1:
         return (
           <div className="space-y-4">
-            {[
-              {
-                label: t("checkout.fields.name"),
-                field: "name",
-                placeholder: "Иван Иванов",
-                type: "text",
-              },
-              {
-                label: t("checkout.fields.phone"),
-                field: "phone",
-                placeholder: "+7 (999) 000-00-00",
-                type: "tel",
-              },
-              {
-                label: t("checkout.fields.email"),
-                field: "email",
-                placeholder: "ivan@example.com",
-                type: "email",
-              },
-            ].map((input) => (
-              <div key={input.field}>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                  {input.label}
-                </label>
-                <input
-                  type={input.type}
-                  value={
-                    formData[input.field as keyof typeof formData] as string
-                  }
-                  onChange={(e) => updateField(input.field, e.target.value)}
-                  className={inputBaseClass}
-                  placeholder={input.placeholder}
-                />
-              </div>
-            ))}
-          </div>
-        );
-      case 2:
-        return (
-          <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                 {t("checkout.fields.city")}
               </label>
-              <input
-                type="text"
+              <CityAutocomplete
                 value={formData.city}
-                onChange={(e) => updateField("city", e.target.value)}
+                onChange={(v) => updateField("city", v)}
                 className={inputBaseClass}
-                placeholder="Москва"
               />
             </div>
+
             <div>
               <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                {t("checkout.fields.street")}
+                {t("checkout.delivery.title")}
               </label>
-              <input
-                type="text"
-                value={formData.street}
-                onChange={(e) => updateField("street", e.target.value)}
-                className={inputBaseClass}
-                placeholder="Тверская"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                  {t("checkout.fields.house")}
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={formData.house}
-                  onChange={(e) => updateField("house", e.target.value)}
-                  className={inputBaseClass}
-                  placeholder="12"
-                />
+              <div className="space-y-2">
+                {deliveryMethods.map((method) => {
+                  const disabled = isMethodBlocked(method.key);
+                  return (
+                  <label
+                    key={method.key}
+                    className={`flex items-start gap-3 rounded-xl border px-4 py-3 transition-all ${
+                      disabled
+                        ? "opacity-30 cursor-not-allowed"
+                        : "cursor-pointer " + (formData.deliveryMethod === method.key
+                          ? "border-[#44944A] bg-[#44944A]/10"
+                          : "border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)]")
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="deliveryMethod"
+                      value={method.key}
+                      checked={formData.deliveryMethod === method.key}
+                      onChange={(e) => updateField("deliveryMethod", e.target.value)}
+                      disabled={disabled}
+                      className="mt-0.5 accent-[#44944A]"
+                    />
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-sm text-[var(--color-text-primary)]">
+                        {t(`checkout.delivery.${method.key}`)}
+                      </span>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--color-bg-secondary)] ${method.priceColor} shrink-0`}>
+                        {method.priceFree ? t("checkout.delivery.free") : t(method.priceLabel!)}
+                      </span>
+                    </div>
+                  </label>
+                  );
+                })}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                  {t("checkout.fields.apartment")}
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={formData.apartment}
-                  onChange={(e) => updateField("apartment", e.target.value)}
-                  className={inputBaseClass}
-                  placeholder="45"
-                />
-              </div>
             </div>
+
+            {formData.deliveryMethod === "address" && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                    {t("checkout.fields.street")}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.street}
+                    onChange={(e) => updateField("street", e.target.value)}
+                    className={inputBaseClass}
+                    placeholder="Тверская"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                      {t("checkout.fields.house")}
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={formData.house}
+                      onChange={(e) => updateField("house", e.target.value)}
+                      className={inputBaseClass}
+                      placeholder="12"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                      {t("checkout.fields.apartment")}
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={formData.apartment}
+                      onChange={(e) => updateField("apartment", e.target.value)}
+                      className={inputBaseClass}
+                      placeholder="45"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         );
-      case 3:
+      case 2:
         return (
           <div className="space-y-3">
             {[
@@ -167,11 +223,6 @@ export default function CheckoutPage() {
                 id: "card",
                 label: t("checkout.payment.card"),
                 desc: t("checkout.payment.cardDesc"),
-              },
-              {
-                id: "sbp",
-                label: t("checkout.payment.sbp"),
-                desc: t("checkout.payment.sbpDesc"),
               },
               {
                 id: "cod",
@@ -211,13 +262,56 @@ export default function CheckoutPage() {
             ))}
           </div>
         );
-      case 4:
+      case 3:
+        if (submitted) {
+          return (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-8 text-center"
+            >
+              <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-[#44944A]/10 flex items-center justify-center">
+                <Check className="h-8 w-8 text-[#44944A]" />
+              </div>
+              <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
+                {t("checkout.confirmation.title")}
+              </h3>
+              <p className="mt-3 text-sm text-[var(--color-text-secondary)] max-w-md mx-auto leading-relaxed">
+                {t("checkout.confirmation.message")}
+              </p>
+            </motion.div>
+          );
+        }
         return (
           <div className="space-y-6">
             <div className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-6">
               <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-muted)] mb-4">
                 {t("checkout.orderSummary")}
               </h3>
+
+              {/* City, delivery, payment info */}
+              <div className="space-y-2 mb-4 pb-4 border-b border-[var(--color-border-custom)]">
+                <div className="flex justify-between text-sm">
+                  <span className="text-[var(--color-text-muted)]">{t("checkout.summary.city")}</span>
+                  <span className="text-[var(--color-text-primary)]">{formData.city}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[var(--color-text-muted)]">{t("checkout.summary.delivery")}</span>
+                  <span className="text-[var(--color-text-primary)]">{formData.deliveryMethod ? t(`checkout.delivery.${formData.deliveryMethod}`) : ""}</span>
+                </div>
+                {formData.deliveryMethod === "address" && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[var(--color-text-muted)]">{t("checkout.summary.address")}</span>
+                    <span className="text-[var(--color-text-primary)]">{formData.street}, {formData.house}{formData.apartment ? `, ${t("checkout.summary.apartment")} ${formData.apartment}` : ""}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-[var(--color-text-muted)]">{t("checkout.summary.payment")}</span>
+                  <span className="text-[var(--color-text-primary)]">{t(`checkout.payment.${formData.paymentMethod}`)}</span>
+                </div>
+              </div>
+
+              {/* Order items */}
               <div className="space-y-3">
                 {items.map((item) => (
                   <div
@@ -228,10 +322,7 @@ export default function CheckoutPage() {
                       {item.product.name} × {item.quantity} ({item.size})
                     </span>
                     <span className="text-[var(--color-text-primary)]">
-                      {(item.product.price * item.quantity).toLocaleString(
-                        "ru-RU",
-                      )}{" "}
-                      ₽
+                      {(item.product.price * item.quantity).toLocaleString("ru-RU")} ₽
                     </span>
                   </div>
                 ))}
@@ -246,7 +337,7 @@ export default function CheckoutPage() {
               </div>
             </div>
             <button
-              onClick={() => alert("Заказ оформлен! (Mock)")}
+              onClick={() => setSubmitted(true)}
               className="w-full rounded-xl bg-[#44944A] px-6 py-4 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(192,254,57,0.3)]"
             >
               {t("checkout.confirm")}
@@ -318,7 +409,7 @@ export default function CheckoutPage() {
               {t("checkout.back")}
             </button>
           )}
-          {currentStep < 4 && (
+          {currentStep < 3 && (
             <button
               onClick={() => setCurrentStep(currentStep + 1)}
               disabled={!canProceed()}

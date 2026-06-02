@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, lazy, Suspense, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import type { Product, Review } from "@/types";
@@ -46,11 +46,20 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [showSizeChart, setShowSizeChart] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
-  const [qty, setQty] = useState(1);
+  const [copied, setCopied] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
+  const updateQuantity = useCartStore((state) => state.updateQuantity);
   const cartItems = useCartStore((state) => state.items);
   const isFav = useFavoritesStore((s) => s.isFavorite(product.id));
   const toggleFav = useFavoritesStore((s) => s.toggleFavorite);
+
+  // Auto-select size if product is already in cart
+  useEffect(() => {
+    const inCart = cartItems.find((item) => item.product.id === product.id);
+    if (inCart && !selectedSize) {
+      setSelectedSize(inCart.size);
+    }
+  }, [cartItems, product.id, selectedSize]);
 
   // Transform backend size_chart rows into UI format
   const sizeChart = toSizeChart(product.size_chart);
@@ -63,7 +72,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
       : 0;
 
   // How many of this product+size are already in the cart
-  const alreadyInCart = selectedSize
+  const cartQty = selectedSize
     ? cartItems
         .filter(
           (item) =>
@@ -73,19 +82,20 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
     : 0;
 
   const stock = product.stock_quantity || 0;
-  const available = stock > 0 ? Math.max(0, stock - alreadyInCart) : 999;
-  const maxQty = available;
+  const available = stock > 0 ? Math.max(0, stock - cartQty) : 999;
   const soldOut = stock > 0 && available <= 0;
 
-  // Clamp qty when available changes
-  const safeQty = stock > 0 ? Math.min(qty, Math.max(1, available)) : qty;
+  const handleIncrement = () => {
+    if (!selectedSize || soldOut) return;
+    if (stock > 0 && cartQty >= stock) return;
+    addItem(product, selectedSize, 1);
+    setAddedToCart(true);
+    setTimeout(() => setAddedToCart(false), 800);
+  };
 
-  const handleAddToCart = () => {
-    if (selectedSize && safeQty > 0 && !soldOut) {
-      addItem(product, selectedSize, safeQty);
-      setAddedToCart(true);
-      setTimeout(() => setAddedToCart(false), 1500);
-    }
+  const handleDecrement = () => {
+    if (!selectedSize || cartQty <= 0) return;
+    updateQuantity(product.id, selectedSize, cartQty - 1);
   };
 
   return (
@@ -136,7 +146,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
             >
               <Suspense
                 fallback={
-                  <div className="aspect-square rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] animate-pulse" />
+                  <div className="aspect-[4/5] rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] animate-pulse" />
                 }
               >
                 <ProductGallery product={product} />
@@ -199,21 +209,19 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-primary)]">
                     {t("product.size")}
                   </h3>
-                  {sizeChart && (
-                    <button
-                      onClick={() => setShowSizeChart(true)}
-                      className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[#44944A] transition-colors min-h-[44px] px-2"
-                    >
-                      <Ruler className="h-3.5 w-3.5" />
-                      {t("product.sizeChart")}
-                    </button>
-                  )}
+                  <button
+                    onClick={() => sizeChart && setShowSizeChart(true)}
+                    className={`inline-flex items-center gap-1.5 text-xs transition-colors min-h-[44px] px-2 ${sizeChart ? "text-[var(--color-text-secondary)] hover:text-[#44944A]" : "text-[var(--color-text-muted)] cursor-default"}`}
+                  >
+                    <Ruler className="h-3.5 w-3.5" />
+                    {t("product.sizeChart")}
+                  </button>
                 </div>
                 <div className="flex flex-wrap gap-3">
                   {product.sizes.map((size) => (
                     <button
                       key={size}
-                      onClick={() => { setSelectedSize(size); setQty(1); }}
+                      onClick={() => setSelectedSize(size)}
                       className={`relative rounded-xl border px-5 py-3 text-sm font-medium transition-all min-h-[44px] ${
                         selectedSize === size
                           ? "border-[#44944A] bg-[#44944A] text-black"
@@ -233,53 +241,41 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
 
               {/* Actions */}
               <div className="mt-8 flex gap-3">
-                {/* Quantity control — left of add to cart */}
-                {selectedSize && !soldOut && maxQty > 0 && (
-                  <div className="flex items-center gap-1 rounded-xl border border-[var(--color-border-custom)] overflow-hidden">
-                    <button
-                      onClick={() => setQty((q) => Math.max(1, q - 1))}
-                      disabled={safeQty <= 1}
-                      className="h-11 w-11 flex items-center justify-center text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)] disabled:opacity-30 transition-colors"
-                    >
-                      −
-                    </button>
-                    <span className="w-10 text-center text-sm font-bold text-[var(--color-text-primary)]">
-                      {safeQty}
-                    </span>
-                    <button
-                      onClick={() => setQty((q) => Math.min(available, q + 1))}
-                      disabled={safeQty >= available}
-                      className="h-11 w-11 flex items-center justify-center text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)] disabled:opacity-30 transition-colors"
-                    >
-                      +
-                    </button>
-                  </div>
+                {cartQty > 0 ? (
+                  <Link
+                    to="/cart"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-4 text-sm font-semibold bg-[#44944A] text-black hover:shadow-[0_0_30px_rgba(192,254,57,0.3)] transition-all min-h-[44px]"
+                  >
+                    <ShoppingBag className="h-4 w-4" />
+                    {t("product.inCart")}
+                  </Link>
+                ) : (
+                  <button
+                    onClick={handleIncrement}
+                    disabled={!selectedSize || soldOut}
+                    className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-4 text-sm font-semibold transition-all min-h-[44px] ${
+                      addedToCart
+                        ? "bg-[#558b5c] text-[var(--color-text-primary)]"
+                        : "bg-[#44944A] text-black hover:shadow-[0_0_30px_rgba(192,254,57,0.3)]"
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {soldOut ? (
+                      <>{t("product.soldOut")}</>
+                    ) : addedToCart ? (
+                      <>
+                        <Check className="h-4 w-4" />
+                        {t("product.addedToCart")}
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingBag className="h-4 w-4" />
+                        {selectedSize
+                          ? t("product.addToCart")
+                          : t("product.selectSize")}
+                      </>
+                    )}
+                  </button>
                 )}
-                <button
-                  onClick={handleAddToCart}
-                  disabled={!selectedSize || soldOut}
-                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-4 text-sm font-semibold transition-all min-h-[44px] ${
-                    addedToCart
-                      ? "bg-[#558b5c] text-[var(--color-text-primary)]"
-                      : "bg-[#44944A] text-black hover:shadow-[0_0_30px_rgba(192,254,57,0.3)]"
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  {soldOut ? (
-                    <>{t("product.soldOut")}</>
-                  ) : addedToCart ? (
-                    <>
-                      <Check className="h-4 w-4" />
-                      {t("product.addedToCart")}
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingBag className="h-4 w-4" />
-                      {selectedSize
-                        ? t("product.addToCart")
-                        : t("product.selectSize")}
-                    </>
-                  )}
-                </button>
                 <button
                   onClick={() => toggleFav(product)}
                   className={`flex items-center justify-center gap-2 rounded-xl border px-5 py-4 text-sm transition-all min-h-[44px] min-w-[44px] ${
@@ -298,24 +294,56 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   />
                 </button>
                 <button
-                  onClick={() => {
-                    if (typeof window !== "undefined") {
-                      if (navigator.share) {
-                        navigator.share({
+                  onClick={async () => {
+                    if (navigator.share) {
+                      try {
+                        await navigator.share({
                           title: product.name,
                           url: window.location.href,
                         });
-                      } else {
-                        navigator.clipboard.writeText(window.location.href);
+                        return;
+                      } catch {
+                        // user cancelled share — fall through to clipboard below
                       }
                     }
+                    await navigator.clipboard.writeText(window.location.href);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1500);
                   }}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-[var(--color-border-custom)] px-5 py-4 text-sm text-[var(--color-text-secondary)] transition-all hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] min-h-[44px] min-w-[44px]"
+                  className={`flex items-center justify-center gap-2 rounded-xl border px-5 py-4 text-sm transition-all min-h-[44px] min-w-[44px] ${
+                    copied
+                      ? "border-[#44944A] text-[#44944A] bg-[#44944A]/10"
+                      : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                  }`}
                   aria-label={t("product.share")}
                 >
-                  <Share2 className="h-4 w-4" />
+                  {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
                 </button>
               </div>
+
+              {/* Quantity selector — only visible when item is in cart */}
+              {cartQty > 0 && (
+                <div className="mt-3">
+                  <div className="flex items-center rounded-xl border border-[#44944A]/40 overflow-hidden">
+                    <button
+                      onClick={handleDecrement}
+                      className="h-12 w-12 flex items-center justify-center text-lg font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)] transition-colors"
+                    >
+                      −
+                    </button>
+                    <span className="flex-1 text-center text-sm font-bold text-[var(--color-text-primary)]">
+                      {cartQty}
+                    </span>
+                    <button
+                      onClick={handleIncrement}
+                      disabled={soldOut || (stock > 0 && cartQty >= stock)}
+                      className="h-12 w-12 flex items-center justify-center text-lg font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)] disabled:opacity-30 transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Trust Badges */}
               <div className="mt-8 grid grid-cols-3 gap-3">

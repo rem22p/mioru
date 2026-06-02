@@ -57,7 +57,7 @@ export default function RelatedProducts({
           >
             <Link to={`/product/${product.slug}`}>
               <div className="group">
-                <div className="relative aspect-square overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] transition-all group-hover:border-[#44944A]/50">
+                <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] transition-all group-hover:border-[#44944A]/50">
                   <div className="absolute inset-0 flex items-center justify-center">
                     <span className="text-4xl transition-transform duration-500 group-hover:scale-110">
                       📦

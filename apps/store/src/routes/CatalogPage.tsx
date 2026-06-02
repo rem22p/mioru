@@ -45,11 +45,11 @@ export default function CatalogPage() {
   const [sortBy, setSortBy] = useState<"price-asc" | "price-desc" | "newest">(
     "newest",
   );
-  const [dynamicFiltersOpen, setDynamicFiltersOpen] = useState(true);
+  const [dynamicFiltersOpen, setDynamicFiltersOpen] = useState(false);
   const [filterSubsectionsOpen, setFilterSubsectionsOpen] = useState({
-    sizes: true,
-    brands: true,
-    colors: true,
+    sizes: false,
+    brands: false,
+    colors: false,
   });
   const [page, setPage] = useState(1);
   const addItem = useCartStore((state) => state.addItem);
@@ -301,8 +301,8 @@ export default function CatalogPage() {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="mb-8"
             >
-              {/* Category chips — horizontal scroll */}
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+              {/* Category chips — horizontal scroll, wrap on mobile */}
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none flex-wrap sm:flex-nowrap">
                 <button
                   onClick={() => handleCategoryChange("all")}
                   className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
@@ -350,8 +350,8 @@ export default function CatalogPage() {
                   const subCats = parent?.children || [];
                   if (subCats.length === 0) return null;
                   return (
-                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none ml-4">
-                      <span className="shrink-0 self-center text-xs text-[var(--color-text-muted)] mr-1">
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none flex-wrap sm:flex-nowrap">
+                      <span className="shrink-0 self-center text-xs text-[var(--color-text-muted)]">
                         Подкатегории:
                       </span>
                         <button
@@ -381,8 +381,8 @@ export default function CatalogPage() {
                   );
                 })()}
 
-              {/* Dynamic filters section — after any category selected */}
-              {selectedCategory !== "all" && (
+              {/* Dynamic filters section — only when facets are available */}
+              {selectedCategory !== "all" && (availableFilters.sizes.length > 0 || availableFilters.brands.length > 0 || availableFilters.colors.length > 0) && (
                 <div className="mt-4">
                   <button
                     onClick={() => setDynamicFiltersOpen(!dynamicFiltersOpen)}
@@ -519,8 +519,8 @@ export default function CatalogPage() {
                 </div>
               )}
 
-              {/* Sort + price row */}
-              <div className="flex items-center gap-3 mt-4">
+              {/* Sort + price row — 2-col grid on mobile matching product cards */}
+              <div className="grid grid-cols-2 gap-4 mt-4">
                 <select
                   value={sortBy}
                   onChange={(e) => {
@@ -537,20 +537,18 @@ export default function CatalogPage() {
                     {t("catalog.sortBy.priceDesc")}
                   </option>
                 </select>
-                <div className="flex items-center gap-1.5 ml-auto">
+                <div className="flex items-center gap-1.5">
                   <input
                     type="number"
-                    placeholder="Цена от"
+                    placeholder="От"
                     value={priceMin}
                     onChange={(e) => {
                       setPriceMin(e.target.value);
                       setPage(1);
                     }}
-                    className="w-24 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="flex-1 min-w-0 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
-                  <span className="text-[var(--color-text-muted)] text-sm">
-                    —
-                  </span>
+                  <span className="text-[var(--color-text-muted)] text-sm shrink-0">—</span>
                   <input
                     type="number"
                     placeholder="До"
@@ -559,7 +557,7 @@ export default function CatalogPage() {
                       setPriceMax(e.target.value);
                       setPage(1);
                     }}
-                    className="w-24 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="flex-1 min-w-0 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
               </div>
@@ -577,7 +575,7 @@ export default function CatalogPage() {
                 >
                   <Link to={`/product/${product.slug}`}>
                     <div className="card-hover overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)]">
-                      <div className="relative aspect-[3/4] overflow-hidden">
+                      <div className="relative aspect-[4/5] overflow-hidden">
                         {product.images?.[0]?.url ? (
                           <img
                             src={getThumbUrl(product.images[0].url)}

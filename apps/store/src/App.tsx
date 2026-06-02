@@ -17,6 +17,7 @@ const ProfilePage = lazy(() => import("@/routes/ProfilePage"));
 const CustomOrderPage = lazy(() => import("@/routes/CustomOrderPage"));
 const ContactsPage = lazy(() => import("@/routes/ContactsPage"));
 const FavoritesPage = lazy(() => import("@/routes/FavoritesPage"));
+const EditProfilePage = lazy(() => import("@/routes/EditProfilePage"));
 
 function PageLoader() {
   const { t } = useTranslation();
@@ -87,6 +88,7 @@ export default function App() {
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/avatar" element={<AvatarPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/profile/edit" element={<EditProfilePage />} />
               <Route path="/custom-order" element={<CustomOrderPage />} />
               <Route path="/contacts" element={<ContactsPage />} />
               <Route path="/favorites" element={<FavoritesPage />} />

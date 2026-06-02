@@ -298,6 +298,24 @@ func (h *CustomerHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Require current password for all profile changes.
+	currentPW, hasPW := body["current_password"]
+	delete(body, "current_password")
+	if !hasPW || currentPW == "" {
+		jsonErrorCode(w, "требуется текущий пароль", http.StatusUnauthorized, "AUTH_REQUIRED")
+		return
+	}
+
+	cust, err := h.store.GetCustomer(r.Context(), id)
+	if err != nil || cust == nil {
+		jsonError(w, "not found", http.StatusNotFound)
+		return
+	}
+	if !auth.CheckPassword(currentPW, cust.HashedPW) {
+		jsonErrorCode(w, "неверный текущий пароль", http.StatusUnauthorized, "AUTH_INVALID")
+		return
+	}
+
 	updates := map[string]string{}
 	for k, v := range body {
 		switch k {
