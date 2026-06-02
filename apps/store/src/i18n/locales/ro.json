@@ -215,11 +215,31 @@
     },
     "payment": {
       "card": "Card online",
-      "cardDesc": "Visa, Mastercard, MIR",
-      "sbp": "SBP",
-      "sbpDesc": "Sistem de plăți rapide",
+      "cardDesc": "MIA, klever",
       "cod": "Ramburs",
-      "codDesc": "Numerar sau card la livrare"
+      "codDesc": "Numerar sau transfer la fața locului"
+    },
+    "delivery": {
+      "title": "Mod de livrare",
+      "personal": "Întâlnire personală",
+      "address": "Livrare la adresă",
+      "bus": "Expediere cu autobuzul",
+      "express": "Poștă express",
+      "moldovaPost": "Poșta Moldovei",
+      "free": "Gratuit",
+      "price25": "25 lei",
+      "priceUpTo50": "până la 50 lei"
+    },
+    "confirmation": {
+      "title": "Cerere trimisă",
+      "message": "Datele tale vor fi verificate. Dacă totul este în regulă, vei fi contactat prin Telegram cu detaliile de plată."
+    },
+    "summary": {
+      "city": "Oraș",
+      "delivery": "Mod de livrare",
+      "address": "Adresă",
+      "payment": "Mod de plată",
+      "apartment": "ap."
     },
     "back": "Înapoi",
     "next": "Continuă",

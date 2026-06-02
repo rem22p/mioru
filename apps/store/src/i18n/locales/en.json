@@ -215,11 +215,31 @@
     },
     "payment": {
       "card": "Card online",
-      "cardDesc": "Visa, Mastercard, MIR",
-      "sbp": "SBP",
-      "sbpDesc": "Fast Payment System",
+      "cardDesc": "MIA, klever",
       "cod": "Cash on delivery",
-      "codDesc": "Cash or card on receipt"
+      "codDesc": "Cash or transfer on the spot"
+    },
+    "delivery": {
+      "title": "Delivery method",
+      "personal": "Personal meeting",
+      "address": "Address delivery",
+      "bus": "Bus delivery",
+      "express": "Express mail",
+      "moldovaPost": "Moldova Post",
+      "free": "Free",
+      "price25": "25 lei",
+      "priceUpTo50": "up to 50 lei"
+    },
+    "confirmation": {
+      "title": "Request submitted",
+      "message": "Your details will be reviewed. If everything is in order, you will be contacted via Telegram with payment details."
+    },
+    "summary": {
+      "city": "City",
+      "delivery": "Delivery method",
+      "address": "Address",
+      "payment": "Payment method",
+      "apartment": "apt."
     },
     "back": "Back",
     "next": "Next",

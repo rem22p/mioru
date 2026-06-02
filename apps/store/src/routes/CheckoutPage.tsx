@@ -9,15 +9,13 @@ import { Helmet } from "react-helmet-async";
 import CityAutocomplete from "@/components/ui/CityAutocomplete";
 
 const deliveryMethods = [
-  { key: "personal", label: "Личная встреча", price: "Бесплатно", priceColor: "text-[#44944A]" },
-  { key: "address", label: "Доставка по адресу", price: "25 руб", priceColor: "text-[var(--color-text-secondary)]" },
-  { key: "bus", label: "Отправка автобусом", price: "до 50 руб", priceColor: "text-[var(--color-text-secondary)]" },
-  { key: "express", label: "Экспресс-почта", price: "до 50 руб", priceColor: "text-[var(--color-text-secondary)]" },
-  { key: "moldovaPost", label: "Почта Молдовы", price: "до 50 руб", priceColor: "text-[var(--color-text-secondary)]" },
+  { key: "personal", priceFree: true, priceColor: "text-[#44944A]" },
+  { key: "address", priceLabel: "checkout.delivery.price25", priceColor: "text-[var(--color-text-secondary)]" },
+  { key: "bus", priceLabel: "checkout.delivery.priceUpTo50", priceColor: "text-[var(--color-text-secondary)]" },
+  { key: "express", priceLabel: "checkout.delivery.priceUpTo50", priceColor: "text-[var(--color-text-secondary)]" },
+  { key: "moldovaPost", priceLabel: "checkout.delivery.priceUpTo50", priceColor: "text-[var(--color-text-secondary)]" },
 ];
 
-const deliveryLabel = Object.fromEntries(deliveryMethods.map(m => [m.key, m.label]));
-const paymentLabel: Record<string, string> = { card: "Картой онлайн", cod: "При получении" };
 
 // Delivery methods blocked in PMR cities
 // Each method has its own city allowlist:
@@ -132,7 +130,7 @@ export default function CheckoutPage() {
 
             <div>
               <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                Способ доставки
+                {t("checkout.delivery.title")}
               </label>
               <div className="space-y-2">
                 {deliveryMethods.map((method) => {
@@ -159,10 +157,10 @@ export default function CheckoutPage() {
                     />
                     <div className="flex items-center justify-between w-full">
                       <span className="text-sm text-[var(--color-text-primary)]">
-                        {method.label}
+                        {t(`checkout.delivery.${method.key}`)}
                       </span>
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--color-bg-secondary)] ${method.priceColor} shrink-0`}>
-                        {method.price}
+                        {method.priceFree ? t("checkout.delivery.free") : t(method.priceLabel!)}
                       </span>
                     </div>
                   </label>
@@ -223,13 +221,13 @@ export default function CheckoutPage() {
             {[
               {
                 id: "card",
-                label: "Картой онлайн",
-                desc: "MIA, клевер",
+                label: t("checkout.payment.card"),
+                desc: t("checkout.payment.cardDesc"),
               },
               {
                 id: "cod",
-                label: "При получении",
-                desc: "Наличными или переводом по месту",
+                label: t("checkout.payment.cod"),
+                desc: t("checkout.payment.codDesc"),
               },
             ].map((method) => (
               <button
@@ -276,10 +274,10 @@ export default function CheckoutPage() {
                 <Check className="h-8 w-8 text-[#44944A]" />
               </div>
               <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
-                Заявка отправлена
+                {t("checkout.confirmation.title")}
               </h3>
               <p className="mt-3 text-sm text-[var(--color-text-secondary)] max-w-md mx-auto leading-relaxed">
-                Ваши данные будут проверены. Если всё в порядке — вам напишут в Telegram с реквизитами для оплаты.
+                {t("checkout.confirmation.message")}
               </p>
             </motion.div>
           );
@@ -294,22 +292,22 @@ export default function CheckoutPage() {
               {/* City, delivery, payment info */}
               <div className="space-y-2 mb-4 pb-4 border-b border-[var(--color-border-custom)]">
                 <div className="flex justify-between text-sm">
-                  <span className="text-[var(--color-text-muted)]">Город</span>
+                  <span className="text-[var(--color-text-muted)]">{t("checkout.summary.city")}</span>
                   <span className="text-[var(--color-text-primary)]">{formData.city}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-[var(--color-text-muted)]">Способ доставки</span>
-                  <span className="text-[var(--color-text-primary)]">{deliveryLabel[formData.deliveryMethod] || formData.deliveryMethod}</span>
+                  <span className="text-[var(--color-text-muted)]">{t("checkout.summary.delivery")}</span>
+                  <span className="text-[var(--color-text-primary)]">{formData.deliveryMethod ? t(`checkout.delivery.${formData.deliveryMethod}`) : ""}</span>
                 </div>
                 {formData.deliveryMethod === "address" && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-[var(--color-text-muted)]">Адрес</span>
-                    <span className="text-[var(--color-text-primary)]">{formData.street}, {formData.house}{formData.apartment ? `, кв. ${formData.apartment}` : ""}</span>
+                    <span className="text-[var(--color-text-muted)]">{t("checkout.summary.address")}</span>
+                    <span className="text-[var(--color-text-primary)]">{formData.street}, {formData.house}{formData.apartment ? `, ${t("checkout.summary.apartment")} ${formData.apartment}` : ""}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-[var(--color-text-muted)]">Способ оплаты</span>
-                  <span className="text-[var(--color-text-primary)]">{paymentLabel[formData.paymentMethod]}</span>
+                  <span className="text-[var(--color-text-muted)]">{t("checkout.summary.payment")}</span>
+                  <span className="text-[var(--color-text-primary)]">{t(`checkout.payment.${formData.paymentMethod}`)}</span>
                 </div>
               </div>
 
