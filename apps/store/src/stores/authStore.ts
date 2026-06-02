@@ -33,24 +33,19 @@ function toUser(c: CustomerProfile): User {
   };
 }
 
-// Push local stores to server, then pull server state back.
-// Merges anonymous data with account data on login.
+// On login/register, push the anonymous local cart and favorites up to the
+// account so they're saved server-side. We deliberately do NOT pull them back:
+// the server cart/favorites store only ids+quantity with no product data, so a
+// pull can't rebuild the local stores — the old "hydrate" replaced them with
+// the local∩server intersection, which silently dropped items and changed the
+// checkout total right after a forced login. The local stores (persisted to
+// localStorage) are the source of truth.
 async function syncOnAuth() {
   try {
-    const { pushCartToServer, hydrateCartFromServer } = await import(
-      "@/stores/cartStore"
-    );
-    const { pushFavoritesToServer, hydrateFavoritesFromServer } = await import(
-      "@/stores/favoritesStore"
-    );
-
-    // Push anonymous items to server first.
+    const { pushCartToServer } = await import("@/stores/cartStore");
+    const { pushFavoritesToServer } = await import("@/stores/favoritesStore");
     await pushCartToServer();
     await pushFavoritesToServer();
-
-    // Then hydrate from server (cross-device merge).
-    await hydrateCartFromServer();
-    await hydrateFavoritesFromServer();
   } catch {
     // best-effort
   }
@@ -114,13 +109,6 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
     try {
       const customer = await fetchStoreCustomerMe();
       set({ user: toUser(customer), isAuthenticated: true, loading: false });
-      // Hydrate from server on app init with existing session.
-      const { hydrateCartFromServer } = await import("@/stores/cartStore");
-      const { hydrateFavoritesFromServer } = await import(
-        "@/stores/favoritesStore"
-      );
-      await hydrateCartFromServer();
-      await hydrateFavoritesFromServer();
     } catch {
       set({ user: null, isAuthenticated: false, loading: false });
     }
