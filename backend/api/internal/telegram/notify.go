@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"mioru/internal/model"
@@ -13,18 +17,22 @@ import (
 
 // Notifier sends Telegram messages about new orders to manager chats.
 type Notifier struct {
-	botToken string
-	chatIDs  []string
-	client   *http.Client
+	botToken   string
+	apiBaseURL string
+	uploadDir  string
+	chatIDs    []string
+	client     *http.Client
 }
 
 // NewNotifier creates a Telegram notifier. If botToken or chatIDs are empty,
 // notifications are silently skipped (no-op during dev).
-func NewNotifier(botToken string, chatIDs []string) *Notifier {
+func NewNotifier(botToken string, chatIDs []string, apiBaseURL, uploadDir string) *Notifier {
 	return &Notifier{
-		botToken: botToken,
-		chatIDs:  chatIDs,
-		client:   &http.Client{Timeout: 10 * time.Second},
+		botToken:   botToken,
+		apiBaseURL: apiBaseURL,
+		uploadDir:  uploadDir,
+		chatIDs:    chatIDs,
+		client:     &http.Client{Timeout: 10 * time.Second},
 	}
 }
 
@@ -43,6 +51,19 @@ func (n *Notifier) OrderCreated(order *model.Order, customer *model.Customer) {
 				"order_id", order.ID,
 				"error", err,
 			)
+			continue
+		}
+
+		// Send photos as a media group
+		if len(order.Photos) > 0 {
+			if err := n.sendPhotos(chatID, order); err != nil {
+				slog.Warn("telegram photo notify failed",
+					"chat_id", chatID,
+					"order_id", order.ID,
+					"photos", len(order.Photos),
+					"error", err,
+				)
+			}
 		}
 	}
 }
@@ -142,6 +163,80 @@ func (n *Notifier) sendMessage(chatID, text string) error {
 		}
 		json.NewDecoder(resp.Body).Decode(&errResp)
 		return fmt.Errorf("telegram api %d: %s", resp.StatusCode, errResp.Description)
+	}
+	return nil
+}
+
+// sendPhotos sends each photo as a multipart file upload to Telegram.
+// Telegram's sendPhoto by URL fails for api.mioru.store (likely network
+// restriction), so we read the file from disk and send it directly.
+func (n *Notifier) sendPhotos(chatID string, order *model.Order) error {
+	var lastErr error
+	for i, photo := range order.Photos {
+		// photo is like "/uploads/xxx.png"
+		filename := filepath.Base(photo)
+		diskPath := filepath.Join(n.uploadDir, filename)
+
+		file, err := os.Open(diskPath)
+		if err != nil {
+			lastErr = fmt.Errorf("photo %d open %s: %w", i+1, diskPath, err)
+			slog.Warn("telegram photo: cannot open file", "path", diskPath, "error", err)
+			continue
+		}
+
+		if err := n.sendPhotoMultipart(chatID, file, filename); err != nil {
+			file.Close()
+			lastErr = fmt.Errorf("photo %d: %w", i+1, err)
+			continue
+		}
+		file.Close()
+	}
+	return lastErr
+}
+
+// sendPhotoMultipart sends a single photo to Telegram using multipart/form-data.
+func (n *Notifier) sendPhotoMultipart(chatID string, file *os.File, filename string) error {
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+
+	// chat_id field
+	if err := w.WriteField("chat_id", chatID); err != nil {
+		return err
+	}
+
+	// photo file part
+	part, err := w.CreateFormFile("photo", filename)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(part, file); err != nil {
+		return err
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	w.Close()
+
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendPhoto", n.botToken)
+	req, err := http.NewRequest("POST", url, &buf)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+
+	resp, err := n.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("send photo to %s: %w", chatID, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		var errResp struct {
+			Description string `json:"description"`
+		}
+		body, _ := io.ReadAll(resp.Body)
+		json.Unmarshal(body, &errResp)
+		return fmt.Errorf("telegram sendPhoto %d: %s", resp.StatusCode, errResp.Description)
 	}
 	return nil
 }

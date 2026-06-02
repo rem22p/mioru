@@ -19,6 +19,7 @@ type Config struct {
 	Port             string
 	DatabaseURL      string
 	UploadDir        string
+	APIBaseURL       string
 	AppEnv           string
 	TelegramBotToken     string
 	TelegramManagerChatIDs []string
@@ -67,6 +68,16 @@ func Load() Config {
 		}
 	}
 
+	apiBaseURL := os.Getenv("API_BASE_URL")
+	if apiBaseURL == "" {
+		if isProduction(appEnv) {
+			apiBaseURL = "https://api.mioru.store"
+		} else {
+			apiBaseURL = "http://localhost:" + port
+		}
+	}
+	apiBaseURL = strings.TrimRight(apiBaseURL, "/")
+
 	cookieDomain := os.Getenv("COOKIE_DOMAIN")
 
 	return Config{
@@ -75,6 +86,7 @@ func Load() Config {
 		Port:             port,
 		DatabaseURL:      databaseURL,
 		UploadDir:        uploadDir,
+		APIBaseURL:       apiBaseURL,
 		AppEnv:           appEnv,
 		TelegramBotToken: telegramBotToken,
 		TelegramManagerChatIDs: managerChatIDs,

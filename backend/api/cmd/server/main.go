@@ -58,7 +58,7 @@ func main() {
 	adminOrderH := handler.NewAdminOrderHandler(pgStore)
 	customerH := handler.NewCustomerHandler(pgStore, cfg.SecretKey, cfg.TokenExpiry, secureCookies, cfg.TelegramBotToken, cfg.CookieDomain,
 		cfg.UploadDir,
-		telegram.NewNotifier(cfg.TelegramBotToken, cfg.TelegramManagerChatIDs))
+		telegram.NewNotifier(cfg.TelegramBotToken, cfg.TelegramManagerChatIDs, cfg.APIBaseURL, cfg.UploadDir))
 
 	// getRole resolves an authenticated user's role from the DB for RequireAdmin.
 	getRole := func(ctx context.Context, username string) (string, error) {
