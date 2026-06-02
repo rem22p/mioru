@@ -5,7 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -16,6 +20,7 @@ import (
 	"mioru/internal/middleware"
 	"mioru/internal/model"
 	"mioru/internal/store"
+	"mioru/internal/telegram"
 )
 
 var customerEmailRe = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
@@ -37,6 +42,7 @@ type customerStore interface {
 
 	// Orders
 	ListCustomerOrders(ctx context.Context, customerID int64, page, perPage int) ([]model.Order, int, error)
+	CreateOrder(ctx context.Context, customerID int64, o *model.Order, items []model.OrderItem, idempotencyKey, requestHash string) (*model.Order, error)
 
 	// Cart & Favorites
 	GetCustomerCart(ctx context.Context, customerID int64) ([]store.CartItem, error)
@@ -53,10 +59,12 @@ type CustomerHandler struct {
 	secure       bool
 	botToken     string
 	cookieDomain string
+	uploadDir    string
+	tgNotifier   *telegram.Notifier
 }
 
-func NewCustomerHandler(s customerStore, secret string, expiry int, secure bool, botToken string, cookieDomain string) *CustomerHandler {
-	return &CustomerHandler{store: s, secret: secret, expiry: expiry, secure: secure, botToken: botToken, cookieDomain: cookieDomain}
+func NewCustomerHandler(s customerStore, secret string, expiry int, secure bool, botToken string, cookieDomain string, uploadDir string, tgNotifier *telegram.Notifier) *CustomerHandler {
+	return &CustomerHandler{store: s, secret: secret, expiry: expiry, secure: secure, botToken: botToken, cookieDomain: cookieDomain, uploadDir: uploadDir, tgNotifier: tgNotifier}
 }
 
 // ── Request / response types ──
@@ -720,6 +728,163 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"ok":true}`))
+}
+
+// CreateOrder handles POST /api/store/orders — creates an order from checkout
+// or individual order form. Requires customer auth + CSRF.
+func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
+	customerID := middleware.CustomerID(r)
+
+	var req struct {
+		Type           string            `json:"type"`
+		City           string            `json:"city"`
+		DeliveryMethod string            `json:"delivery_method"`
+		PaymentMethod  string            `json:"payment_method"`
+		Street         string            `json:"street"`
+		House          string            `json:"house"`
+		Apartment      string            `json:"apartment"`
+		Comment        string            `json:"comment"`
+		TotalMinor     int64             `json:"total_minor"`
+		Height         *float64          `json:"height"`
+		Weight         *float64          `json:"weight"`
+		DeliveryTime   []string          `json:"delivery_time"`
+		Photos         []string          `json:"photos"`
+		Items          []model.OrderItem `json:"items"`
+	}
+
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+
+	if req.Type == "" {
+		req.Type = "cart"
+	}
+	if req.City == "" {
+		jsonErrorCode(w, "city is required", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	if req.DeliveryMethod == "" {
+		jsonErrorCode(w, "delivery_method is required", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	if req.PaymentMethod == "" {
+		jsonErrorCode(w, "payment_method is required", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+
+	idempotencyKey := r.Header.Get("Idempotency-Key")
+	if idempotencyKey == "" {
+		jsonErrorCode(w, "Idempotency-Key header required", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+
+	order := &model.Order{
+		Type:           req.Type,
+		TotalMinor:     req.TotalMinor,
+		City:           req.City,
+		DeliveryMethod: req.DeliveryMethod,
+		PaymentMethod:  req.PaymentMethod,
+		Street:         req.Street,
+		House:          req.House,
+		Apartment:      req.Apartment,
+		Comment:        req.Comment,
+		Height:         req.Height,
+		Weight:         req.Weight,
+		DeliveryTime:   req.DeliveryTime,
+		Photos:         req.Photos,
+	}
+
+	created, err := h.store.CreateOrder(r.Context(), customerID, order, req.Items, idempotencyKey, "")
+	if err != nil {
+		log.Printf("CreateOrder failed: %v", err)
+		if strings.Contains(err.Error(), "idempotency") {
+			jsonErrorCode(w, err.Error(), http.StatusConflict, "IDEMPOTENCY_REPLAY")
+			return
+		}
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(created)
+
+	// Notify managers via Telegram (background, fire-and-forget)
+	if h.tgNotifier != nil {
+		go func() {
+			defer func() { _ = recover() }()
+			cust, err := h.store.GetCustomer(context.Background(), customerID)
+			if err != nil {
+				return
+			}
+			h.tgNotifier.OrderCreated(created, cust)
+		}()
+	}
+}
+
+// UploadOrderPhoto handles POST /api/store/orders/upload-photo — uploads a photo
+// for an order (individual order form). Returns the URL path to the saved file.
+// Requires customer auth + CSRF. Max 10 MB per file.
+func (h *CustomerHandler) UploadOrderPhoto(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
+
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		jsonError(w, "file too large (max 10MB)", http.StatusBadRequest)
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		jsonError(w, "file is required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	if !allowedImageExt(ext) {
+		jsonError(w, "only image files allowed (png)", http.StatusBadRequest)
+		return
+	}
+	if err := validateImageContent(file); err != nil {
+		jsonError(w, "file content is not a supported image", http.StatusBadRequest)
+		return
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	safeName := uniquePrefix() + ext
+
+	if err := os.MkdirAll(h.uploadDir, 0755); err != nil {
+		jsonError(w, "internal error: cannot create upload dir", http.StatusInternalServerError)
+		return
+	}
+
+	destPath := filepath.Join(h.uploadDir, safeName)
+	dest, err := os.Create(destPath)
+	if err != nil {
+		jsonError(w, "internal error: cannot create file", http.StatusInternalServerError)
+		return
+	}
+	defer dest.Close()
+
+	if _, err := io.Copy(dest, file); err != nil {
+		os.Remove(destPath)
+		jsonError(w, "internal error: cannot write file", http.StatusInternalServerError)
+		return
+	}
+
+	// Generate thumbnail (400×300) — best-effort.
+	thumbName := "thumb_" + safeName
+	thumbPath := filepath.Join(h.uploadDir, thumbName)
+	if err := generateThumbnail(destPath, thumbPath, 400, 300); err != nil {
+		log.Printf("UploadOrderPhoto: thumbnail failed for %s: %v", safeName, err)
+	}
+
+	url := "/uploads/" + safeName
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"url": url})
 }
 
 // ListOrders returns the authenticated customer's order history, newest first.

@@ -20,6 +20,7 @@ import (
 	"mioru/internal/handler"
 	"mioru/internal/middleware"
 	"mioru/internal/store"
+	"mioru/internal/telegram"
 )
 
 func main() {
@@ -54,7 +55,10 @@ func main() {
 	secureCookies := cfg.IsProduction()
 	authH := handler.NewAuthHandler(pgStore, emailSvc, cfg.SecretKey, cfg.TokenExpiry, secureCookies, cfg.CookieDomain)
 	productH := handler.NewProductHandler(pgStore, cfg.UploadDir)
-	customerH := handler.NewCustomerHandler(pgStore, cfg.SecretKey, cfg.TokenExpiry, secureCookies, cfg.TelegramBotToken, cfg.CookieDomain)
+	adminOrderH := handler.NewAdminOrderHandler(pgStore)
+	customerH := handler.NewCustomerHandler(pgStore, cfg.SecretKey, cfg.TokenExpiry, secureCookies, cfg.TelegramBotToken, cfg.CookieDomain,
+		cfg.UploadDir,
+		telegram.NewNotifier(cfg.TelegramBotToken, cfg.TelegramManagerChatIDs))
 
 	// getRole resolves an authenticated user's role from the DB for RequireAdmin.
 	getRole := func(ctx context.Context, username string) (string, error) {
@@ -129,6 +133,8 @@ func main() {
 	mux.Handle("POST /api/store/customers/me/set-password", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.SetPassword))))
 	mux.Handle("POST /api/store/customers/me/oauth", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.LinkOAuth))))
 	mux.Handle("GET /api/store/customers/me/orders", customerAuthMW(http.HandlerFunc(customerH.ListOrders)))
+	mux.Handle("POST /api/store/orders", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.CreateOrder))))
+	mux.Handle("POST /api/store/orders/upload-photo", customerAuthMW(customerCSRF(http.HandlerFunc(customerH.UploadOrderPhoto))))
 
 	// Customer cart & favorites (auth required)
 	mux.Handle("GET /api/store/customers/me/cart", customerAuthMW(http.HandlerFunc(customerH.GetCart)))
@@ -170,6 +176,10 @@ func main() {
 	mux.Handle("GET /api/admin/products/{slug}", adminOnly(http.HandlerFunc(productH.Get)))
 	mux.Handle("PUT /api/admin/products/{slug}", adminOnly(http.HandlerFunc(productH.Update)))
 	mux.Handle("DELETE /api/admin/products/{slug}", adminOnly(http.HandlerFunc(productH.Delete)))
+
+	// Admin: Orders (admin only)
+	mux.Handle("GET /api/admin/orders", adminOnly(http.HandlerFunc(adminOrderH.ListAll)))
+	mux.Handle("PATCH /api/admin/orders/{id}/status", adminOnly(http.HandlerFunc(adminOrderH.UpdateStatus)))
 
 	// Admin: Upload (admin only)
 	mux.Handle("POST /api/admin/upload", adminOnly(http.HandlerFunc(productH.Upload)))
@@ -286,10 +296,10 @@ func corsHeaders(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		w.Header().Set("Vary", "Origin")
 	}
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 	// Auth lives in HttpOnly cookies (cookie-only — Authorization header is no
 	// longer accepted); mutations must echo the CSRF cookie back in X-CSRF-Token.
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token, Idempotency-Key")
 }
 
 func securityHeaders(next http.Handler) http.Handler {

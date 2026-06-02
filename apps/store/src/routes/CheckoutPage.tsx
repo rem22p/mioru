@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useCartStore } from "@/stores/cartStore";
 import { useAuthStore } from "@/stores/authStore";
+import { createOrder } from "@/lib/api";
 import { CreditCard, Check, ChevronRight, Package } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
@@ -39,6 +40,7 @@ export default function CheckoutPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const items = useCartStore((state) => state.items);
   const totalPrice = useCartStore((state) => state.totalPrice());
+  const clearCart = useCartStore((state) => state.clearCart);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -47,6 +49,42 @@ export default function CheckoutPage() {
   }, [isAuthenticated, navigate]);
 
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [orderError, setOrderError] = useState("");
+
+  const submitOrder = async () => {
+    setSubmitting(true);
+    setOrderError("");
+    try {
+      const idempotencyKey = crypto.randomUUID();
+      const itemsData = items.map((item) => ({
+        product_id: item.product.id,
+        size_label: item.size,
+        quantity: item.quantity,
+        price_minor: item.product.price * 100, // MDL → bani
+      }));
+      await createOrder(
+        {
+          type: "cart",
+          city: formData.city,
+          delivery_method: formData.deliveryMethod,
+          payment_method: formData.paymentMethod,
+          street: formData.street || undefined,
+          house: formData.house || undefined,
+          apartment: formData.apartment || undefined,
+          total_minor: totalPrice * 100,
+          items: itemsData,
+        },
+        idempotencyKey,
+      );
+      clearCart();
+      setSubmitted(true);
+    } catch (e: any) {
+      setOrderError(e.message || "Ошибка при создании заказа");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const [formData, setFormData] = useState({
     city: "",
@@ -336,11 +374,15 @@ export default function CheckoutPage() {
                 </div>
               </div>
             </div>
+            {orderError && (
+              <p className="text-sm text-red-400 text-center">{orderError}</p>
+            )}
             <button
-              onClick={() => setSubmitted(true)}
-              className="w-full rounded-xl bg-[#44944A] px-6 py-4 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(192,254,57,0.3)]"
+              onClick={submitOrder}
+              disabled={submitting}
+              className="w-full rounded-xl bg-[#44944A] px-6 py-4 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(192,254,57,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {t("checkout.confirm")}
+              {submitting ? "..." : t("checkout.confirm")}
             </button>
           </div>
         );

@@ -1,5 +1,6 @@
 export const WORKSPACES = [
   { id: 'products', label: 'Товары', icon: 'Package', active: true },
+  { id: 'orders', label: 'Заказы', icon: 'ShoppingBag', active: true },
   { id: 'users', label: 'Пользователи', icon: 'UsersRound', active: true },
   { id: 'accounting', label: 'Бухгалтерия', icon: 'Banknote', active: false },
   { id: 'analytics', label: 'Аналитика', icon: 'BarChart3', active: false },

@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Helmet } from "react-helmet-async";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Upload, Send } from "lucide-react";
 import CityAutocomplete from "@/components/ui/CityAutocomplete";
+import { createOrder, uploadOrderPhoto } from "@/lib/api";
+import { useAuthStore } from "@/stores/authStore";
 
 const deliveryTimeOptions = ["fast", "medium", "slow"] as const;
 
@@ -34,6 +36,14 @@ const deliveryMethods = [
 
 export default function CustomOrderPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate("/profile?redirect=/custom-order", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
@@ -44,6 +54,8 @@ export default function CustomOrderPage() {
   const [deliveryMethod, setDeliveryMethod] = useState("");
   const [comment, setComment] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
@@ -87,13 +99,43 @@ export default function CustomOrderPage() {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mark all as touched
     setTouched({ photos: true, body: true, city: true, deliveryMethod: true });
     if (!validate()) return;
-    setSubmitted(true);
-    // TODO: send to backend
+
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      // Upload photos first, collect URLs
+      const photoUrls: string[] = [];
+      for (const file of photos) {
+        const url = await uploadOrderPhoto(file);
+        photoUrls.push(url);
+      }
+
+      const idempotencyKey = crypto.randomUUID();
+      await createOrder(
+        {
+          type: "individual",
+          city,
+          delivery_method: deliveryMethod,
+          payment_method: "cod",
+          total_minor: 0,
+          height: height ? parseFloat(height) : undefined,
+          weight: weight ? parseFloat(weight) : undefined,
+          delivery_time: deliveryTime,
+          comment,
+          photos: photoUrls,
+        },
+        idempotencyKey,
+      );
+      setSubmitted(true);
+    } catch (e: any) {
+      setSubmitError(e.message || "Ошибка при отправке");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleBlur = (field: string) => {
@@ -400,13 +442,16 @@ export default function CustomOrderPage() {
             </div>
 
             {/* Submit */}
+            {submitError && (
+              <p className="text-sm text-red-400 text-center">{submitError}</p>
+            )}
             <button
               type="submit"
-              disabled={!canSubmit}
+              disabled={!canSubmit || submitting}
               className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#44944A] px-6 py-4 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(68,148,74,0.3)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none"
             >
               <Send className="h-4 w-4" />
-              {t("customOrder.submit")}
+              {submitting ? "..." : t("customOrder.submit")}
             </button>
 
             <p className="text-xs text-[var(--color-text-muted)] text-center leading-relaxed">

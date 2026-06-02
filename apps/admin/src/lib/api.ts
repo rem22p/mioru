@@ -184,4 +184,60 @@ export const uploadImage = (file: File) => {
   });
 };
 
+// ── Admin orders ──
+
+export interface AdminOrder {
+  id: number;
+  customer_id: number;
+  customer_email: string;
+  customer_first_name: string;
+  type: string;
+  total_minor: number;
+  status: string;
+  city: string;
+  delivery_method: string;
+  payment_method: string;
+  street: string;
+  house: string;
+  apartment: string;
+  comment: string;
+  height?: number;
+  weight?: number;
+  delivery_time?: string[];
+  photos?: string[];
+  items?: AdminOrderItem[];
+  created_at: string;
+}
+
+export interface AdminOrderItem {
+  id: number;
+  product_id: number;
+  product_name: string;
+  size_label: string;
+  quantity: number;
+  price_minor: number;
+}
+
+export interface AdminOrdersResponse {
+  orders: AdminOrder[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export const fetchAdminOrders = (page = 1, perPage = 20, status?: string, type?: string) => {
+  const params = new URLSearchParams();
+  params.set("page", String(page));
+  params.set("per_page", String(perPage));
+  if (status) params.set("status", status);
+  if (type) params.set("type", type);
+  return api<AdminOrdersResponse>("/api/admin/orders?" + params.toString());
+};
+
+export const updateOrderStatus = (orderId: number, status: string) =>
+  api<{ ok: true }>(`/api/admin/orders/${orderId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+
 export { api, API_URL };

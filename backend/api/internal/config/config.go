@@ -20,8 +20,9 @@ type Config struct {
 	DatabaseURL      string
 	UploadDir        string
 	AppEnv           string
-	TelegramBotToken string
-	CookieDomain     string
+	TelegramBotToken     string
+	TelegramManagerChatIDs []string
+	CookieDomain         string
 }
 
 func Load() Config {
@@ -55,6 +56,17 @@ func Load() Config {
 		log.Printf("WARNING: TELEGRAM_BOT_TOKEN not set — Telegram login is disabled")
 	}
 
+	managerChatsRaw := os.Getenv("TELEGRAM_MANAGER_CHAT_IDS")
+	var managerChatIDs []string
+	if managerChatsRaw != "" {
+		for _, id := range strings.Split(managerChatsRaw, ",") {
+			id = strings.TrimSpace(id)
+			if id != "" {
+				managerChatIDs = append(managerChatIDs, id)
+			}
+		}
+	}
+
 	cookieDomain := os.Getenv("COOKIE_DOMAIN")
 
 	return Config{
@@ -65,6 +77,7 @@ func Load() Config {
 		UploadDir:        uploadDir,
 		AppEnv:           appEnv,
 		TelegramBotToken: telegramBotToken,
+		TelegramManagerChatIDs: managerChatIDs,
 		CookieDomain:     cookieDomain,
 	}
 }

@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Package,
+  ShoppingBag,
   UsersRound,
   Banknote,
   BarChart3,
@@ -21,6 +22,7 @@ import { cn } from '@/lib/utils';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Package,
+  ShoppingBag,
   UsersRound,
   Banknote,
   BarChart3,
