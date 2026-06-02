@@ -302,7 +302,9 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                           url: window.location.href,
                         });
                         return;
-                      } catch {}
+                      } catch {
+                        // user cancelled share — fall through to clipboard below
+                      }
                     }
                     await navigator.clipboard.writeText(window.location.href);
                     setCopied(true);

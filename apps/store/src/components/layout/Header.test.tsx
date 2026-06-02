@@ -68,7 +68,7 @@ describe("Header — layout & rendering", () => {
   it("renders all nav links", () => {
     renderHeader();
     expect(screen.getByText("В НАЛИЧИИ")).toBeInTheDocument();
-    expect(screen.getByText("ПОД ЗАКАЗ")).toBeInTheDocument();
+    expect(screen.getByText("ИНДИВИДУАЛЬНЫЙ ЗАКАЗ")).toBeInTheDocument();
     expect(screen.getByText("АВАТАР")).toBeInTheDocument();
   });
 
