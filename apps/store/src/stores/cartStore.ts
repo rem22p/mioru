@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CartItem, Product } from "@/types";
-import { saveCustomerCart, fetchCustomerCart, type CartSyncItem } from "@/lib/api";
+import { saveCustomerCart, type CartSyncItem } from "@/lib/api";
 
 interface CartStore {
   items: CartItem[];
@@ -93,39 +93,31 @@ export const useCartStore = create<CartStore>()(
   ),
 );
 
-// Hydrate cart from server (called by authStore after login/fetchMe).
-// Preserves local items that also exist on server (matched by product_id + size).
-export async function hydrateCartFromServer() {
-  try {
-    const res = await fetchCustomerCart();
-    const localItems = useCartStore.getState().items;
-    const merged = res.items
-      .map((ci) => {
-        const existing = localItems.find(
-          (e) => e.product.id === ci.product_id && e.size === ci.size_label,
-        );
-        return existing
-          ? { ...existing, quantity: ci.quantity }
-          : null;
-      })
-      .filter(Boolean) as CartItem[];
-    useCartStore.setState({ items: merged });
-  } catch {
-    // best-effort
-  }
-}
-
-// Push local cart to server (called by authStore on login).
+// Push local cart to server (called by authStore on login). Awaits the save so
+// callers can rely on the server reflecting the local cart once this resolves —
+// the previous fire-and-forget version let later reads race ahead of the write.
+//
+// There is deliberately no hydrate-from-server counterpart: the server cart
+// stores only {product_id, size_label, quantity} with no product data, so it
+// cannot reconstruct cart items on a fresh device. The earlier implementation
+// replaced the cart with the local∩server intersection, taking the server's
+// quantity — which silently dropped items and changed the checkout total right
+// after a forced login. The local cart (persisted to localStorage and pushed
+// here) is the source of truth. True cross-device hydration needs the server to
+// return product details for cart rows; tracked as a follow-up.
 export async function pushCartToServer() {
   const { useAuthStore } = await import("@/stores/authStore");
   if (!useAuthStore.getState().isAuthenticated) return;
   const items = useCartStore.getState().items;
-  if (items.length > 0) {
-    const payload: CartSyncItem[] = items.map((i) => ({
-      product_id: i.product.id,
-      size_label: i.size,
-      quantity: i.quantity,
-    }));
-    saveCustomerCart(payload).catch(() => {});
+  if (items.length === 0) return;
+  const payload: CartSyncItem[] = items.map((i) => ({
+    product_id: i.product.id,
+    size_label: i.size,
+    quantity: i.quantity,
+  }));
+  try {
+    await saveCustomerCart(payload);
+  } catch {
+    // best-effort: the local cart stays the source of truth
   }
 }

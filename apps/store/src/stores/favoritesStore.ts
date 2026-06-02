@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Product } from "@/types";
-import { getImageUrl, saveCustomerFavorites, fetchCustomerFavorites } from "@/lib/api";
+import { getImageUrl, saveCustomerFavorites } from "@/lib/api";
 
 export interface FavoriteItem {
   id: number;
@@ -77,26 +77,23 @@ export const useFavoritesStore = create<FavoritesStore>()(
   ),
 );
 
-// Hydrate favorites from server (called by authStore after login/fetchMe).
-export async function hydrateFavoritesFromServer() {
-  try {
-    const res = await fetchCustomerFavorites();
-    const serverIds = new Set(res.product_ids);
-    // Keep only local favorites that are also on server.
-    const localItems = useFavoritesStore.getState().items;
-    const merged = localItems.filter((i) => serverIds.has(i.id));
-    useFavoritesStore.setState({ items: merged });
-  } catch {
-    // best-effort
-  }
-}
-
-// Push local favorites to server (called by authStore on login).
+// Push local favorites to server (called by authStore on login). Awaits the
+// save for the same reason as the cart push.
+//
+// There is deliberately no hydrate-from-server counterpart: the server returns
+// only product_ids (no product data), so it cannot reconstruct FavoriteItem
+// rows on a fresh device. The earlier implementation replaced the list with the
+// local∩server intersection, silently dropping favorites that hadn't synced
+// yet. The local list (persisted and pushed here) is the source of truth.
+// Cross-device restore needs the server to return product details; follow-up.
 export async function pushFavoritesToServer() {
   const { useAuthStore } = await import("@/stores/authStore");
   if (!useAuthStore.getState().isAuthenticated) return;
   const productIds = useFavoritesStore.getState().items.map((i) => i.id);
-  if (productIds.length > 0) {
-    saveCustomerFavorites(productIds).catch(() => {});
+  if (productIds.length === 0) return;
+  try {
+    await saveCustomerFavorites(productIds);
+  } catch {
+    // best-effort: the local list stays the source of truth
   }
 }
