@@ -738,6 +738,9 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	customerID := middleware.CustomerID(r)
 
+	// Limit body size before reading (defence in depth — JSON bodies capped at 1 MiB)
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	// Read body for both validation and idempotency hash
 	rawBody, err := io.ReadAll(r.Body)
 	if err != nil {
