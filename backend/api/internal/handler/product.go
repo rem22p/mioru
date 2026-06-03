@@ -182,8 +182,16 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "failed to save images", http.StatusInternalServerError)
 		return
 	}
+
+	// Preserve existing images (sent as text fields from the frontend)
+	if r.MultipartForm != nil {
+		for _, url := range r.MultipartForm.Value["existing_images[]"] {
+			p.Images = append(p.Images, model.ProductImage{URL: url})
+		}
+	}
+
 	for i, url := range imageURLs {
-		p.Images = append(p.Images, model.ProductImage{URL: url, SortOrder: i})
+		p.Images = append(p.Images, model.ProductImage{URL: url, SortOrder: len(p.Images) + i})
 	}
 
 	if err := h.store.UpdateProduct(r.Context(), slug, p); err != nil {
