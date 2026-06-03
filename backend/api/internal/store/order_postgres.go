@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -12,34 +11,11 @@ import (
 	"mioru/internal/model"
 )
 
-// ErrIdempotencyHashMismatch is returned when an idempotency key is reused
-// with a different request body — a probable client bug or replay attack.
-var ErrIdempotencyHashMismatch = errors.New("idempotency key reused with different request hash")
-
-// validOrderStatuses is the set of allowed order status values.
-var validOrderStatuses = map[string]bool{
-	"pending":    true,
-	"processing": true,
-	"shipped":    true,
-	"delivered":  true,
-	"cancelled":  true,
-}
-
-// Clock returns the current time. In production this is time.Now; tests inject a
-// fixed clock so idempotency TTL and order timestamps are deterministic.
-type Clock func() time.Time
-
 // ListCustomerOrders returns paginated orders for a customer, newest first.
 func (s *PostgresStore) ListCustomerOrders(ctx context.Context, customerID int64, page, perPage int) ([]model.Order, int, error) {
-	if page < 1 {
-		page = 1
-	}
-	if perPage < 1 {
-		perPage = 20
-	}
-	if perPage > 100 {
-		perPage = 100
-	}
+	if page < 1 { page = 1 }
+	if perPage < 1 { perPage = 20 }
+	if perPage > 100 { perPage = 100 }
 
 	var total int
 	err := s.pool.QueryRow(ctx,
@@ -66,7 +42,6 @@ func (s *PostgresStore) ListCustomerOrders(ctx context.Context, customerID int64
 	defer rows.Close()
 
 	var orders []model.Order
-	var orderIDs []int64
 	for rows.Next() {
 		var o model.Order
 		if err := rows.Scan(&o.ID, &o.CustomerID, &o.Type, &o.TotalMinor, &o.Status,
@@ -77,124 +52,21 @@ func (s *PostgresStore) ListCustomerOrders(ctx context.Context, customerID int64
 			return nil, 0, fmt.Errorf("scan order: %w", err)
 		}
 		orders = append(orders, o)
-		orderIDs = append(orderIDs, o.ID)
 	}
-	if rows.Err() != nil {
-		return nil, 0, rows.Err()
-	}
-
-	// Batch load items with product names
-	if len(orderIDs) > 0 {
-		itemsMap, err := s.loadOrderItems(ctx, orderIDs)
-		if err != nil {
-			return nil, 0, fmt.Errorf("load order items: %w", err)
-		}
-		for i := range orders {
-			orders[i].Items = itemsMap[orders[i].ID]
-			if orders[i].Items == nil {
-				orders[i].Items = []model.OrderItem{}
-			}
-		}
-	}
-
-	return orders, total, nil
+	return orders, total, rows.Err()
 }
 
-// GetProductPriceMap returns a map of product_id → price_minor for the given IDs.
-// Products not found are omitted from the map (caller should validate).
-func (s *PostgresStore) GetProductPriceMap(ctx context.Context, productIDs []int64) (map[int64]int64, error) {
-	if len(productIDs) == 0 {
-		return map[int64]int64{}, nil
-	}
-	rows, err := s.pool.Query(ctx,
-		`SELECT id, price FROM products WHERE id = ANY($1)`, productIDs)
-	if err != nil {
-		return nil, fmt.Errorf("get product prices: %w", err)
-	}
-	defer rows.Close()
-
-	m := make(map[int64]int64, len(productIDs))
-	for rows.Next() {
-		var id int64
-		var price int
-		if err := rows.Scan(&id, &price); err != nil {
-			return nil, fmt.Errorf("scan product price: %w", err)
-		}
-		m[id] = int64(price) * 100 // convert MDL to minor (kopecks)
-	}
-	return m, rows.Err()
-}
-
-// CreateOrder inserts an order with its line items, stock decrement, and
-// idempotency guard inside a single transaction.
-//
-// Price recalculation: prices are loaded from the DB by product_id and MUST
-// match the client-supplied items; client price_minor is ignored. total_minor
-// is recalculated server-side from DB prices × quantity.
-//
-// Stock: each item's quantity is atomically decremented via
-// UPDATE … SET stock_quantity = stock_quantity - $n WHERE stock_quantity >= $n.
-// If any item is out of stock the transaction rolls back.
-//
-// Idempotency: SELECT-first on (key, user_id). Same key + same hash → return
-// the stored order. Same key + different hash → ErrIdempotencyHashMismatch.
+// CreateOrder inserts an order with its line items and idempotency guard
+// inside a single transaction. idempotencyKey is the client-supplied UUID;
+// requestHash is SHA256(method ‖ path ‖ canonicalized_body ‖ customer_id).
 func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *model.Order, items []model.OrderItem, idempotencyKey, requestHash string) (*model.Order, error) {
-	// ── Step 0: SELECT-first idempotency check ──
-	var storedOrderID int64
-	var storedHash string
-	var storedStatus int
-	var storedBody string
-	err := s.pool.QueryRow(ctx,
-		`SELECT order_id, request_hash, status, response_body
-		 FROM order_idempotency WHERE key = $1 AND user_id = $2`,
-		idempotencyKey, customerID,
-	).Scan(&storedOrderID, &storedHash, &storedStatus, &storedBody)
-	if err == nil {
-		// Key exists — check hash
-		if storedHash == requestHash {
-			// Replay — return the stored response
-			var stored model.Order
-			if err := json.Unmarshal([]byte(storedBody), &stored); err != nil {
-				return nil, fmt.Errorf("unmarshal stored idempotent response: %w", err)
-			}
-			return &stored, nil
-		}
-		return nil, ErrIdempotencyHashMismatch
-	}
-	// If not found, proceed. Any other error is an infrastructure problem.
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return nil, fmt.Errorf("check idempotency: %w", err)
-	}
-
-	// ── Step 1: Load prices from DB, recalculate ──
-	prodIDs := make([]int64, 0, len(items))
-	for _, it := range items {
-		prodIDs = append(prodIDs, it.ProductID)
-	}
-	prices, err := s.GetProductPriceMap(ctx, prodIDs)
-	if err != nil {
-		return nil, fmt.Errorf("load prices: %w", err)
-	}
-
-	var totalMinor int64
-	for i := range items {
-		dbPrice, ok := prices[items[i].ProductID]
-		if !ok {
-			return nil, fmt.Errorf("product %d not found", items[i].ProductID)
-		}
-		items[i].PriceMinor = dbPrice
-		totalMinor += dbPrice * int64(items[i].Quantity)
-	}
-	o.TotalMinor = totalMinor
-
-	// ── Step 2: Transaction — order + items + stock + idempotency ──
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	// Clean expired idempotency records
+	// Expire old idempotency records
 	_, _ = tx.Exec(ctx, `DELETE FROM order_idempotency WHERE expires_at < NOW()`)
 
 	// Default nil slices to empty arrays (NOT NULL columns)
@@ -242,29 +114,15 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 	}
 	o.Items = items
 
-	// Decrement stock atomically — oversell fails the transaction
-	for _, it := range items {
-		tag, err := tx.Exec(ctx,
-			`UPDATE products SET stock_quantity = stock_quantity - $1
-			 WHERE id = $2 AND stock_quantity >= $1`,
-			it.Quantity, it.ProductID,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("decrement stock for product %d: %w", it.ProductID, err)
-		}
-		if tag.RowsAffected() == 0 {
-			return nil, fmt.Errorf("product %d: insufficient stock (requested %d)", it.ProductID, it.Quantity)
-		}
-	}
-
 	// Store idempotency record
 	respBody, _ := json.Marshal(o)
-	now := s.clock()
+	var respHash [32]byte
+	copy(respHash[:], requestHash)
 	_, err = tx.Exec(ctx, `
-		INSERT INTO order_idempotency (key, user_id, order_id, request_hash, status, response_body, expires_at)
-		VALUES ($1, $2, $3, $4, 201, $5, $6)`,
-		idempotencyKey, customerID, o.ID, requestHash, string(respBody),
-		now.Add(48*time.Hour),
+		INSERT INTO order_idempotency (key, order_id, request_hash, status, response_body, expires_at)
+		VALUES ($1, $2, $3, 201, $4, $5)`,
+		idempotencyKey, o.ID, requestHash, string(respBody),
+		time.Now().UTC().Add(48*time.Hour),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("insert idempotency: %w", err)
@@ -280,26 +138,23 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 // ListAllOrders returns paginated orders for admin with customer info, newest first.
 // status and type filters are optional (empty = all).
 func (s *PostgresStore) ListAllOrders(ctx context.Context, page, perPage int, status, orderType string) ([]model.Order, int, error) {
-	if page < 1 {
-		page = 1
-	}
-	if perPage < 1 {
-		perPage = 20
-	}
-	if perPage > 100 {
-		perPage = 100
-	}
+	if page < 1 { page = 1 }
+	if perPage < 1 { perPage = 20 }
+	if perPage > 100 { perPage = 100 }
 
-	// Build WHERE clauses in a single pass
+	// Build WHERE clauses
 	var conditions []string
 	args := []any{}
+	an := 1 // arg counter
 	if status != "" {
-		conditions = append(conditions, fmt.Sprintf(`o.status = $%d`, len(args)+1))
+		conditions = append(conditions, fmt.Sprintf(`o.status = $%d`, an))
 		args = append(args, status)
+		an++
 	}
 	if orderType != "" {
-		conditions = append(conditions, fmt.Sprintf(`o.type = $%d`, len(args)+1))
+		conditions = append(conditions, fmt.Sprintf(`o.type = $%d`, an))
 		args = append(args, orderType)
+		an++
 	}
 	where := ""
 	if len(conditions) > 0 {
@@ -323,14 +178,18 @@ func (s *PostgresStore) ListAllOrders(ctx context.Context, page, perPage int, st
 	}
 
 	offset := (page - 1) * perPage
-
-	// Build query args in one pass: filter args + LIMIT + OFFSET
-	queryArgs := make([]any, len(args))
-	copy(queryArgs, args)
+	// Query orders with customer info
+	queryArgs := []any{}
+	qan := 1
+	if status != "" {
+		queryArgs = append(queryArgs, status)
+		qan++
+	}
+	if orderType != "" {
+		queryArgs = append(queryArgs, orderType)
+		qan++
+	}
 	queryArgs = append(queryArgs, perPage, offset)
-	limitN := len(args) + 1
-	offsetN := len(args) + 2
-
 	query := fmt.Sprintf(`
 		SELECT o.id, o.customer_id, o.type, o.total_minor, o.status,
 		       o.city, o.delivery_method, o.payment_method,
@@ -343,7 +202,7 @@ func (s *PostgresStore) ListAllOrders(ctx context.Context, page, perPage int, st
 		LEFT JOIN customers c ON c.id = o.customer_id
 		%s
 		ORDER BY o.created_at DESC, o.id DESC
-		LIMIT $%d OFFSET $%d`, where, limitN, offsetN)
+		LIMIT $%d OFFSET $%d`, where, qan, qan+1)
 
 	rows, err := s.pool.Query(ctx, query, queryArgs...)
 	if err != nil {
@@ -411,12 +270,8 @@ func (s *PostgresStore) loadOrderItems(ctx context.Context, orderIDs []int64) (m
 	return m, rows.Err()
 }
 
-// UpdateOrderStatus changes the status of an order. Only valid statuses
-// (pending, processing, shipped, delivered, cancelled) are accepted.
+// UpdateOrderStatus changes the status of an order.
 func (s *PostgresStore) UpdateOrderStatus(ctx context.Context, orderID int64, status string) error {
-	if !validOrderStatuses[status] {
-		return fmt.Errorf("invalid order status: %q", status)
-	}
 	tag, err := s.pool.Exec(ctx, `UPDATE orders SET status = $1 WHERE id = $2`, status, orderID)
 	if err != nil {
 		return fmt.Errorf("update order status: %w", err)
@@ -433,3 +288,5 @@ func OrderRequestHash(method, path, body string, customerID int64) string {
 	sum := sha256.Sum256([]byte(data))
 	return fmt.Sprintf("%x", sum)
 }
+
+var _ = time.Now // pull in time for unused import until tests land

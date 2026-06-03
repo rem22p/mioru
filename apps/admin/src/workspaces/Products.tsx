@@ -106,7 +106,7 @@ export default function Products() {
       if (full.model) fd.append("model", full.model);
       if (full.fit) fd.append("fit", full.fit);
       if (full.material) fd.append("material", full.material);
-      full.sizes.forEach((s) => fd.append("sizes[]", s));
+      full.sizes.forEach((s) => fd.append("sizes[]", s.label));
       full.care.forEach((c) => fd.append("care[]", c));
       full.size_chart.forEach((sc, i) => {
         fd.append(`size_chart[${i}][label]`, sc.label);

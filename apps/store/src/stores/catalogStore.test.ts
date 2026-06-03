@@ -23,7 +23,7 @@ const sampleProduct: Product = {
   created_by: "",
   created_at: "",
   updated_at: "",
-  sizes: ["S", "M"],
+  sizes: [{ label: "S", quantity: 1 }, { label: "M", quantity: 1 }],
   size_chart: [],
   images: [],
 };
@@ -101,7 +101,7 @@ describe("catalogStore", () => {
       jsonResponse({
         brands: ["ACME"],
         colors: ["red", "blue"],
-        sizes: ["S", "M"],
+        sizes: [{ label: "S", quantity: 1 }, { label: "M", quantity: 1 }],
       }),
     );
 
@@ -125,7 +125,7 @@ describe("catalogStore", () => {
     expect(useCatalogStore.getState().facets).toEqual({
       brands: ["ACME"],
       colors: ["red", "blue"],
-      sizes: ["S", "M"],
+      sizes: [{ label: "S", quantity: 1 }, { label: "M", quantity: 1 }],
     });
   });
 

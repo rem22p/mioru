@@ -87,7 +87,7 @@ export default function ProductForm({
 
   // Sizes
   const [selectedSizes, setSelectedSizes] = useState<string[]>(
-    product?.sizes || [],
+    product?.sizes?.map(s => s.label) || [],
   );
 
   // Size chart

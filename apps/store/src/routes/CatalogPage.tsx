@@ -606,7 +606,7 @@ export default function CatalogPage() {
                         <button
                           onClick={(e) => {
                             e.preventDefault();
-                            addItem(product, product.sizes[0]);
+                            addItem(product, product.sizes[0].label);
                           }}
                           className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#44944A] opacity-0 transition-all duration-300 hover:scale-110 group-hover:opacity-100"
                           aria-label={t("home.featured.addToCart")}

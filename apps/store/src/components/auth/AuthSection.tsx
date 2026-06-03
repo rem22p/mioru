@@ -47,12 +47,16 @@ export default function AuthSection() {
   async function handleRegister(e: FormEvent) {
     e.preventDefault();
     setError("");
-    if (!regEmail || !regPassword || !regFirstName) {
+    if (!regEmail || !regPassword || !regFirstName || !regPhone) {
       setError("Заполните обязательные поля");
       return;
     }
     if (regPassword.length < 8) {
       setError("Пароль минимум 8 символов");
+      return;
+    }
+    if (regPhone.length < 5) {
+      setError("Введите корректный номер телефона");
       return;
     }
     setSubmitting(true);
@@ -62,7 +66,7 @@ export default function AuthSection() {
         password: regPassword,
         first_name: regFirstName,
         last_name: regLastName,
-        phone: regPhone || undefined,
+        phone: regPhone,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка регистрации");
@@ -186,7 +190,7 @@ export default function AuthSection() {
               type="tel"
               value={regPhone}
               onChange={(e) => setRegPhone(e.target.value)}
-              placeholder="Телефон"
+              placeholder="Телефон *"
               className="w-full pl-10 pr-4 py-3 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#44944A]/50 transition-colors"
             />
           </div>

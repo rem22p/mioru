@@ -40,7 +40,7 @@ const product: Product = {
   created_by: "admin",
   created_at: "2024-01-01",
   updated_at: "2024-01-01",
-  sizes: ["42", "43", "44"],
+  sizes: [{ label: "42", quantity: 1 }, { label: "43", quantity: 1 }, { label: "44", quantity: 1 }],
   size_chart: [],
   images: [],
 };

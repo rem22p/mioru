@@ -56,10 +56,14 @@ func parseProductFromForm(r *http.Request) (model.Product, error) {
 	}
 
 	// Sizes
+	var rawSizes []string
 	if r.Form["sizes[]"] != nil {
-		p.Sizes = r.Form["sizes[]"]
+		rawSizes = r.Form["sizes[]"]
 	} else if r.Form["sizes"] != nil {
-		p.Sizes = r.Form["sizes"]
+		rawSizes = r.Form["sizes"]
+	}
+	for _, s := range rawSizes {
+		p.Sizes = append(p.Sizes, model.ProductSize{Label: s, Quantity: 1})
 	}
 
 	// Care instructions

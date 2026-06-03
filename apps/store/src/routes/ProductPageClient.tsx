@@ -223,16 +223,16 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                 <div className="flex flex-wrap gap-3">
                   {product.sizes.map((size) => (
                     <button
-                      key={size}
-                      onClick={() => setSelectedSize(size)}
+                      key={size.label}
+                      onClick={() => setSelectedSize(size.label)}
                       className={`relative rounded-xl border px-5 py-3 text-sm font-medium transition-all min-h-[44px] ${
-                        selectedSize === size
+                        selectedSize === size.label
                           ? "border-[#44944A] bg-[#44944A] text-black"
                           : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                       }`}
                     >
-                      {size}
-                      {selectedSize === size && (
+                      {size.label}
+                      {selectedSize === size.label && (
                         <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-black flex items-center justify-center">
                           <Check className="h-3 w-3 text-[#44944A]" />
                         </span>

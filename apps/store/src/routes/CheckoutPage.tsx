@@ -37,7 +37,6 @@ const TIRASPOL_BENDERY = new Set(["тирасполь", "бендеры"]);
 
 export default function CheckoutPage() {
   const { t } = useTranslation();
-  const { currency } = useCurrencyStore();
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [currentStep, setCurrentStep] = useState(1);
@@ -363,7 +362,7 @@ export default function CheckoutPage() {
                       {item.product.name} × {item.quantity} ({item.size})
                     </span>
                     <span className="text-[var(--color-text-primary)]">
-                      {formatPrice(item.product.price * item.quantity, currency)}
+                      {(item.product.price * item.quantity).toLocaleString("ru-RU")} ₽
                     </span>
                   </div>
                 ))}
