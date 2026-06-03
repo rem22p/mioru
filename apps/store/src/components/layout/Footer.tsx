@@ -17,17 +17,10 @@ export default function Footer() {
     { labelKey: "nav.cart", href: "/cart" },
   ];
 
-  const infoLinks = [
-    { labelKey: "footer.delivery", href: "/catalog" },
-    { labelKey: "footer.payment", href: "/catalog" },
-    { labelKey: "footer.returns", href: "/catalog" },
-    { labelKey: "footer.sizes", href: "/catalog" },
-  ];
-
   return (
     <footer className="relative border-t border-[var(--color-border-custom)] bg-[var(--color-bg-primary)] pb-[env(safe-area-inset-bottom)]">
       <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
-        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-3">
           <div className="sm:col-span-2 lg:col-span-1">
             <Link to="/" className="inline-block">
               <img src={isLight ? "/favicon-black.ico" : "/favicon.ico"} alt="MIORU" className="h-10 w-10" />
@@ -57,32 +50,31 @@ export default function Footer() {
 
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-muted)]">
-              {t("footer.info")}
-            </h3>
-            <ul className="mt-6 space-y-1">
-              {infoLinks.map((item) => (
-                <li key={item.labelKey}>
-                  <Link
-                    to={item.href}
-                    className="inline-block py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:text-[#44944A]"
-                  >
-                    {t(item.labelKey)}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-muted)]">
               {t("footer.contacts")}
             </h3>
-            <ul className="mt-6 space-y-4">
-              <li className="text-sm text-[var(--color-text-secondary)]">
-                support@mioru.store
+            <ul className="mt-6 space-y-3">
+              <li>
+                <a
+                  href="https://t.me/miorumanager"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-[var(--color-text-secondary)] transition-colors hover:text-[#44944A]"
+                >
+                  Telegram: @miorumanager
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://instagram.com/mioru.store"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-[var(--color-text-secondary)] transition-colors hover:text-[#44944A]"
+                >
+                  Instagram: @mioru.store
+                </a>
               </li>
               <li className="text-sm text-[var(--color-text-secondary)]">
-                +7 (999) 000-00-00
+                support@mioru.store
               </li>
             </ul>
           </div>
