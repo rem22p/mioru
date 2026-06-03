@@ -112,7 +112,7 @@ func formatOrderMessage(o *model.Order, c *model.Customer) string {
 	}
 
 	return fmt.Sprintf(
-		"🛍 *Новый заказ #%d*\n\n"+
+		"🛍 *Новый заказ \\#%d*\n\n"+
 			"*Тип:* %s\n"+
 			"*Клиент:* %s %s\n"+
 			"*Email:* %s\n"+
