@@ -3,10 +3,11 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useCurrencyStore } from "@/stores/currencyStore";
 import { formatPrice } from "@/lib/currency";
+import { useTranslation } from "react-i18next";
 import { useCatalogStore } from "@/stores/catalogStore";
 import { useCartStore } from "@/stores/cartStore";
+import { getThumbUrl, getImageUrl } from "@/lib/api";
 import { ShoppingBag } from "lucide-react";
-import { useTranslation } from "react-i18next";
 
 export default function FeaturedProducts() {
   const { t } = useTranslation();
@@ -75,12 +76,27 @@ export default function FeaturedProducts() {
                 <Link to={`/product/${product.slug}`}>
                     <div className="card-hover overflow-hidden rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)]">
                       <div className="relative aspect-[4/5] overflow-hidden">
-                        {/* Product image placeholder */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-3xl sm:text-5xl transition-transform duration-500 group-hover:scale-110">
-                            📦
-                          </span>
-                        </div>
+                        {product.images?.[0]?.url ? (
+                          <img
+                            src={getThumbUrl(product.images[0].url)}
+                            alt={product.name}
+                            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            loading="lazy"
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              if (!target.dataset.fallback) {
+                                target.dataset.fallback = "1";
+                                target.src = getImageUrl(product.images[0].url);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-3xl sm:text-5xl transition-transform duration-500 group-hover:scale-110">
+                              📦
+                            </span>
+                          </div>
+                        )}
 
                         {/* Overlay on hover */}
                         <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-bg-primary)] via-transparent to-transparent opacity-60 pointer-events-none" />
