@@ -874,6 +874,10 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 			jsonErrorCode(w, "idempotency key reused with different request", http.StatusConflict, "IDEMPOTENCY_REPLAY")
 			return
 		}
+		if strings.Contains(err.Error(), "insufficient stock") {
+			jsonError(w, "товара нет в наличии", http.StatusConflict)
+			return
+		}
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
