@@ -209,10 +209,31 @@ export const fetchStoreCustomerChangePassword = (data: {
 
 // ── Orders ──
 
+export interface StoreOrderItem {
+  id: number;
+  product_id: number;
+  product_name: string;
+  size_label: string;
+  quantity: number;
+  price_minor: number;
+}
+
 export interface StoreOrder {
   id: number;
   total_minor: number;
   status: string;
+  type: string;
+  city: string;
+  delivery_method: string;
+  payment_method: string;
+  street: string;
+  house: string;
+  apartment: string;
+  comment: string;
+  height?: number;
+  weight?: number;
+  delivery_time?: string[];
+  items?: StoreOrderItem[];
   created_at: string;
 }
 

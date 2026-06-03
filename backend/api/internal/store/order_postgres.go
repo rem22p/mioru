@@ -42,6 +42,7 @@ func (s *PostgresStore) ListCustomerOrders(ctx context.Context, customerID int64
 	defer rows.Close()
 
 	var orders []model.Order
+	var orderIDs []int64
 	for rows.Next() {
 		var o model.Order
 		if err := rows.Scan(&o.ID, &o.CustomerID, &o.Type, &o.TotalMinor, &o.Status,
@@ -52,8 +53,27 @@ func (s *PostgresStore) ListCustomerOrders(ctx context.Context, customerID int64
 			return nil, 0, fmt.Errorf("scan order: %w", err)
 		}
 		orders = append(orders, o)
+		orderIDs = append(orderIDs, o.ID)
 	}
-	return orders, total, rows.Err()
+	if rows.Err() != nil {
+		return nil, 0, rows.Err()
+	}
+
+	// Batch load items with product names
+	if len(orderIDs) > 0 {
+		itemsMap, err := s.loadOrderItems(ctx, orderIDs)
+		if err != nil {
+			return nil, 0, fmt.Errorf("load order items: %w", err)
+		}
+		for i := range orders {
+			orders[i].Items = itemsMap[orders[i].ID]
+			if orders[i].Items == nil {
+				orders[i].Items = []model.OrderItem{}
+			}
+		}
+	}
+
+	return orders, total, nil
 }
 
 // CreateOrder inserts an order with its line items and idempotency guard

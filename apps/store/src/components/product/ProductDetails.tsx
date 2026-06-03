@@ -129,10 +129,11 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                 </div>
                 <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Доставка</h4>
                 <ul className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                  <li>• СДЭК — 1–3 дня, от 350 ₽</li>
-                  <li>• Почта России — 3–7 дней, от 250 ₽</li>
-                  <li>• Курьер по Москве — день в день, 500 ₽</li>
-                  <li>• Самовывоз — бесплатно</li>
+                  <li>• Личная встреча — Тирасполь, бесплатно</li>
+                  <li>• Доставка по адресу — Тирасполь/Бендеры, 25 руб</li>
+                  <li>• Маршрутка — ПМР + Кишинёв, до 50 руб</li>
+                  <li>• Экспресс-почта — ПМР, до 50 руб</li>
+                  <li>• Почта Молдовы — все города, до 50 руб</li>
                 </ul>
               </div>
 
@@ -142,27 +143,13 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                 </div>
                 <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Возврат</h4>
                 <ul className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                  <li>• 14 дней на возврат без объяснения причин</li>
+                  <li>• 24 часа на возврат</li>
+                  <li>• Возврат возможен только по причине производственного брака</li>
                   <li>• Товар должен быть с бирками и без следов носки</li>
-                  <li>• Возврат средств в течение 3–5 рабочих дней</li>
-                  <li>• Обмен на другой размер — бесплатно</li>
                 </ul>
               </div>
             </div>
 
-            <div className="p-5 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)]">
-              <div className="flex items-start gap-3">
-                <Package className="h-5 w-5 text-[#44944A] shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-1">Упаковка</h4>
-                  <p className="text-sm text-[var(--color-text-secondary)]">
-                    Каждый заказ упакован в фирменную коробку MIORU из переработанного картона.
-                    Внутри — бумажный наполнитель и стикерпак в подарок. Для обуви прилагается
-                    фирменный пыльник.
-                  </p>
-                </div>
-              </div>
-            </div>
           </motion.div>
         )}
       </div>

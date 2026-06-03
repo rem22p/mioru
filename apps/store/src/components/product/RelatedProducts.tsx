@@ -2,9 +2,10 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useCatalogStore } from "@/stores/catalogStore";
-import { Heart, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { useCurrencyStore } from "@/stores/currencyStore";
 import { formatPrice } from "@/lib/currency";
+import { getThumbUrl, getImageUrl } from "@/lib/api";
 import { useTranslation } from "react-i18next";
 
 interface RelatedProductsProps {
@@ -61,7 +62,25 @@ export default function RelatedProducts({
             <Link to={`/product/${product.slug}`}>
               <div className="group">
                 <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)] transition-all group-hover:border-[#44944A]/50">
-                  <div className="absolute inset-0 flex items-center justify-center">
+                  {product.images?.[0]?.url ? (
+                    <img
+                      src={getThumbUrl(product.images[0].url)}
+                      alt={product.name}
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        if (!target.dataset.fallback) {
+                          target.dataset.fallback = "1";
+                          target.src = getImageUrl(product.images[0].url);
+                        } else {
+                          target.style.display = "none";
+                          target.parentElement!.querySelector(".fallback-emoji")?.classList.remove("hidden");
+                        }
+                      }}
+                    />
+                  ) : null}
+                  <div className={`absolute inset-0 flex items-center justify-center fallback-emoji ${product.images?.[0]?.url ? 'hidden' : ''}`}>
                     <span className="text-4xl transition-transform duration-500 group-hover:scale-110">
                       📦
                     </span>

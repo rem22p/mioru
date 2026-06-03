@@ -55,29 +55,6 @@ export default function HeroSection() {
             {t("home.hero.cta2")}
           </Link>
         </motion.div>
-
-        {/* Stats */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 0.6 }}
-          className="mt-20 flex items-center justify-center gap-12"
-        >
-          {[
-            { value: "5", label: t("home.hero.stats.categories") },
-            { value: "300+", label: t("home.hero.stats.products") },
-            { value: "3D", label: t("home.hero.stats.tryOn") },
-          ].map((stat) => (
-            <div key={stat.label} className="text-center">
-              <div className="text-3xl font-bold text-[var(--color-text-primary)]">
-                {stat.value}
-              </div>
-              <div className="mt-1 text-xs font-mono uppercase tracking-wider text-[var(--color-text-muted)]">
-                {stat.label}
-              </div>
-            </div>
-          ))}
-        </motion.div>
       </div>
     </section>
   );

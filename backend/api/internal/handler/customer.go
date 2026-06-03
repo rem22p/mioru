@@ -920,18 +920,42 @@ func (h *CustomerHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type orderResp struct {
-		ID         int64     `json:"id"`
-		TotalMinor int64     `json:"total_minor"`
-		Status     string    `json:"status"`
-		CreatedAt  time.Time `json:"created_at"`
+		ID             int64            `json:"id"`
+		TotalMinor     int64            `json:"total_minor"`
+		Status         string           `json:"status"`
+		Type           string           `json:"type"`
+		City           string           `json:"city"`
+		DeliveryMethod string           `json:"delivery_method"`
+		PaymentMethod  string           `json:"payment_method"`
+		Street         string           `json:"street,omitempty"`
+		House          string           `json:"house,omitempty"`
+		Apartment      string           `json:"apartment,omitempty"`
+		Comment        string           `json:"comment,omitempty"`
+		Height         *float64         `json:"height,omitempty"`
+		Weight         *float64         `json:"weight,omitempty"`
+		DeliveryTime   []string         `json:"delivery_time,omitempty"`
+		Items          []model.OrderItem `json:"items,omitempty"`
+		CreatedAt      time.Time        `json:"created_at"`
 	}
 	out := make([]orderResp, 0, len(orders))
 	for _, o := range orders {
 		out = append(out, orderResp{
-			ID:         o.ID,
-			TotalMinor: o.TotalMinor,
-			Status:     o.Status,
-			CreatedAt:  o.CreatedAt,
+			ID:             o.ID,
+			TotalMinor:     o.TotalMinor,
+			Status:         o.Status,
+			Type:           o.Type,
+			City:           o.City,
+			DeliveryMethod: o.DeliveryMethod,
+			PaymentMethod:  o.PaymentMethod,
+			Street:         o.Street,
+			House:          o.House,
+			Apartment:      o.Apartment,
+			Comment:        o.Comment,
+			Height:         o.Height,
+			Weight:         o.Weight,
+			DeliveryTime:   o.DeliveryTime,
+			Items:          o.Items,
+			CreatedAt:      o.CreatedAt,
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")
