@@ -16,7 +16,7 @@ const mockProduct: Product = {
   category_id: 12,
   category_name: 'Кроссовки',
   images: [],
-  sizes: [{ label: "42", quantity: 1 }, { label: "43", quantity: 1 }, { label: "44", quantity: 1 }],
+  sizes: ["42", "43", "44"],
   color: '#000',
   model: '',
   fit: '',
