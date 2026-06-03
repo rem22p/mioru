@@ -69,6 +69,10 @@ func (f *fakeCustomerStore) ListCustomerOrders(ctx context.Context, customerID i
 	return nil, 0, nil
 }
 
+func (f *fakeCustomerStore) CreateOrder(ctx context.Context, customerID int64, o *model.Order, items []model.OrderItem, idempotencyKey, requestHash string) (*model.Order, error) {
+	return nil, nil
+}
+
 func (f *fakeCustomerStore) GetCustomerCart(ctx context.Context, customerID int64) ([]store.CartItem, error) {
 	return nil, nil
 }
@@ -86,7 +90,7 @@ func (f *fakeCustomerStore) SaveCustomerFavorites(ctx context.Context, customerI
 }
 
 func newCustomerHandlerForTest(fs customerStore) *CustomerHandler {
-	return NewCustomerHandler(fs, "test-secret-key-at-least-32-chars-long!!", 60, false, "", "")
+	return NewCustomerHandler(fs, "test-secret-key-at-least-32-chars-long!!", 60, false, "", "", "", nil)
 }
 
 // TestCustomerLoginIssuesCookiesNotAccessToken locks in the cookie-only
@@ -324,5 +328,5 @@ func signTelegramDataForTest(t *testing.T, data auth.TelegramAuthData) string {
 }
 
 func newCustomerHandlerForTestWithToken(fs customerStore, botToken string) *CustomerHandler {
-	return NewCustomerHandler(fs, "test-secret-key-at-least-32-chars-long!!", 60, false, botToken, "")
+	return NewCustomerHandler(fs, "test-secret-key-at-least-32-chars-long!!", 60, false, botToken, "", "", nil)
 }

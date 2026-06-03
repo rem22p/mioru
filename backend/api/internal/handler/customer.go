@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -98,7 +98,7 @@ type setPasswordReq struct {
 
 type linkOAuthReq struct {
 	Provider    string `json:"provider"`
-	OAuthID     string `json:"oauth_id"`     // for non-Telegram providers
+	OAuthID     string `json:"oauth_id"` // for non-Telegram providers
 	ProfileData string `json:"profile_data"`
 	// Telegram-specific: full signed payload from the Login Widget.
 	// When provider == "telegram", these fields are required and are
@@ -732,55 +732,106 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 
 // CreateOrder handles POST /api/store/orders — creates an order from checkout
 // or individual order form. Requires customer auth + CSRF.
+//
+// Prices are NEVER taken from the client. The server loads prices from the DB
+// by product_id and recalculates price_minor and total_minor.
 func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	customerID := middleware.CustomerID(r)
 
-	var req struct {
-		Type           string            `json:"type"`
-		City           string            `json:"city"`
-		DeliveryMethod string            `json:"delivery_method"`
-		PaymentMethod  string            `json:"payment_method"`
-		Street         string            `json:"street"`
-		House          string            `json:"house"`
-		Apartment      string            `json:"apartment"`
-		Comment        string            `json:"comment"`
-		TotalMinor     int64             `json:"total_minor"`
-		Height         *float64          `json:"height"`
-		Weight         *float64          `json:"weight"`
-		DeliveryTime   []string          `json:"delivery_time"`
-		Photos         []string          `json:"photos"`
-		Items          []model.OrderItem `json:"items"`
-	}
-
-	if !decodeJSON(w, r, &req) {
+	// Read body for both validation and idempotency hash
+	rawBody, err := io.ReadAll(r.Body)
+	if err != nil {
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
+	var req struct {
+		Type           string   `json:"type"`
+		City           string   `json:"city"`
+		DeliveryMethod string   `json:"delivery_method"`
+		PaymentMethod  string   `json:"payment_method"`
+		Street         string   `json:"street"`
+		House          string   `json:"house"`
+		Apartment      string   `json:"apartment"`
+		Comment        string   `json:"comment"`
+		Height         *float64 `json:"height"`
+		Weight         *float64 `json:"weight"`
+		DeliveryTime   []string `json:"delivery_time"`
+		Photos         []string `json:"photos"`
+		Items          []struct {
+			ProductID int64  `json:"product_id"`
+			SizeLabel string `json:"size_label"`
+			Quantity  int    `json:"quantity"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(rawBody, &req); err != nil {
+		jsonErrorCode(w, "invalid JSON body", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+
+	// ── Validation ──
 	if req.Type == "" {
 		req.Type = "cart"
 	}
-	if req.City == "" {
-		jsonErrorCode(w, "city is required", http.StatusBadRequest, "VALIDATION_FAILED")
+	if req.Type != "cart" && req.Type != "individual" {
+		jsonErrorCode(w, "type must be 'cart' or 'individual'", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
-	if req.DeliveryMethod == "" {
-		jsonErrorCode(w, "delivery_method is required", http.StatusBadRequest, "VALIDATION_FAILED")
+	if len(req.City) == 0 || len(req.City) > 100 {
+		jsonErrorCode(w, "city is required (max 100 chars)", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
-	if req.PaymentMethod == "" {
-		jsonErrorCode(w, "payment_method is required", http.StatusBadRequest, "VALIDATION_FAILED")
+	if len(req.DeliveryMethod) == 0 || len(req.DeliveryMethod) > 50 {
+		jsonErrorCode(w, "delivery_method is required (max 50 chars)", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	if len(req.PaymentMethod) == 0 || len(req.PaymentMethod) > 50 {
+		jsonErrorCode(w, "payment_method is required (max 50 chars)", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	if len(req.Street) > 200 {
+		jsonErrorCode(w, "street is too long (max 200)", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	if len(req.House) > 20 {
+		jsonErrorCode(w, "house is too long (max 20)", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	if len(req.Apartment) > 20 {
+		jsonErrorCode(w, "apartment is too long (max 20)", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	if len(req.Comment) > 1000 {
+		jsonErrorCode(w, "comment is too long (max 1000)", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	if len(req.Items) == 0 || len(req.Items) > 50 {
+		jsonErrorCode(w, "items must have 1-50 entries", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
 
+	for _, it := range req.Items {
+		if it.ProductID <= 0 {
+			jsonErrorCode(w, "invalid product_id in items", http.StatusBadRequest, "VALIDATION_FAILED")
+			return
+		}
+		if it.Quantity < 1 || it.Quantity > 99 {
+			jsonErrorCode(w, "quantity out of range (1-99)", http.StatusBadRequest, "VALIDATION_FAILED")
+			return
+		}
+	}
+
+	// ── Idempotency ──
 	idempotencyKey := r.Header.Get("Idempotency-Key")
 	if idempotencyKey == "" {
 		jsonErrorCode(w, "Idempotency-Key header required", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
+	requestHash := store.OrderRequestHash(r.Method, r.URL.Path, string(rawBody), customerID)
 
+	// Build order model (prices calculated server-side in store)
 	order := &model.Order{
 		Type:           req.Type,
-		TotalMinor:     req.TotalMinor,
 		City:           req.City,
 		DeliveryMethod: req.DeliveryMethod,
 		PaymentMethod:  req.PaymentMethod,
@@ -794,11 +845,21 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		Photos:         req.Photos,
 	}
 
-	created, err := h.store.CreateOrder(r.Context(), customerID, order, req.Items, idempotencyKey, "")
+	// Convert request items to model.OrderItem (prices filled by store)
+	items := make([]model.OrderItem, len(req.Items))
+	for i, it := range req.Items {
+		items[i] = model.OrderItem{
+			ProductID: it.ProductID,
+			SizeLabel: it.SizeLabel,
+			Quantity:  it.Quantity,
+		}
+	}
+
+	created, err := h.store.CreateOrder(r.Context(), customerID, order, items, idempotencyKey, requestHash)
 	if err != nil {
-		log.Printf("CreateOrder failed: %v", err)
-		if strings.Contains(err.Error(), "idempotency") {
-			jsonErrorCode(w, err.Error(), http.StatusConflict, "IDEMPOTENCY_REPLAY")
+		slog.Error("CreateOrder failed", "customer_id", customerID, "error", err)
+		if errors.Is(err, store.ErrIdempotencyHashMismatch) {
+			jsonErrorCode(w, "idempotency key reused with different request", http.StatusConflict, "IDEMPOTENCY_REPLAY")
 			return
 		}
 		jsonError(w, "internal error", http.StatusInternalServerError)
@@ -879,7 +940,7 @@ func (h *CustomerHandler) UploadOrderPhoto(w http.ResponseWriter, r *http.Reques
 	thumbName := "thumb_" + safeName
 	thumbPath := filepath.Join(h.uploadDir, thumbName)
 	if err := generateThumbnail(destPath, thumbPath, 400, 300); err != nil {
-		log.Printf("UploadOrderPhoto: thumbnail failed for %s: %v", safeName, err)
+		slog.Warn("UploadOrderPhoto: thumbnail failed", "file", safeName, "error", err)
 	}
 
 	url := "/uploads/" + safeName

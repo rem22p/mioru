@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"mioru/internal/middleware"
 	"mioru/internal/model"
 )
 
@@ -23,6 +22,16 @@ type AdminOrderHandler struct {
 
 func NewAdminOrderHandler(s adminOrderStore) *AdminOrderHandler {
 	return &AdminOrderHandler{store: s}
+}
+
+// validAdminOrderStatuses is the set of allowed order status transitions
+// from the admin panel.
+var validAdminOrderStatuses = map[string]bool{
+	"pending":    true,
+	"processing": true,
+	"shipped":    true,
+	"delivered":  true,
+	"cancelled":  true,
 }
 
 // ListAll handles GET /api/admin/orders — returns paginated orders.
@@ -81,6 +90,10 @@ func (h *AdminOrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request)
 		jsonErrorCode(w, "status is required", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
+	if !validAdminOrderStatuses[req.Status] {
+		jsonErrorCode(w, "invalid status: must be one of pending, processing, shipped, delivered, cancelled", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
 
 	if err := h.store.UpdateOrderStatus(r.Context(), orderID, req.Status); err != nil {
 		jsonError(w, "internal error", http.StatusInternalServerError)
@@ -90,5 +103,3 @@ func (h *AdminOrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"ok": true})
 }
-
-var _ = middleware.CustomerID

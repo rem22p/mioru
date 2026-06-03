@@ -36,8 +36,8 @@ func TestValidateImageContent(t *testing.T) {
 		wantErr bool
 	}{
 		{"png", []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR"), false},
-		{"jpeg", []byte("\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01"), true},  // jpeg rejected
-		{"gif", []byte("GIF89a\x01\x00\x01\x00"), true},                // gif rejected
+		{"jpeg", []byte("\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01"), true},                      // jpeg rejected
+		{"gif", []byte("GIF89a\x01\x00\x01\x00"), true},                                     // gif rejected
 		{"webp", append([]byte("RIFF\x00\x00\x00\x00WEBPVP8 "), make([]byte, 16)...), true}, // webp rejected
 		{"svg with script", []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`), true},
 		{"xml svg", []byte(`<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"></svg>`), true},

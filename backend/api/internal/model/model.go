@@ -126,27 +126,27 @@ type CustomerOAuth struct {
 // Order represents a customer order. total_minor is in minor currency
 // units (kopecks/cents). Display as (total_minor / 100) with 2 decimal places.
 type Order struct {
-	ID             int64      `json:"id"`
-	CustomerID     int64      `json:"customer_id"`
-	Type           string     `json:"type"`
-	TotalMinor     int64      `json:"total_minor"`
-	Status         string     `json:"status"`
-	City           string     `json:"city"`
-	DeliveryMethod string     `json:"delivery_method"`
-	PaymentMethod  string     `json:"payment_method"`
-	Street         string     `json:"street"`
-	House          string     `json:"house"`
-	Apartment      string     `json:"apartment"`
-	Comment        string     `json:"comment"`
+	ID             int64  `json:"id"`
+	CustomerID     int64  `json:"customer_id"`
+	Type           string `json:"type"`
+	TotalMinor     int64  `json:"total_minor"`
+	Status         string `json:"status"`
+	City           string `json:"city"`
+	DeliveryMethod string `json:"delivery_method"`
+	PaymentMethod  string `json:"payment_method"`
+	Street         string `json:"street"`
+	House          string `json:"house"`
+	Apartment      string `json:"apartment"`
+	Comment        string `json:"comment"`
 	// Individual order fields
-	Height       *float64 `json:"height,omitempty"`
-	Weight       *float64 `json:"weight,omitempty"`
-	DeliveryTime []string `json:"delivery_time,omitempty"`
-	Photos       []string `json:"photos,omitempty"`
+	Height       *float64    `json:"height,omitempty"`
+	Weight       *float64    `json:"weight,omitempty"`
+	DeliveryTime []string    `json:"delivery_time,omitempty"`
+	Photos       []string    `json:"photos,omitempty"`
 	Items        []OrderItem `json:"items,omitempty"`
 	// Joined fields (populated in admin list queries)
-	CustomerEmail     string `json:"customer_email,omitempty"`
-	CustomerFirstName string `json:"customer_first_name,omitempty"`
+	CustomerEmail     string    `json:"customer_email,omitempty"`
+	CustomerFirstName string    `json:"customer_first_name,omitempty"`
 	CreatedAt         time.Time `json:"created_at"`
 }
 

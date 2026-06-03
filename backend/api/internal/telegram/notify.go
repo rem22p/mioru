@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"mioru/internal/model"
@@ -49,7 +50,7 @@ func (n *Notifier) OrderCreated(order *model.Order, customer *model.Customer) {
 			slog.Warn("telegram notify failed",
 				"chat_id", chatID,
 				"order_id", order.ID,
-				"error", err,
+				"error", redactToken(err.Error(), n.botToken),
 			)
 			continue
 		}
@@ -61,20 +62,53 @@ func (n *Notifier) OrderCreated(order *model.Order, customer *model.Customer) {
 					"chat_id", chatID,
 					"order_id", order.ID,
 					"photos", len(order.Photos),
-					"error", err,
+					"error", redactToken(err.Error(), n.botToken),
 				)
 			}
 		}
 	}
 }
 
+// redactToken replaces the bot token in an error string with "***" to avoid
+// leaking it into logs.
+func redactToken(s, token string) string {
+	if token == "" {
+		return s
+	}
+	return strings.ReplaceAll(s, token, "***")
+}
+
+// escapeMarkdown escapes Telegram MarkdownV2 special characters.
+func escapeMarkdown(s string) string {
+	replacer := strings.NewReplacer(
+		"_", "\\_",
+		"*", "\\*",
+		"[", "\\[",
+		"]", "\\]",
+		"(", "\\(",
+		")", "\\)",
+		"~", "\\~",
+		"`", "\\`",
+		">", "\\>",
+		"#", "\\#",
+		"+", "\\+",
+		"-", "\\-",
+		"=", "\\=",
+		"|", "\\|",
+		"{", "\\{",
+		"}", "\\}",
+		".", "\\.",
+		"!", "\\!",
+	)
+	return replacer.Replace(s)
+}
+
 func formatOrderMessage(o *model.Order, c *model.Customer) string {
-	// Format items
 	items := ""
 	total := float64(o.TotalMinor) / 100
 	for _, item := range o.Items {
 		price := float64(item.PriceMinor) / 100
-		items += fmt.Sprintf("  • %dx (размер %s) — %.2f лей\n", item.Quantity, item.SizeLabel, price)
+		items += fmt.Sprintf("  • %dx (размер %s) — %.2f лей\n", item.Quantity, escapeMarkdown(item.SizeLabel), price)
 	}
 
 	return fmt.Sprintf(
@@ -91,13 +125,13 @@ func formatOrderMessage(o *model.Order, c *model.Customer) string {
 			"*Итого: %.2f лей*\n\n"+
 			"_%s_",
 		o.ID,
-		o.Type,
-		c.FirstName, c.LastName,
-		c.Email,
-		c.Phone,
-		o.City,
-		o.DeliveryMethod,
-		o.PaymentMethod,
+		escapeMarkdown(o.Type),
+		escapeMarkdown(c.FirstName), escapeMarkdown(c.LastName),
+		escapeMarkdown(c.Email),
+		escapeMarkdown(c.Phone),
+		escapeMarkdown(o.City),
+		escapeMarkdown(o.DeliveryMethod),
+		escapeMarkdown(o.PaymentMethod),
 		addressLine(o),
 		commentLine(o),
 		individualFields(o),
@@ -109,21 +143,21 @@ func formatOrderMessage(o *model.Order, c *model.Customer) string {
 
 func addressLine(o *model.Order) string {
 	if o.DeliveryMethod == "address" && (o.Street != "" || o.House != "") {
-		return fmt.Sprintf("*Адрес:* %s, %s", o.Street, o.House) + aptSuffix(o.Apartment) + "\n"
+		return fmt.Sprintf("*Адрес:* %s, %s", escapeMarkdown(o.Street), escapeMarkdown(o.House)) + aptSuffix(o.Apartment) + "\n"
 	}
 	return ""
 }
 
 func aptSuffix(a string) string {
 	if a != "" {
-		return ", кв. " + a
+		return ", кв. " + escapeMarkdown(a)
 	}
 	return ""
 }
 
 func commentLine(o *model.Order) string {
 	if o.Comment != "" {
-		return fmt.Sprintf("*Комментарий:* %s\n", o.Comment)
+		return fmt.Sprintf("*Комментарий:* %s\n", escapeMarkdown(o.Comment))
 	}
 	return ""
 }
@@ -146,7 +180,7 @@ func (n *Notifier) sendMessage(chatID, text string) error {
 	body := map[string]string{
 		"chat_id":    chatID,
 		"text":       text,
-		"parse_mode": "Markdown",
+		"parse_mode": "MarkdownV2",
 	}
 	b, _ := json.Marshal(body)
 
@@ -168,12 +202,9 @@ func (n *Notifier) sendMessage(chatID, text string) error {
 }
 
 // sendPhotos sends each photo as a multipart file upload to Telegram.
-// Telegram's sendPhoto by URL fails for api.mioru.store (likely network
-// restriction), so we read the file from disk and send it directly.
 func (n *Notifier) sendPhotos(chatID string, order *model.Order) error {
 	var lastErr error
 	for i, photo := range order.Photos {
-		// photo is like "/uploads/xxx.png"
 		filename := filepath.Base(photo)
 		diskPath := filepath.Join(n.uploadDir, filename)
 
@@ -194,17 +225,14 @@ func (n *Notifier) sendPhotos(chatID string, order *model.Order) error {
 	return lastErr
 }
 
-// sendPhotoMultipart sends a single photo to Telegram using multipart/form-data.
 func (n *Notifier) sendPhotoMultipart(chatID string, file *os.File, filename string) error {
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 
-	// chat_id field
 	if err := w.WriteField("chat_id", chatID); err != nil {
 		return err
 	}
 
-	// photo file part
 	part, err := w.CreateFormFile("photo", filename)
 	if err != nil {
 		return err
@@ -240,5 +268,3 @@ func (n *Notifier) sendPhotoMultipart(chatID string, file *os.File, filename str
 	}
 	return nil
 }
-
-var _ = time.Now // ensure import
