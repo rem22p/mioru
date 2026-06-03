@@ -38,7 +38,7 @@ func (s *PostgresStore) CreateProduct(ctx context.Context, p model.Product) (int
 
 	// Insert sizes
 	for _, size := range p.Sizes {
-		if _, err := tx.Exec(ctx, `INSERT INTO product_sizes (product_id, size_label, quantity) VALUES ($1, $2, $3)`, productID, size.Label, size.Quantity); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO product_sizes (product_id, size_label) VALUES ($1, $2)`, productID, size); err != nil {
 			return 0, fmt.Errorf("insert size: %w", err)
 		}
 	}
@@ -113,7 +113,7 @@ func (s *PostgresStore) UpdateProduct(ctx context.Context, slug string, p model.
 
 	// Re-insert sizes
 	for _, size := range p.Sizes {
-		if _, err := tx.Exec(ctx, `INSERT INTO product_sizes (product_id, size_label, quantity) VALUES ($1, $2, $3)`, productID, size.Label, size.Quantity); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO product_sizes (product_id, size_label) VALUES ($1, $2)`, productID, size); err != nil {
 			return fmt.Errorf("insert size: %w", err)
 		}
 	}
@@ -271,7 +271,7 @@ func (s *PostgresStore) listProductsByIDs(ctx context.Context, ids []int64) ([]m
 			p.Care = []string{}
 		}
 		// Initialise related slices so absent rows serialise as [] not null.
-		p.Sizes = []model.ProductSize{}
+		p.Sizes = []string{}
 		p.SizeChart = []model.SizeChartRow{}
 		p.Images = []model.ProductImage{}
 		byID[p.ID] = &p
@@ -303,7 +303,7 @@ func (s *PostgresStore) listProductsByIDs(ctx context.Context, ids []int64) ([]m
 // matching product. Ordered by (product_id, id) so each product's sizes keep
 // their insertion order.
 func (s *PostgresStore) attachSizes(ctx context.Context, byID map[int64]*model.Product, ids []int64) error {
-	rows, err := s.pool.Query(ctx, `SELECT product_id, size_label, quantity FROM product_sizes WHERE product_id = ANY($1) ORDER BY product_id, id`, ids)
+	rows, err := s.pool.Query(ctx, `SELECT product_id, size_label FROM product_sizes WHERE product_id = ANY($1) ORDER BY product_id, id`, ids)
 	if err != nil {
 		return fmt.Errorf("query sizes: %w", err)
 	}
@@ -311,12 +311,11 @@ func (s *PostgresStore) attachSizes(ctx context.Context, byID map[int64]*model.P
 	for rows.Next() {
 		var pid int64
 		var label string
-		var qty int
-		if err := rows.Scan(&pid, &label, &qty); err != nil {
+		if err := rows.Scan(&pid, &label); err != nil {
 			return fmt.Errorf("scan size: %w", err)
 		}
 		if p, ok := byID[pid]; ok {
-			p.Sizes = append(p.Sizes, model.ProductSize{Label: label, Quantity: qty})
+			p.Sizes = append(p.Sizes, label)
 		}
 	}
 	return rows.Err()
@@ -421,24 +420,23 @@ func (s *PostgresStore) queryProduct(ctx context.Context, whereClause string, ar
 	return &p, nil
 }
 
-func (s *PostgresStore) getProductSizes(ctx context.Context, productID int64) ([]model.ProductSize, error) {
-	rows, err := s.pool.Query(ctx, `SELECT size_label, quantity FROM product_sizes WHERE product_id = $1 ORDER BY id`, productID)
+func (s *PostgresStore) getProductSizes(ctx context.Context, productID int64) ([]string, error) {
+	rows, err := s.pool.Query(ctx, `SELECT size_label FROM product_sizes WHERE product_id = $1 ORDER BY id`, productID)
 	if err != nil {
 		return nil, fmt.Errorf("query sizes: %w", err)
 	}
 	defer rows.Close()
 
-	var sizes []model.ProductSize
+	var sizes []string
 	for rows.Next() {
 		var label string
-		var qty int
-		if err := rows.Scan(&label, &qty); err != nil {
+		if err := rows.Scan(&label); err != nil {
 			return nil, fmt.Errorf("scan size: %w", err)
 		}
-		sizes = append(sizes, model.ProductSize{Label: label, Quantity: qty})
+		sizes = append(sizes, label)
 	}
 	if sizes == nil {
-		sizes = []model.ProductSize{}
+		sizes = []string{}
 	}
 	return sizes, rows.Err()
 }

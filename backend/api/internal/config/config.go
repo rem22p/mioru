@@ -14,16 +14,16 @@ import (
 const minSecretKeyLen = 32
 
 type Config struct {
-	SecretKey        string
-	TokenExpiry      int
-	Port             string
-	DatabaseURL      string
-	UploadDir        string
-	APIBaseURL       string
-	AppEnv           string
-	TelegramBotToken     string
+	SecretKey              string
+	TokenExpiry            int
+	Port                   string
+	DatabaseURL            string
+	UploadDir              string
+	APIBaseURL             string
+	AppEnv                 string
+	TelegramBotToken       string
 	TelegramManagerChatIDs []string
-	CookieDomain         string
+	CookieDomain           string
 }
 
 func Load() Config {
@@ -81,16 +81,16 @@ func Load() Config {
 	cookieDomain := os.Getenv("COOKIE_DOMAIN")
 
 	return Config{
-		SecretKey:        secret,
-		TokenExpiry:      1440,
-		Port:             port,
-		DatabaseURL:      databaseURL,
-		UploadDir:        uploadDir,
-		APIBaseURL:       apiBaseURL,
-		AppEnv:           appEnv,
-		TelegramBotToken: telegramBotToken,
+		SecretKey:              secret,
+		TokenExpiry:            1440,
+		Port:                   port,
+		DatabaseURL:            databaseURL,
+		UploadDir:              uploadDir,
+		APIBaseURL:             apiBaseURL,
+		AppEnv:                 appEnv,
+		TelegramBotToken:       telegramBotToken,
 		TelegramManagerChatIDs: managerChatIDs,
-		CookieDomain:     cookieDomain,
+		CookieDomain:           cookieDomain,
 	}
 }
 
