@@ -815,19 +815,21 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		jsonErrorCode(w, "comment is too long (max 1000)", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
-	if len(req.Items) == 0 || len(req.Items) > 50 {
-		jsonErrorCode(w, "items must have 1-50 entries", http.StatusBadRequest, "VALIDATION_FAILED")
-		return
-	}
-
-	for _, it := range req.Items {
-		if it.ProductID <= 0 {
-			jsonErrorCode(w, "invalid product_id in items", http.StatusBadRequest, "VALIDATION_FAILED")
+	// Items required for cart orders, optional for individual orders
+	if req.Type == "cart" {
+		if len(req.Items) == 0 || len(req.Items) > 50 {
+			jsonErrorCode(w, "items must have 1-50 entries", http.StatusBadRequest, "VALIDATION_FAILED")
 			return
 		}
-		if it.Quantity < 1 || it.Quantity > 99 {
-			jsonErrorCode(w, "quantity out of range (1-99)", http.StatusBadRequest, "VALIDATION_FAILED")
-			return
+		for _, it := range req.Items {
+			if it.ProductID <= 0 {
+				jsonErrorCode(w, "invalid product_id in items", http.StatusBadRequest, "VALIDATION_FAILED")
+				return
+			}
+			if it.Quantity < 1 || it.Quantity > 99 {
+				jsonErrorCode(w, "quantity out of range (1-99)", http.StatusBadRequest, "VALIDATION_FAILED")
+				return
+			}
 		}
 	}
 
