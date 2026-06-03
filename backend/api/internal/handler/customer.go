@@ -24,6 +24,7 @@ import (
 )
 
 var customerEmailRe = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+var customerPhoneRe = regexp.MustCompile(`^\+?[\d\s\-()]{7,15}$`)
 
 // customerStore is the subset of the store consumed by the storefront customer
 // handlers. Defined here (where it is used) to keep the seam small and let tests
@@ -145,6 +146,10 @@ func (h *CustomerHandler) Register(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "некорректный email", http.StatusBadRequest)
 		return
 	}
+	if req.Phone != "" && !customerPhoneRe.MatchString(req.Phone) {
+		jsonError(w, "некорректный номер телефона", http.StatusBadRequest)
+		return
+	}
 	if len(req.Password) < 8 {
 		jsonError(w, "пароль минимум 8 символов", http.StatusBadRequest)
 		return
@@ -180,6 +185,8 @@ func (h *CustomerHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if err := h.store.CreateCustomer(r.Context(), c); err != nil {
 		if err.Error() == "email already registered" {
 			jsonError(w, "email уже зарегистрирован", http.StatusConflict)
+		} else if err.Error() == "phone already registered" {
+			jsonError(w, "номер уже зарегистрирован", http.StatusConflict)
 		} else {
 			jsonError(w, "internal error", http.StatusInternalServerError)
 		}
