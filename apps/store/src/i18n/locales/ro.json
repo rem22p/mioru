@@ -91,7 +91,7 @@
       "allProducts": "Toate produsele →"
     },
     "about": {
-      "badge": "02 / Despre noi",
+      "badge": "01 / Despre noi",
       "title": "Avantajele noastre",
       "items": [
         {
@@ -113,7 +113,7 @@
       ]
     },
     "featured": {
-      "badge": "03 / Populare",
+      "badge": "02 / Populare",
       "title": "Tendințele sezonului",
       "allProducts": "Toate produsele →",
       "addToCart": "Adaugă în coș"

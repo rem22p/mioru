@@ -91,7 +91,7 @@
       "allProducts": "All products →"
     },
     "about": {
-      "badge": "02 / About us",
+      "badge": "01 / About us",
       "title": "Our advantages",
       "items": [
         {
@@ -113,7 +113,7 @@
       ]
     },
     "featured": {
-      "badge": "03 / Featured",
+      "badge": "02 / Featured",
       "title": "This season's trends",
       "allProducts": "All products →",
       "addToCart": "Add to cart"
