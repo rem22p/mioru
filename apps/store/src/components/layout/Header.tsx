@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import { Menu, X, Sun, Moon, Globe, User, ShoppingBag, Heart } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
 import { useFavoritesStore } from "@/stores/favoritesStore";
+import { useCurrencyStore } from "@/stores/currencyStore";
+import { formatPrice, type Currency } from "@/lib/currency";
 import { motion, AnimatePresence } from "framer-motion";
 
 const desktopLinks = [
@@ -26,6 +28,11 @@ const languages = [
   { code: "ro", label: "RO" },
 ];
 
+const currencies: { code: Currency; label: string }[] = [
+  { code: "PMR", label: "₽ PMR" },
+  { code: "MDL", label: "L MDL" },
+];
+
 interface HeaderProps {
   theme: "dark" | "light";
   toggleTheme: () => void;
@@ -43,6 +50,7 @@ export default function Header({
   const [langOpen, setLangOpen] = useState(false);
   const totalItems = useCartStore((state) => state.totalItems());
   const favCount = useFavoritesStore((s) => s.items.length);
+  const { currency, setCurrency } = useCurrencyStore();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -146,7 +154,7 @@ export default function Header({
               )}
             </Link>
 
-            {/* Language Switcher */}
+            {/* Language & Currency Switcher */}
             <div className="relative" data-lang-switcher>
               <button
                 onClick={() => setLangOpen(!langOpen)}
@@ -161,12 +169,16 @@ export default function Header({
               </button>
               {langOpen && (
                 <div
-                  className={`absolute right-0 top-full mt-2 rounded-xl border p-1 shadow-lg z-50 ${
+                  className={`absolute right-0 top-full mt-2 rounded-xl border p-1 shadow-lg z-50 min-w-[120px] ${
                     isLight
                       ? "bg-white border-gray-200"
                       : "bg-[var(--color-bg-card)] border-[var(--color-border-custom)]"
                   }`}
                 >
+                  {/* Language section */}
+                  <p className="px-3 py-1 text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+                    {t("nav.language")}
+                  </p>
                   {languages.map((lang) => (
                     <button
                       key={lang.code}
@@ -174,7 +186,7 @@ export default function Header({
                         changeLanguage(lang.code);
                         setLangOpen(false);
                       }}
-                      className={`block w-full text-left px-4 py-2 text-sm rounded-lg transition-colors ${
+                      className={`block w-full text-left px-3 py-1.5 text-sm rounded-lg transition-colors ${
                         i18n.language === lang.code
                           ? "text-[#44944A] bg-[#44944A]/10"
                           : isLight
@@ -183,6 +195,32 @@ export default function Header({
                       }`}
                     >
                       {lang.label}
+                    </button>
+                  ))}
+
+                  {/* Divider */}
+                  <div className="my-1 border-t border-[var(--color-border-custom)]" />
+
+                  {/* Currency section */}
+                  <p className="px-3 py-1 text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+                    {t("nav.currency")}
+                  </p>
+                  {currencies.map((cur) => (
+                    <button
+                      key={cur.code}
+                      onClick={() => {
+                        setCurrency(cur.code);
+                        setLangOpen(false);
+                      }}
+                      className={`block w-full text-left px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                        currency === cur.code
+                          ? "text-[#44944A] bg-[#44944A]/10"
+                          : isLight
+                            ? "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                            : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border-custom)]"
+                      }`}
+                    >
+                      {cur.label}
                     </button>
                   ))}
                 </div>

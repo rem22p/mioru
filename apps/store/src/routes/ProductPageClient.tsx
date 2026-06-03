@@ -15,6 +15,8 @@ import {
   Heart,
   Share2,
 } from "lucide-react";
+import { useCurrencyStore } from "@/stores/currencyStore";
+import { formatPrice } from "@/lib/currency";
 import { Helmet } from "react-helmet-async";
 
 // Lazy-load below-the-fold components
@@ -43,6 +45,7 @@ const EMPTY_REVIEWS: Review[] = [];
 
 export default function ProductPageClient({ product }: ProductPageClientProps) {
   const { t } = useTranslation();
+  const { currency } = useCurrencyStore();
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [showSizeChart, setShowSizeChart] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
@@ -103,11 +106,11 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
       <Helmet>
         <title>
           {product.name} — купить в MIORU | Цена{" "}
-          {product.price.toLocaleString("ru-RU")} ₽
+          {formatPrice(product.price, currency)}
         </title>
         <meta
           name="description"
-          content={`${product.name} — ${product.description.slice(0, 150)}... Цена: ${product.price.toLocaleString("ru-RU")} ₽. Виртуальная примерка на 3D-аватаре. Быстрая доставка.`}
+          content={`${product.name} — ${product.description.slice(0, 150)}... Цена: ${formatPrice(product.price, currency)}. Виртуальная примерка на 3D-аватаре. Быстрая доставка.`}
         />
         <meta property="og:title" content={`${product.name} — MIORU`} />
         <meta
@@ -188,7 +191,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   </span>
                 </div>
                 <p className="text-3xl font-bold text-[#44944A]">
-                  {product.price.toLocaleString("ru-RU")} ₽
+                  {formatPrice(product.price, currency)}
                 </p>
               </div>
 

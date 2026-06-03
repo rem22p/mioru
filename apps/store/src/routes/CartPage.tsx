@@ -1,6 +1,9 @@
 import { Link } from "react-router-dom";
 import { useCartStore } from "@/stores/cartStore";
 import { useAuthStore } from "@/stores/authStore";
+import { useFavoritesStore } from "@/stores/favoritesStore";
+import { useCurrencyStore } from "@/stores/currencyStore";
+import { formatPrice } from "@/lib/currency";
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
 import { getThumbUrl, getImageUrl } from "@/lib/api";
 import { motion } from "framer-motion";
@@ -9,6 +12,7 @@ import { Helmet } from "react-helmet-async";
 
 export default function CartPage() {
   const { t } = useTranslation();
+  const { currency } = useCurrencyStore();
   const items = useCartStore((state) => state.items);
   const removeItem = useCartStore((state) => state.removeItem);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
@@ -106,7 +110,7 @@ export default function CartPage() {
                     </h3>
                   </Link>
                   <span className="text-sm font-bold text-[var(--color-text-primary)] whitespace-nowrap shrink-0">
-                    {(item.product.price * item.quantity).toLocaleString("ru-RU")} ₽
+                    {formatPrice(item.product.price * item.quantity, currency)}
                   </span>
                 </div>
 

@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import { useCurrencyStore } from "@/stores/currencyStore";
+import { formatPrice } from "@/lib/currency";
 import { useCatalogStore } from "@/stores/catalogStore";
 import { useCartStore } from "@/stores/cartStore";
 import { ShoppingBag } from "lucide-react";
@@ -8,6 +10,7 @@ import { useTranslation } from "react-i18next";
 
 export default function FeaturedProducts() {
   const { t } = useTranslation();
+  const { currency } = useCurrencyStore();
   const { products, fetchProducts } = useCatalogStore();
   const addItem = useCartStore((state) => state.addItem);
 
@@ -104,7 +107,7 @@ export default function FeaturedProducts() {
                           {product.name}
                         </h3>
                         <p className="mt-1 text-sm font-bold text-[#44944A]">
-                          {product.price.toLocaleString("ru-RU")} ₽
+                          {formatPrice(product.price, currency)}
                         </p>
                       </div>
                     </div>

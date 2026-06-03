@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useParams } from "react-router-dom";
 import { useCatalogStore } from "@/stores/catalogStore";
+import { useCurrencyStore } from "@/stores/currencyStore";
+import { formatPrice } from "@/lib/currency";
 import { useCartStore } from "@/stores/cartStore";
 import { getThumbUrl, getImageUrl } from "@/lib/api";
 import { ShoppingBag, ChevronDown } from "lucide-react";
@@ -23,6 +25,7 @@ function categoryEmoji(slug: string): string {
 
 export default function CatalogPage() {
   const { t } = useTranslation();
+  const { currency } = useCurrencyStore();
   const {
     products,
     categories,
@@ -619,7 +622,7 @@ export default function CatalogPage() {
                           {product.name}
                         </h3>
                         <p className="mt-1 text-sm font-bold text-[#44944A]">
-                          {product.price.toLocaleString("ru-RU")} ₽
+                          {formatPrice(product.price, currency)}
                         </p>
                       </div>
                     </div>

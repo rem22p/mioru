@@ -64,7 +64,9 @@
     "avatar": "AVATAR",
     "cart": "COȘ",
     "favorites": "FAVORITE",
-    "profile": "Profil"
+    "profile": "Profil",
+    "language": "Limbă",
+    "currency": "Valută"
   },
   "favorites": {
     "empty": "Nu ai adăugat nimic la favorite încă"

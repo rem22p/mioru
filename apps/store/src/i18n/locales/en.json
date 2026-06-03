@@ -64,7 +64,9 @@
     "avatar": "AVATAR",
     "cart": "CART",
     "favorites": "FAVORITES",
-    "profile": "Profile"
+    "profile": "Profile",
+    "language": "Language",
+    "currency": "Currency"
   },
   "favorites": {
     "empty": "You haven't added anything to favorites yet"

@@ -2,7 +2,9 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useCatalogStore } from "@/stores/catalogStore";
-import { ArrowUpRight } from "lucide-react";
+import { Heart, ArrowUpRight } from "lucide-react";
+import { useCurrencyStore } from "@/stores/currencyStore";
+import { formatPrice } from "@/lib/currency";
 import { useTranslation } from "react-i18next";
 
 interface RelatedProductsProps {
@@ -15,6 +17,7 @@ export default function RelatedProducts({
   currentProductId,
 }: RelatedProductsProps) {
   const { t } = useTranslation();
+  const { currency } = useCurrencyStore();
   const { products, fetchProducts } = useCatalogStore();
 
   useEffect(() => {
@@ -81,7 +84,7 @@ export default function RelatedProducts({
                     {product.name}
                   </p>
                   <p className="mt-1 text-sm font-bold text-[var(--color-text-primary)]">
-                    {product.price.toLocaleString("ru-RU")} ₽
+                    {formatPrice(product.price, currency)}
                   </p>
                 </div>
               </div>

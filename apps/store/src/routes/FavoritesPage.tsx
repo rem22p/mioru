@@ -2,11 +2,14 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Heart, Trash2, ArrowRight } from "lucide-react";
 import { useFavoritesStore } from "@/stores/favoritesStore";
+import { useCurrencyStore } from "@/stores/currencyStore";
+import { formatPrice } from "@/lib/currency";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
 
 export default function FavoritesPage() {
   const { t } = useTranslation();
+  const { currency } = useCurrencyStore();
   const items = useFavoritesStore((s) => s.items);
   const removeFavorite = useFavoritesStore((s) => s.removeFavorite);
 
@@ -101,7 +104,7 @@ export default function FavoritesPage() {
                     {item.name}
                   </h3>
                   <p className="mt-1 text-sm font-bold text-[#44944A]">
-                    {item.price.toLocaleString("ru-RU")} ₽
+                    {formatPrice(item.price, currency)}
                   </p>
                 </div>
               </div>
