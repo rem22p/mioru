@@ -28,11 +28,6 @@ export interface ProductImage {
   sort_order: number;
 }
 
-export interface ProductSizeEntry {
-  label: string;
-  quantity: number;
-}
-
 export interface Product {
   id: number;
   slug: string;
@@ -54,7 +49,7 @@ export interface Product {
   created_by: string;
   created_at: string;
   updated_at: string;
-  sizes: ProductSizeEntry[];
+  sizes: string[];
   size_chart: SizeChartRow[];
   images: ProductImage[];
 }
