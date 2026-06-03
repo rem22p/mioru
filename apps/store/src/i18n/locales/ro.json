@@ -265,12 +265,29 @@
     "myAvatar": "Avatarul meu",
     "orderHistory": "Istoric comenzi",
     "noOrders": "Nu ai comenzi încă",
+    "itemsCount": "poz.",
     "orderStatus": {
       "pending": "În așteptare",
       "processing": "În procesare",
       "shipped": "Expediat",
       "delivered": "Livrat",
       "cancelled": "Anulat"
+    },
+    "orderType": {
+      "cart": "Coș",
+      "individual": "Individual"
+    },
+    "delivery": {
+      "personal": "Întâlnire personală",
+      "address": "Livrare la adresă",
+      "bus": "Rutieră",
+      "express": "Poștă express",
+      "moldovaPost": "Poșta Moldovei"
+    },
+    "deliveryTime": {
+      "fast": "Cât mai repede",
+      "medium": "În decurs de o săptămână",
+      "slow": "În decurs de o lună"
     }
   },
   "avatar": {

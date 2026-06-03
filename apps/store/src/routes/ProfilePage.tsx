@@ -149,14 +149,7 @@ export default function ProfilePage() {
   );
 }
 
-// ── Constants ──
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: "Ожидает",
-  processing: "В обработке",
-  shipped: "Отправлен",
-  delivered: "Доставлен",
-};
+// ── Order Card ──
 
 const STATUS_ACCENT: Record<string, string> = {
   pending: "text-amber-400 bg-amber-400/10",
@@ -165,24 +158,14 @@ const STATUS_ACCENT: Record<string, string> = {
   delivered: "text-green-400 bg-green-400/10",
 };
 
-const DELIVERY_LABELS: Record<string, string> = {
-  personal: "Личная встреча",
-  address: "Доставка по адресу",
-  bus: "Маршрутка",
-  express: "Экспресс-почта",
-  moldovaPost: "Почта Молдовы",
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  cart: "Корзина",
-  individual: "Индивидуальный",
-};
-
-// ── Order Card ──
-
 function OrderCard({ order: o }: { order: StoreOrder }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const totalRub = (o.total_minor / 100).toFixed(2);
+
+  const statusLabel = t(`profile.orderStatus.${o.status}`, o.status);
+  const typeLabel = t(`profile.orderType.${o.type}`, o.type);
+  const deliveryLabel = t(`profile.delivery.${o.delivery_method}`, o.delivery_method);
 
   return (
     <motion.div
@@ -207,14 +190,14 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
                   : "text-gray-400 bg-gray-400/10"
               }`}
             >
-              {TYPE_LABELS[o.type] || o.type}
+              {typeLabel}
             </span>
             <span
               className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                 STATUS_ACCENT[o.status] || ""
               }`}
             >
-              {STATUS_LABELS[o.status] || o.status}
+              {statusLabel}
             </span>
           </div>
 
@@ -226,15 +209,15 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
             </span>
             <span className="flex items-center gap-1">
               <Truck className="h-3 w-3" />
-              {DELIVERY_LABELS[o.delivery_method] || o.delivery_method}
+              {deliveryLabel}
             </span>
             <span className="flex items-center gap-1">
               <CreditCard className="h-3 w-3" />
-              {o.payment_method === "card" ? "Карта" : "При получении"}
+              {o.payment_method === "card" ? t("checkout.payment.card") : t("checkout.payment.cod")}
             </span>
             <span className="flex items-center gap-1">
               <ShoppingBag className="h-3 w-3" />
-              {o.items?.length || 0} поз.
+              {o.items?.length || 0} {t("profile.itemsCount")}
             </span>
           </div>
         </div>
@@ -310,14 +293,9 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
                 <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
                   <span className="text-xs text-[var(--color-text-muted)]">Сроки</span>
                   <p className="text-sm text-[var(--color-text-primary)] mt-0.5">
-                    {o.delivery_time.map((t) => {
-                      const labels: Record<string, string> = {
-                        fast: "Как можно быстрее",
-                        medium: "В течение недели",
-                        slow: "В течение месяца",
-                      };
-                      return labels[t] || t;
-                    }).join(", ")}
+                    {o.delivery_time.map((timeKey) =>
+                      t(`profile.deliveryTime.${timeKey}`, timeKey)
+                    ).join(", ")}
                   </p>
                 </div>
               )}

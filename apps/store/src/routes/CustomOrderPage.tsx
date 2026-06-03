@@ -131,8 +131,8 @@ export default function CustomOrderPage() {
         idempotencyKey,
       );
       setSubmitted(true);
-    } catch (e: any) {
-      setSubmitError(e.message || "Ошибка при отправке");
+    } catch (e: unknown) {
+      setSubmitError(e instanceof Error ? e.message : "Ошибка при отправке");
     } finally {
       setSubmitting(false);
     }

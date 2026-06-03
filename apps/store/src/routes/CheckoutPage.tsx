@@ -81,8 +81,8 @@ export default function CheckoutPage() {
       );
       clearCart();
       setSubmitted(true);
-    } catch (e: any) {
-      setOrderError(e.message || "Ошибка при создании заказа");
+    } catch (e: unknown) {
+      setOrderError(e instanceof Error ? e.message : "Ошибка при создании заказа");
     } finally {
       setSubmitting(false);
     }

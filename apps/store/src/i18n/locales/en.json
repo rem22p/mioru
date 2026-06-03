@@ -265,12 +265,29 @@
     "myAvatar": "My avatar",
     "orderHistory": "Order history",
     "noOrders": "No orders yet",
+    "itemsCount": "items",
     "orderStatus": {
       "pending": "Pending",
       "processing": "Processing",
       "shipped": "Shipped",
       "delivered": "Delivered",
       "cancelled": "Cancelled"
+    },
+    "orderType": {
+      "cart": "Cart",
+      "individual": "Individual"
+    },
+    "delivery": {
+      "personal": "Personal meeting",
+      "address": "Address delivery",
+      "bus": "Shuttle bus",
+      "express": "Express mail",
+      "moldovaPost": "Moldova Post"
+    },
+    "deliveryTime": {
+      "fast": "As soon as possible",
+      "medium": "Within a week",
+      "slow": "Within a month"
     }
   },
   "avatar": {

@@ -273,12 +273,29 @@
     "myAvatar": "Мой аватар",
     "orderHistory": "История заказов",
     "noOrders": "У вас пока нет заказов",
+    "itemsCount": "поз.",
     "orderStatus": {
       "pending": "Ожидает",
       "processing": "В обработке",
       "shipped": "Отправлен",
       "delivered": "Доставлен",
       "cancelled": "Отменён"
+    },
+    "orderType": {
+      "cart": "Корзина",
+      "individual": "Индивидуальный"
+    },
+    "delivery": {
+      "personal": "Личная встреча",
+      "address": "Доставка по адресу",
+      "bus": "Маршрутка",
+      "express": "Экспресс-почта",
+      "moldovaPost": "Почта Молдовы"
+    },
+    "deliveryTime": {
+      "fast": "Как можно быстрее",
+      "medium": "В течение недели",
+      "slow": "В течение месяца"
     }
   },
   "avatar": {
