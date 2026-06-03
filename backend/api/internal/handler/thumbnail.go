@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"image/png"
 	"os"
 
@@ -58,6 +59,9 @@ func generateThumbnail(srcPath, dstPath string, maxWidth, maxHeight int) error {
 	dstH := int(float64(srcH) * scale)
 
 	dst := image.NewRGBA(image.Rect(0, 0, dstW, dstH))
+	// Fill with site gray (#f0f0f0) so thumbnails have a consistent background
+	// instead of white from opaque source images.
+	draw.Draw(dst, dst.Bounds(), &image.Uniform{color.RGBA{0xf0, 0xf0, 0xf0, 0xff}}, image.Point{}, draw.Src)
 	draw.CatmullRom.Scale(dst, dst.Bounds(), img, img.Bounds(), draw.Over, nil)
 
 	out, err := os.Create(dstPath)

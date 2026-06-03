@@ -53,7 +53,7 @@ export default function FeaturedProducts() {
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className="relative aspect-[4/5] overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] animate-pulse"
+                className="relative aspect-[4/5] overflow-hidden rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)] animate-pulse"
               >
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-5xl opacity-20">👤</span>
@@ -73,7 +73,7 @@ export default function FeaturedProducts() {
                 className="group"
               >
                 <Link to={`/product/${product.slug}`}>
-                    <div className="card-hover overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)]">
+                    <div className="card-hover overflow-hidden rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)]">
                       <div className="relative aspect-[4/5] overflow-hidden">
                         {/* Product image placeholder */}
                         <div className="absolute inset-0 flex items-center justify-center">

@@ -30,7 +30,7 @@ function CategoryCard({ category, index }: { category: { id: number; name: strin
       transition={{ duration: 0.6, delay: index * 0.1 }}
     >
       <Link to={`/catalog/${category.slug}`}>
-        <div className="card-hover group relative h-[400px] w-[300px] overflow-hidden rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)]">
+        <div className="card-hover group relative h-[400px] w-[300px] overflow-hidden rounded-2xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)]">
           {/* Product image */}
           {imageUrl && !imgError && (
             <img

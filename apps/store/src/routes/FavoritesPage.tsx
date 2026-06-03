@@ -62,7 +62,7 @@ export default function FavoritesPage() {
               transition={{ duration: 0.4, delay: index * 0.05 }}
               className="group"
             >
-              <div className="card-hover overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)]">
+              <div className="card-hover overflow-hidden rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)]">
                 <Link to={`/product/${item.slug}`}>
                   <div className="relative aspect-[4/5] overflow-hidden">
                     {item.imageUrl ? (

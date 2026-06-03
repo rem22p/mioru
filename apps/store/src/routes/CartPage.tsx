@@ -80,7 +80,7 @@ export default function CartPage() {
               className="flex items-start gap-3 sm:gap-4 rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-3 sm:p-4"
             >
               {/* Image */}
-              <Link to={`/product/${item.product.slug}`} className="relative aspect-[4/5] w-20 sm:w-24 shrink-0 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] overflow-hidden">
+              <Link to={`/product/${item.product.slug}`} className="relative aspect-[4/5] w-20 sm:w-24 shrink-0 rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)] overflow-hidden">
                 {item.product.images?.[0]?.url ? (
                   <img
                     src={getThumbUrl(item.product.images[0].url)}
