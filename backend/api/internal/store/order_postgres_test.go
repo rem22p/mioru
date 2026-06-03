@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"mioru/internal/model"
 )
@@ -117,5 +119,350 @@ func TestListCustomerOrdersIsolation(t *testing.T) {
 	// the one with highest ID (last inserted) should be first.
 	if len(orders) > 1 && orders[0].ID < orders[1].ID {
 		t.Errorf("orders not newest-first: [0].ID=%d < [1].ID=%d", orders[0].ID, orders[1].ID)
+	}
+}
+
+// ── CreateOrder tests ──
+
+// seedProduct inserts a product with stock and returns its ID.
+// The product price is in MDL (minor = price * 100).
+func seedProduct(t *testing.T, s *PostgresStore, slug string, priceMDL int, stock int) int64 {
+	t.Helper()
+	var id int64
+	err := s.pool.QueryRow(context.Background(), `
+		INSERT INTO products (slug, category_id, brand, name, price, color, status, stock_quantity, created_by)
+		VALUES ($1, 1, 'TestBrand', 'Test Product', $2, 'red', 'active', $3, 'test')
+		RETURNING id`, slug, priceMDL, stock).Scan(&id)
+	if err != nil {
+		t.Fatalf("seedProduct: %v", err)
+	}
+	return id
+}
+
+// TestCreateOrderRecalculatesPrice verifies that the server recalculates
+// total_minor and price_minor from DB prices, ignoring client-supplied values.
+func TestCreateOrderRecalculatesPrice(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	// Seed customer
+	if err := s.CreateCustomer(ctx, model.Customer{Email: "price@test.com", HashedPW: "h"}); err != nil {
+		t.Fatalf("CreateCustomer: %v", err)
+	}
+	cust, _ := s.GetCustomerByEmail(ctx, "price@test.com")
+
+	// Seed products with known prices (500 MDL and 300 MDL)
+	pid1 := seedProduct(t, s, "price-test-1", 500, 10) // 50000 minor
+	pid2 := seedProduct(t, s, "price-test-2", 300, 10) // 30000 minor
+
+	order := &model.Order{
+		Type:           "cart",
+		City:           "Tiraspol",
+		DeliveryMethod: "personal",
+		PaymentMethod:  "cash",
+	}
+	items := []model.OrderItem{
+		{ProductID: pid1, SizeLabel: "M", Quantity: 2}, // PriceMinor should be 50000, not from client
+		{ProductID: pid2, SizeLabel: "L", Quantity: 1}, // PriceMinor should be 30000
+	}
+
+	created, err := s.CreateOrder(ctx, cust.ID, order, items, "price-test-key-1", "hash-1")
+	if err != nil {
+		t.Fatalf("CreateOrder: %v", err)
+	}
+
+	// Total should be server-calculated: 2*50000 + 1*30000 = 130000
+	wantTotal := int64(130000)
+	if created.TotalMinor != wantTotal {
+		t.Errorf("TotalMinor = %d, want %d (server-calculated)", created.TotalMinor, wantTotal)
+	}
+
+	if len(created.Items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(created.Items))
+	}
+	if created.Items[0].PriceMinor != 50000 {
+		t.Errorf("item 0 PriceMinor = %d, want 50000", created.Items[0].PriceMinor)
+	}
+	if created.Items[1].PriceMinor != 30000 {
+		t.Errorf("item 1 PriceMinor = %d, want 30000", created.Items[1].PriceMinor)
+	}
+}
+
+// TestCreateOrderDecrementsStock verifies that product stock is atomically
+// decremented when an order is created.
+func TestCreateOrderDecrementsStock(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	if err := s.CreateCustomer(ctx, model.Customer{Email: "stock@test.com", HashedPW: "h"}); err != nil {
+		t.Fatalf("CreateCustomer: %v", err)
+	}
+	cust, _ := s.GetCustomerByEmail(ctx, "stock@test.com")
+
+	pid := seedProduct(t, s, "stock-test", 100, 5)
+
+	order := &model.Order{
+		Type:           "cart",
+		City:           "Tiraspol",
+		DeliveryMethod: "personal",
+		PaymentMethod:  "cash",
+	}
+	items := []model.OrderItem{
+		{ProductID: pid, SizeLabel: "M", Quantity: 3},
+	}
+
+	_, err := s.CreateOrder(ctx, cust.ID, order, items, "stock-key-1", "hash-stock-1")
+	if err != nil {
+		t.Fatalf("CreateOrder: %v", err)
+	}
+
+	// Verify stock decremented to 2
+	var stock int
+	err = s.pool.QueryRow(ctx, `SELECT stock_quantity FROM products WHERE id = $1`, pid).Scan(&stock)
+	if err != nil {
+		t.Fatalf("query stock: %v", err)
+	}
+	if stock != 2 {
+		t.Errorf("stock = %d, want 2", stock)
+	}
+}
+
+// TestCreateOrderOversellFails verifies that ordering more than available
+// stock fails the transaction.
+func TestCreateOrderOversellFails(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	if err := s.CreateCustomer(ctx, model.Customer{Email: "oversell@test.com", HashedPW: "h"}); err != nil {
+		t.Fatalf("CreateCustomer: %v", err)
+	}
+	cust, _ := s.GetCustomerByEmail(ctx, "oversell@test.com")
+
+	pid := seedProduct(t, s, "oversell-test", 100, 2)
+
+	order := &model.Order{
+		Type:           "cart",
+		City:           "Tiraspol",
+		DeliveryMethod: "personal",
+		PaymentMethod:  "cash",
+	}
+	items := []model.OrderItem{
+		{ProductID: pid, SizeLabel: "M", Quantity: 5}, // only 2 in stock
+	}
+
+	_, err := s.CreateOrder(ctx, cust.ID, order, items, "oversell-key-1", "hash-over-1")
+	if err == nil {
+		t.Fatal("expected error for oversell, got nil")
+	}
+
+	// Verify stock was NOT decremented (transaction rolled back)
+	var stock int
+	err = s.pool.QueryRow(ctx, `SELECT stock_quantity FROM products WHERE id = $1`, pid).Scan(&stock)
+	if err != nil {
+		t.Fatalf("query stock: %v", err)
+	}
+	if stock != 2 {
+		t.Errorf("stock = %d, want 2 (unchanged after failed order)", stock)
+	}
+}
+
+// TestCreateOrderIdempotencyReplay verifies that repeating the same
+// idempotency key + request hash returns the stored order without
+// re-executing.
+func TestCreateOrderIdempotencyReplay(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	if err := s.CreateCustomer(ctx, model.Customer{Email: "idem@test.com", HashedPW: "h"}); err != nil {
+		t.Fatalf("CreateCustomer: %v", err)
+	}
+	cust, _ := s.GetCustomerByEmail(ctx, "idem@test.com")
+
+	pid := seedProduct(t, s, "idem-test", 100, 10)
+
+	order := &model.Order{
+		Type:           "cart",
+		City:           "Tiraspol",
+		DeliveryMethod: "personal",
+		PaymentMethod:  "cash",
+	}
+	items := []model.OrderItem{
+		{ProductID: pid, SizeLabel: "M", Quantity: 1},
+	}
+
+	// First call
+	created1, err := s.CreateOrder(ctx, cust.ID, order, items, "idem-replay-key", "hash-replay")
+	if err != nil {
+		t.Fatalf("first CreateOrder: %v", err)
+	}
+
+	// Second call with same key + hash — should return the stored order
+	created2, err := s.CreateOrder(ctx, cust.ID, order, items, "idem-replay-key", "hash-replay")
+	if err != nil {
+		t.Fatalf("replay CreateOrder: %v", err)
+	}
+
+	if created2.ID != created1.ID {
+		t.Errorf("replay returned order %d, want same as original %d", created2.ID, created1.ID)
+	}
+	if created2.TotalMinor != created1.TotalMinor {
+		t.Errorf("replay TotalMinor = %d, want %d", created2.TotalMinor, created1.TotalMinor)
+	}
+
+	// Verify only 1 order exists in DB
+	var count int
+	err = s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM orders WHERE customer_id = $1`, cust.ID).Scan(&count)
+	if err != nil {
+		t.Fatalf("count orders: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("order count = %d, want 1 (replay must not create duplicate)", count)
+	}
+
+	// Stock decremented only once
+	var stock int
+	err = s.pool.QueryRow(ctx, `SELECT stock_quantity FROM products WHERE id = $1`, pid).Scan(&stock)
+	if err != nil {
+		t.Fatalf("query stock: %v", err)
+	}
+	if stock != 9 {
+		t.Errorf("stock = %d, want 9 (decremented only once)", stock)
+	}
+}
+
+// TestCreateOrderIdempotencyHashMismatch verifies that reusing an
+// idempotency key with a different request hash returns
+// ErrIdempotencyHashMismatch.
+func TestCreateOrderIdempotencyHashMismatch(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	if err := s.CreateCustomer(ctx, model.Customer{Email: "mismatch@test.com", HashedPW: "h"}); err != nil {
+		t.Fatalf("CreateCustomer: %v", err)
+	}
+	cust, _ := s.GetCustomerByEmail(ctx, "mismatch@test.com")
+
+	pid := seedProduct(t, s, "mismatch-test", 100, 10)
+
+	order := &model.Order{
+		Type:           "cart",
+		City:           "Tiraspol",
+		DeliveryMethod: "personal",
+		PaymentMethod:  "cash",
+	}
+	items := []model.OrderItem{
+		{ProductID: pid, SizeLabel: "M", Quantity: 1},
+	}
+
+	// First call with hash-A
+	_, err := s.CreateOrder(ctx, cust.ID, order, items, "mismatch-key", "hash-A")
+	if err != nil {
+		t.Fatalf("first CreateOrder: %v", err)
+	}
+
+	// Second call with same key but different hash
+	_, err = s.CreateOrder(ctx, cust.ID, order, items, "mismatch-key", "hash-B")
+	if !errors.Is(err, ErrIdempotencyHashMismatch) {
+		t.Errorf("want ErrIdempotencyHashMismatch, got %v", err)
+	}
+}
+
+// TestUpdateOrderStatusValidatesEnum verifies that only valid statuses are accepted.
+func TestUpdateOrderStatusValidatesEnum(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	if err := s.CreateCustomer(ctx, model.Customer{Email: "status@test.com", HashedPW: "h"}); err != nil {
+		t.Fatalf("CreateCustomer: %v", err)
+	}
+	cust, _ := s.GetCustomerByEmail(ctx, "status@test.com")
+
+	// Create an order directly
+	var orderID int64
+	err := s.pool.QueryRow(ctx,
+		`INSERT INTO orders (customer_id, total_minor, status) VALUES ($1, 1000, 'pending') RETURNING id`,
+		cust.ID).Scan(&orderID)
+	if err != nil {
+		t.Fatalf("insert order: %v", err)
+	}
+
+	// Valid transition
+	if err := s.UpdateOrderStatus(ctx, orderID, "processing"); err != nil {
+		t.Errorf("valid status 'processing' should succeed, got: %v", err)
+	}
+
+	// Invalid status
+	if err := s.UpdateOrderStatus(ctx, orderID, "bogus"); err == nil {
+		t.Error("invalid status 'bogus' should fail")
+	}
+}
+
+// TestCreateOrderWithInjectedClock verifies that the idempotency expires_at
+// uses the injected clock, not wall-clock time.
+func TestCreateOrderWithInjectedClock(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	// Inject a fixed clock
+	fixedTime := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	s.clock = func() time.Time { return fixedTime }
+
+	if err := s.CreateCustomer(ctx, model.Customer{Email: "clock@test.com", HashedPW: "h"}); err != nil {
+		t.Fatalf("CreateCustomer: %v", err)
+	}
+	cust, _ := s.GetCustomerByEmail(ctx, "clock@test.com")
+
+	pid := seedProduct(t, s, "clock-test", 100, 10)
+
+	order := &model.Order{
+		Type:           "cart",
+		City:           "Tiraspol",
+		DeliveryMethod: "personal",
+		PaymentMethod:  "cash",
+	}
+	items := []model.OrderItem{
+		{ProductID: pid, SizeLabel: "M", Quantity: 1},
+	}
+
+	_, err := s.CreateOrder(ctx, cust.ID, order, items, "clock-key", "clock-hash")
+	if err != nil {
+		t.Fatalf("CreateOrder: %v", err)
+	}
+
+	// Verify expires_at = fixedTime + 48h
+	var expiresAt time.Time
+	err = s.pool.QueryRow(ctx,
+		`SELECT expires_at FROM order_idempotency WHERE key = $1 AND user_id = $2`,
+		"clock-key", cust.ID).Scan(&expiresAt)
+	if err != nil {
+		t.Fatalf("query idempotency: %v", err)
+	}
+
+	wantExpiry := fixedTime.Add(48 * time.Hour)
+	if !expiresAt.Equal(wantExpiry) {
+		t.Errorf("expires_at = %v, want %v", expiresAt, wantExpiry)
+	}
+}
+
+// TestGetProductPriceMap verifies that prices are loaded correctly.
+func TestGetProductPriceMap(t *testing.T) {
+	s := testStore(t)
+
+	pid1 := seedProduct(t, s, "pricemap-1", 500, 10) // 50000 minor
+	pid2 := seedProduct(t, s, "pricemap-2", 300, 10) // 30000 minor
+
+	prices, err := s.GetProductPriceMap(context.Background(), []int64{pid1, pid2, 99999})
+	if err != nil {
+		t.Fatalf("GetProductPriceMap: %v", err)
+	}
+
+	if prices[pid1] != 50000 {
+		t.Errorf("price for pid1 = %d, want 50000", prices[pid1])
+	}
+	if prices[pid2] != 30000 {
+		t.Errorf("price for pid2 = %d, want 30000", prices[pid2])
+	}
+	if _, ok := prices[99999]; ok {
+		t.Error("non-existent product should not be in map")
 	}
 }

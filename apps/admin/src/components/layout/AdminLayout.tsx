@@ -5,6 +5,7 @@ import { useUiStore } from "@/stores/uiStore";
 import Sidebar from "./Sidebar";
 import Placeholder from "@/components/common/Placeholder";
 import Products from "@/workspaces/Products";
+import Orders from "@/workspaces/Orders";
 import Users from "@/workspaces/Users";
 import Profile from "@/workspaces/Profile";
 import Settings from "@/workspaces/Settings";
@@ -57,6 +58,7 @@ export default function AdminLayout() {
         <Routes>
           <Route path="/" element={<Navigate to="/products" replace />} />
           <Route path="/products" element={<Products />} />
+          <Route path="/orders" element={<Orders />} />
           <Route path="/users" element={user?.role === "super_admin" ? <Users /> : <Navigate to="/products" replace />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />

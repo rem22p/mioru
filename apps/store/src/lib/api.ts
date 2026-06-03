@@ -219,6 +219,63 @@ export interface StoreOrder {
 export const fetchStoreCustomerOrders = () =>
   api<{ orders: StoreOrder[]; total: number; page: number; per_page: number }>("/api/store/customers/me/orders");
 
+// ── Orders (checkout) ──
+
+export interface CreateOrderItem {
+  product_id: number;
+  size_label: string;
+  quantity: number;
+  price_minor: number;
+}
+
+export interface CreateOrderData {
+  type: string;
+  city: string;
+  delivery_method: string;
+  payment_method: string;
+  street?: string;
+  house?: string;
+  apartment?: string;
+  comment?: string;
+  total_minor: number;
+  height?: number;
+  weight?: number;
+  delivery_time?: string[];
+  photos?: string[];
+  items?: CreateOrderItem[];
+}
+
+export const createOrder = (data: CreateOrderData, idempotencyKey: string) =>
+  api<{ id: number; status: string; created_at: string }>("/api/store/orders", {
+    method: "POST",
+    body: JSON.stringify(data),
+    headers: { "Idempotency-Key": idempotencyKey },
+  });
+
+/** Upload a photo for an individual order. Returns the file URL path (e.g. /uploads/xxx.png). */
+export const uploadOrderPhoto = async (file: File): Promise<string> => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const method = "POST";
+  const headers: Record<string, string> = {};
+  const csrf = readCookie(CSRF_COOKIE);
+  if (csrf) headers["X-CSRF-Token"] = csrf;
+
+  const res = await fetch(`${API_URL}/api/store/orders/upload-photo`, {
+    method,
+    credentials: "include",
+    body: formData,
+    headers,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: "Upload failed" }));
+    throw new Error((body as ApiError).error || "Upload failed");
+  }
+  const data = await res.json();
+  return data.url;
+};
+
 // ── OAuth ──
 
 export interface TelegramAuthData {

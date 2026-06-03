@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/tern/v2/migrate"
@@ -23,10 +24,12 @@ var migrationsFS embed.FS
 
 // PostgresStore provides PostgreSQL-based persistence for users, products, and categories.
 type PostgresStore struct {
-	pool *pgxpool.Pool
+	pool  *pgxpool.Pool
+	clock func() time.Time
 }
 
 // NewPostgresStore creates a connection pool and runs migrations.
+// The clock defaults to time.Now; inject a fixed clock in tests.
 func NewPostgresStore(ctx context.Context, databaseURL string) (*PostgresStore, error) {
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -38,7 +41,7 @@ func NewPostgresStore(ctx context.Context, databaseURL string) (*PostgresStore, 
 		return nil, fmt.Errorf("pgxpool ping: %w", err)
 	}
 
-	s := &PostgresStore{pool: pool}
+	s := &PostgresStore{pool: pool, clock: time.Now}
 	if err := s.migrate(ctx); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("migrate: %w", err)

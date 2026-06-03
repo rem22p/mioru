@@ -14,14 +14,16 @@ import (
 const minSecretKeyLen = 32
 
 type Config struct {
-	SecretKey        string
-	TokenExpiry      int
-	Port             string
-	DatabaseURL      string
-	UploadDir        string
-	AppEnv           string
-	TelegramBotToken string
-	CookieDomain     string
+	SecretKey              string
+	TokenExpiry            int
+	Port                   string
+	DatabaseURL            string
+	UploadDir              string
+	APIBaseURL             string
+	AppEnv                 string
+	TelegramBotToken       string
+	TelegramManagerChatIDs []string
+	CookieDomain           string
 }
 
 func Load() Config {
@@ -55,17 +57,40 @@ func Load() Config {
 		log.Printf("WARNING: TELEGRAM_BOT_TOKEN not set — Telegram login is disabled")
 	}
 
+	managerChatsRaw := os.Getenv("TELEGRAM_MANAGER_CHAT_IDS")
+	var managerChatIDs []string
+	if managerChatsRaw != "" {
+		for _, id := range strings.Split(managerChatsRaw, ",") {
+			id = strings.TrimSpace(id)
+			if id != "" {
+				managerChatIDs = append(managerChatIDs, id)
+			}
+		}
+	}
+
+	apiBaseURL := os.Getenv("API_BASE_URL")
+	if apiBaseURL == "" {
+		if isProduction(appEnv) {
+			apiBaseURL = "https://api.mioru.store"
+		} else {
+			apiBaseURL = "http://localhost:" + port
+		}
+	}
+	apiBaseURL = strings.TrimRight(apiBaseURL, "/")
+
 	cookieDomain := os.Getenv("COOKIE_DOMAIN")
 
 	return Config{
-		SecretKey:        secret,
-		TokenExpiry:      1440,
-		Port:             port,
-		DatabaseURL:      databaseURL,
-		UploadDir:        uploadDir,
-		AppEnv:           appEnv,
-		TelegramBotToken: telegramBotToken,
-		CookieDomain:     cookieDomain,
+		SecretKey:              secret,
+		TokenExpiry:            1440,
+		Port:                   port,
+		DatabaseURL:            databaseURL,
+		UploadDir:              uploadDir,
+		APIBaseURL:             apiBaseURL,
+		AppEnv:                 appEnv,
+		TelegramBotToken:       telegramBotToken,
+		TelegramManagerChatIDs: managerChatIDs,
+		CookieDomain:           cookieDomain,
 	}
 }
 
