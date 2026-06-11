@@ -28,9 +28,6 @@ export default function CTASection() {
             <br />
             <span className="text-[#44944A]">{t('home.cta.title2')}</span>
           </h2>
-          <p className="mx-auto mt-6 max-w-lg text-lg text-[var(--color-text-secondary)]">
-            {t('home.cta.description')}
-          </p>
         </motion.div>
 
         <motion.div

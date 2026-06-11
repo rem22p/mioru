@@ -95,20 +95,29 @@
       "title": "Our advantages",
       "items": [
         {
-          "label": "3D Avatar",
-          "desc": "Create an accurate digital twin of your body"
+          "label": "Easy clothing catalog",
+          "desc": "Browse the full collection with filters",
+          "link": "/catalog"
         },
         {
-          "label": "Virtual Try-On",
-          "desc": "See how it fits before you buy"
+          "label": "Custom orders",
+          "desc": "Get any item tailored to your measurements",
+          "link": "/custom-order"
         },
         {
           "label": "XP bonus system",
-          "desc": "Earn points and unlock rewards"
+          "desc": "Earn points and unlock rewards",
+          "link": "/profile"
         },
         {
-          "label": "Order tracking — coming soon",
-          "desc": ""
+          "label": "Order tracking",
+          "desc": "See your orders and their status",
+          "link": "/profile#orders"
+        },
+        {
+          "label": "Virtual Try-On",
+          "desc": "See how it fits before you buy",
+          "link": "/avatar"
         }
       ]
     },

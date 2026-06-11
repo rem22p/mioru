@@ -602,7 +602,6 @@ export default function CatalogPage() {
                             </span>
                           </div>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-bg-primary)] via-transparent to-transparent opacity-60 pointer-events-none" />
                         <button
                           onClick={(e) => {
                             e.preventDefault();

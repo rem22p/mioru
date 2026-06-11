@@ -98,9 +98,6 @@ export default function FeaturedProducts() {
                           </div>
                         )}
 
-                        {/* Overlay on hover */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-bg-primary)] via-transparent to-transparent opacity-60 pointer-events-none" />
-
                         {/* Quick add button */}
                         <button
                           onClick={(e) => {

@@ -95,20 +95,29 @@
       "title": "Avantajele noastre",
       "items": [
         {
-          "label": "Avatar 3D",
-          "desc": "Creează o copie digitală fidelă a corpului tău"
+          "label": "Catalog de haine comod",
+          "desc": "Răsfoiește colecția completă cu filtre",
+          "link": "/catalog"
         },
         {
-          "label": "Probă virtuală",
-          "desc": "Vezi cum îți stă înainte să cumperi"
+          "label": "Comenzi personalizate",
+          "desc": "Comandă orice articol pe măsurile tale",
+          "link": "/custom-order"
         },
         {
           "label": "Sistem XP",
-          "desc": "Câștigă puncte și deblochează recompense"
+          "desc": "Câștigă puncte și deblochează recompense",
+          "link": "/profile"
         },
         {
-          "label": "Tracking comenzi — în curând",
-          "desc": ""
+          "label": "Tracking comenzi",
+          "desc": "Vezi comenzile și statusul lor",
+          "link": "/profile#orders"
+        },
+        {
+          "label": "Probă virtuală",
+          "desc": "Vezi cum îți stă înainte să cumperi",
+          "link": "/avatar"
         }
       ]
     },

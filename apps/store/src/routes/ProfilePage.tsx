@@ -128,7 +128,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Orders */}
-        <div className="mt-12">
+        <div id="orders" className="mt-12">
           <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-6">
             {t("profile.orderHistory")}
           </h3>

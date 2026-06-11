@@ -15,12 +15,14 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: "http://localhost:8000",
+        target: "https://api.mioru.store",
         changeOrigin: true,
+        secure: true,
       },
       "/uploads": {
-        target: "http://localhost:8000",
+        target: "https://api.mioru.store",
         changeOrigin: true,
+        secure: true,
       },
     },
   },

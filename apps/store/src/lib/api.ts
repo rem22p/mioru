@@ -1,6 +1,6 @@
 import type { Product, Category } from "@/types";
 
-const API_URL = import.meta.env.VITE_API_URL || "https://api.mioru.store";
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.MODE === "development" ? "" : "https://api.mioru.store");
 
 export function getImageUrl(path: string): string {
   if (!path) return "";
