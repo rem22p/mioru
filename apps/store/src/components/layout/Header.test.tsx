@@ -10,7 +10,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => {
       const map: Record<string, string> = {
-        "nav.inStock": "В НАЛИЧИИ",
+        "nav.inStock": "КАТАЛОГ",
         "nav.customOrder": "ИНДИВИДУАЛЬНЫЙ ЗАКАЗ",
         "nav.avatar": "АВАТАР",
         "nav.cart": "КОРЗИНА",
@@ -67,7 +67,7 @@ describe("Header — layout & rendering", () => {
 
   it("renders all nav links", () => {
     renderHeader();
-    expect(screen.getByText("В НАЛИЧИИ")).toBeInTheDocument();
+    expect(screen.getByText("КАТАЛОГ")).toBeInTheDocument();
     expect(screen.getByText("ИНДИВИДУАЛЬНЫЙ ЗАКАЗ")).toBeInTheDocument();
     expect(screen.getByText("АВАТАР")).toBeInTheDocument();
   });
@@ -112,7 +112,7 @@ describe("Header — layout & rendering", () => {
 
   it("does not show mobile menu overlay by default", () => {
     renderHeader();
-    const catalogLinks = screen.getAllByText("В НАЛИЧИИ");
+    const catalogLinks = screen.getAllByText("КАТАЛОГ");
     // Only one set of nav links (desktop) when menu is closed
     expect(catalogLinks.length).toBe(1);
   });
