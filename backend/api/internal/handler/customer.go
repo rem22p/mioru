@@ -953,7 +953,13 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.store.CreateOrder(r.Context(), customerID, order, items, idempotencyKey, requestHash)
 	if err != nil {
-		slog.Error("CreateOrder failed", "customer_id", customerID, "error", err)
+		// Sentinel branches first — these are *expected* business
+		// outcomes (concurrent double-click, hash conflict, oversell),
+		// not operation failures. Per CLAUDE.md log standard, ERROR
+		// means "operation failed" — logging these at ERROR would
+		// noise the alerting channel with benign traffic. The
+		// catch-all slog.Error at the bottom of this block stays for
+		// the genuine 500 path.
 		if errors.Is(err, store.ErrIdempotencyHashMismatch) {
 			jsonErrorCode(w, "idempotency key reused with different request", http.StatusConflict, "IDEMPOTENCY_REPLAY")
 			return
@@ -987,6 +993,11 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 			jsonErrorCode(w, "товара нет в наличии", http.StatusConflict, "INSUFFICIENT_STOCK")
 			return
 		}
+		// Catch-all 500: this is the only path that warrants
+		// slog.Error under the CLAUDE.md log standard. Sentinels
+		// above (idempotency, oversell) are expected business
+		// outcomes and intentionally silent at the log level.
+		slog.Error("CreateOrder failed", "customer_id", customerID, "error", err)
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}

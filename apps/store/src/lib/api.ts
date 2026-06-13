@@ -138,14 +138,18 @@ export const fetchStoreProducts = (query: CatalogQuery = {}) => {
 };
 
 export const fetchStoreProductFacets = (query: CatalogQuery = {}) => {
-  // Strip the chip selections — the backend ignores them anyway, but trimming
-  // here keeps the URL short and avoids a wasteful re-fetch when the user
-  // toggles a chip (facets only depend on category/search/price scope).
+  // Facets follow the scope of the active catalog view: category, search,
+  // price, AND the in-stock / preorder status toggle. Without `status`,
+  // chip counts on the "Preorder" tab would mirror the "In stock" tab —
+  // a real UX bug. The backend's ListFacets already keeps
+  // `filter.Status` and totals products per status, so this just stops
+  // the client from stripping it.
   const scope: CatalogQuery = {
     category_id: query.category_id,
     search: query.search,
     price_min: query.price_min,
     price_max: query.price_max,
+    status: query.status,
   };
   const qs = buildCatalogParams(scope);
   return api<ProductFacets>("/api/products/facets" + (qs ? "?" + qs : ""));

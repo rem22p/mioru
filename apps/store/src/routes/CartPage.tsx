@@ -160,7 +160,7 @@ export default function CartPage() {
                 {t("cart.items")} ({totalItems})
               </span>
               <span className="text-[var(--color-text-primary)]">
-                {totalPrice.toLocaleString("ru-RU")} ₽
+                {formatPrice(totalPrice, currency)}
               </span>
             </div>
             <div className="flex justify-between text-sm">
@@ -175,7 +175,7 @@ export default function CartPage() {
                   {t("cart.total")}
                 </span>
                 <span className="font-bold text-[#44944A] text-lg">
-                  {totalPrice.toLocaleString("ru-RU")} ₽
+                  {formatPrice(totalPrice, currency)}
                 </span>
               </div>
             </div>
