@@ -13,18 +13,18 @@ import (
 
 // CreateCustomer inserts a new customer into PostgreSQL.
 // Email and hashed_password may be empty for OAuth customers.
+// Phone is required at the DB level (NOT NULL DEFAULT ”), so we pass
+// c.Phone as-is — wrapping it in NULLIF(”, ”) would convert an empty
+// phone to NULL and trip the not-null constraint (SQLSTATE 23502).
 func (s *PostgresStore) CreateCustomer(ctx context.Context, c model.Customer) error {
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO customers (email, hashed_password, first_name, last_name, phone, avatar_color)
-		VALUES (NULLIF($1, ''), NULLIF($2, ''), $3, $4, NULLIF($5, ''), $6)`,
+		VALUES (NULLIF($1, ''), NULLIF($2, ''), $3, $4, $5, $6)`,
 		c.Email, c.HashedPW, c.FirstName, c.LastName, c.Phone, c.AvatarColor,
 	)
 	if err != nil {
 		errStr := err.Error()
 		if strings.Contains(errStr, "unique") || strings.Contains(errStr, "duplicate") {
-			if strings.Contains(errStr, "phone") {
-				return fmt.Errorf("phone already registered")
-			}
 			return fmt.Errorf("email already registered")
 		}
 		return fmt.Errorf("create customer: %w", err)

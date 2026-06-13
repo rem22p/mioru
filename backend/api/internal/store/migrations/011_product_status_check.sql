@@ -10,11 +10,24 @@
 -- before insert, so the wire format is consistent; this constraint is the
 -- last line of defence for any path that bypasses the handler.
 --
--- Migration is idempotent for fresh DBs: ADD CONSTRAINT ... IF NOT EXISTS
--- would be ideal, but tern runs each file once per version, so a plain
--- ADD CONSTRAINT is safe — the file is only applied on the version bump.
--- For existing DBs the IF NOT EXISTS guard avoids the failure when a partial
--- deploy had the constraint but a fresh baseline didn't.
+-- Backfill BEFORE the constraint is added: the legacy admin SPA wrote
+-- status='none' for sold-out rows (the dropdown value the admin code
+-- still sends today). Without this backfill, a filtered query
+-- (WHERE p.status IN ('in_stock','preorder')) would silently drop those
+-- rows from the storefront. We map every non-canonical status to
+-- 'in_stock' as a conservative default — the next admin edit can correct
+-- it. (Mapping to 'out_of_stock' would be more accurate semantically,
+-- but 'in_stock' is the visible default the storefront already shows for
+-- the bulk of legacy rows.) The CHECK is NOT VALID so it doesn't run on
+-- existing rows; the backfill is the only place we read them.
+--
+-- tern applies each file once per version, so plain ADD CONSTRAINT is
+-- safe — the file is only applied on the version bump.
+
+UPDATE products
+SET    status = 'in_stock'
+WHERE  status IS NULL
+   OR  status NOT IN ('in_stock', 'preorder', 'out_of_stock');
 
 ALTER TABLE products
     ADD CONSTRAINT products_status_chk

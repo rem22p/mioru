@@ -185,8 +185,6 @@ func (h *CustomerHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if err := h.store.CreateCustomer(r.Context(), c); err != nil {
 		if err.Error() == "email already registered" {
 			jsonError(w, "email уже зарегистрирован", http.StatusConflict)
-		} else if err.Error() == "phone already registered" {
-			jsonError(w, "номер уже зарегистрирован", http.StatusConflict)
 		} else {
 			jsonError(w, "internal error", http.StatusInternalServerError)
 		}

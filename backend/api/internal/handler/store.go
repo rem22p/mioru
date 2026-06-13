@@ -150,7 +150,12 @@ func parseProductFilter(r *http.Request) (model.ProductFilter, error) {
 		case "in_stock", "preorder", "out_of_stock":
 			filter.Status = raw
 		default:
-			return filter, fmt.Errorf("invalid status %q: must be one of in_stock, preorder, out_of_stock", raw)
+			// Don't leak the raw user input or the full enum in a public
+			// error message — the wire-format contract is "valid or
+			// rejected", and a generic code is enough for the client
+			// to surface. A leaked enum tells an attacker the exact
+			// set to probe; the raw value can be logged server-side.
+			return filter, fmt.Errorf("invalid status value")
 		}
 	}
 	filter.Sort = q.Get("sort")
