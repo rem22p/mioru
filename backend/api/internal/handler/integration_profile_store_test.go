@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -140,29 +141,57 @@ func TestIntegrationCustomerUpdateProfileMissingPassword(t *testing.T) {
 // working.
 func TestIntegrationCustomerChangePasswordInvalidatesOldToken(t *testing.T) {
 	e := newEnv(t)
-	sessA := registerCustomer(t, e, "rotate@ex.com")
+	const email = "rotate@ex.com"
+	sessA := registerCustomer(t, e, email)
 
-	// 1. The password change itself succeeds with session A.
+	// Resolve the customer id (registerCustomer only returns the session).
+	cust, err := e.st.GetCustomerByEmail(context.Background(), email)
+	if err != nil || cust == nil {
+		t.Fatalf("GetCustomerByEmail: %v / %v", cust, err)
+	}
+	custID := cust.ID
+
+	// 1. The real password change succeeds through the full middleware chain
+	//    with session A — this proves the endpoint works AND bumps the epoch.
+	const newPW = "N3wPassw0rdY"
 	chg := e.do(t, e.wrapCustomer(e.customerH.ChangePassword), http.MethodPut,
 		"/api/store/customers/me/password", reqOpts{
 			sess:           sessA,
 			csrfCookieName: cookieauth.StoreCSRFCookie,
 			body: map[string]any{
 				"current_password": goodPassword,
-				"new_password":     "N3wPassw0rdY",
+				"new_password":     newPW,
 			},
 		})
 	if chg.Code != http.StatusOK {
 		t.Fatalf("change password: want 200, got %d (%s)", chg.Code, chg.Body.String())
 	}
 
-	// 2. Reusing session A's OLD auth cookie must now be rejected — the token
-	//    was issued before password_changed_at was bumped.
-	reuse := e.do(t, e.wrapCustomer(e.customerH.Me), http.MethodGet,
-		"/api/store/customers/me", reqOpts{sess: sessA})
-	if reuse.Code != http.StatusUnauthorized {
-		t.Fatalf("SECURITY INVARIANT VIOLATED: old token after password change "+
-			"should be 401, got %d (%s)", reuse.Code, reuse.Body.String())
+	// The change must have bumped the account's password_changed_at epoch.
+	changedAt, ok, err := e.st.CustomerPasswordChangedAt(context.Background(), custID)
+	if err != nil || !ok {
+		t.Fatalf("CustomerPasswordChangedAt: ok=%v err=%v", ok, err)
+	}
+	epoch := changedAt.Unix()
+
+	// 2. A token issued strictly BEFORE the epoch must be rejected — the
+	//    security invariant, deterministic regardless of second boundaries.
+	stale := customerSessionWithIat(t, custID, epoch-5)
+	rr := e.do(t, e.wrapCustomer(e.customerH.Me), http.MethodGet,
+		"/api/store/customers/me", reqOpts{sess: stale})
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("SECURITY INVARIANT VIOLATED: pre-epoch token should be 401, "+
+			"got %d (%s)", rr.Code, rr.Body.String())
+	}
+
+	// 3. A token issued strictly AFTER the epoch must still authenticate — proves
+	//    it's specifically the epoch boundary doing the rejection, not a blanket
+	//    failure.
+	fresh := customerSessionWithIat(t, custID, epoch+5)
+	rr = e.do(t, e.wrapCustomer(e.customerH.Me), http.MethodGet,
+		"/api/store/customers/me", reqOpts{sess: fresh})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("post-epoch token: want 200, got %d (%s)", rr.Code, rr.Body.String())
 	}
 }
 

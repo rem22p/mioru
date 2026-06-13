@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/golang-jwt/jwt/v5"
+
 	"mioru/internal/auth"
 	"mioru/internal/cookieauth"
 	"mioru/internal/email"
@@ -150,6 +152,29 @@ func sessionFromResponse(t *testing.T, rr *httptest.ResponseRecorder, authCookie
 		t.Fatalf("response set no %q cookie; cookies=%v", authCookieName, rr.Result().Cookies())
 	}
 	return &session{authCookie: authCookie, csrfValue: csrf}
+}
+
+// customerSessionWithIat builds a customer session whose JWT carries an explicit
+// iat (Unix seconds), so a test can place the token deterministically before or
+// after an account's password_changed_at epoch without depending on wall-clock
+// second boundaries. exp is set far in the future so only the iat/epoch check
+// matters. Built with the same jwt library + claim shape as auth.CreateToken.
+func customerSessionWithIat(t *testing.T, customerID, iat int64) *session {
+	t.Helper()
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub": strconv.FormatInt(customerID, 10),
+		"typ": auth.TokenTypeCustomer,
+		"iat": iat,
+		"exp": iat + 86400,
+	})
+	s, err := tok.SignedString([]byte(testSecret))
+	if err != nil {
+		t.Fatalf("sign token: %v", err)
+	}
+	return &session{
+		authCookie: &http.Cookie{Name: cookieauth.StoreAuthCookie, Value: s},
+		csrfValue:  "csrf-customer-token",
+	}
 }
 
 // --- request driver ---
