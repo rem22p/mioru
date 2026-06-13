@@ -55,5 +55,6 @@ next-app/
 .claude/
 .tldr/
 .tldrignore
+.mcp.json
 dist.tar.gz
 dump.rdb
