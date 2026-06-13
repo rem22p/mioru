@@ -2,69 +2,87 @@
 
 Source of truth: `backend/api/cmd/server/main.go`. Columns: auth (cookie required),
 CSRF (mutation gate), RL (rate-limited), success code, key error codes, and the
-integration test that covers it (or "store-level" / "fake-unit" where covered
-elsewhere).
+integration test that covers it. Test files live in `backend/api/internal/handler/`
+(`integration_*_test.go`, package `handler_test` — real Postgres via the harness)
+and `backend/api/cmd/server/main_test.go` (package `main` — infra helpers).
+
+For exact request/response shapes and security checks per route, see the companion
+`public-api-contract-reference.md`.
 
 ## Health
 | Method+Path | Auth | CSRF | RL | Success | Errors | Integration test |
 |---|---|---|---|---|---|---|
-| GET /api/health | — | — | — | 200 `{status:ok}` | — | (trivial, skip) |
+| GET /api/health | — | — | — | 200 `{status:ok}` | — | inline closure in `main()`, not extractable without a mux refactor (out of scope) |
 
 ## Store — public catalog (no auth)
 | Method+Path | Auth | CSRF | RL | Success | Errors | Integration test |
 |---|---|---|---|---|---|---|
-| GET /api/products | — | — | — | 200 `{items,total,page,per_page}` | — | storefront: list+paginate |
-| GET /api/products/facets | — | — | — | 200 `{brands,colors,sizes}` | — | storefront: facets |
-| GET /api/products/{slug} | — | — | — | 200 product | 404 NOT_FOUND | storefront: get + 404 |
-| GET /api/categories | — | — | — | 200 tree | — | storefront: categories |
+| GET /api/products | — | — | — | 200 `{items,total,page,per_page}` | — | `TestIntegrationListProducts` (+ store-level paginate/filter) |
+| GET /api/products/facets | — | — | — | 200 `{brands,colors,sizes}` | 400 VALIDATION_FAILED | `TestIntegrationFacetsHappy`, `...DropsOwnSelection`, `...BadStatus` |
+| GET /api/products/{slug} | — | — | — | 200 product | 404 NOT_FOUND | `TestIntegrationGetProductBySlug`, `...NotFound` |
+| GET /api/categories | — | — | — | 200 tree | — | `TestIntegrationListCategories` |
 
 ## Store — customer auth & profile
 | Method+Path | Auth | CSRF | RL | Success | Errors | Integration test |
 |---|---|---|---|---|---|---|
-| POST /api/store/auth/register | — | — | ✓ | 200 customer | 400 VALIDATION_FAILED, 409 CONFLICT | storefront: register happy |
-| POST /api/store/auth/login | — | — | ✓ | 200 customer | 401 AUTH_INVALID | storefront: login happy + bad creds |
-| POST /api/store/auth/telegram | — | — | ✓ | 200 customer | 401 AUTH_INVALID | (telegram sig — store-level) |
-| POST /api/store/auth/logout | ✓ | ✓ | — | 204/200 | 403 CSRF_INVALID | storefront: logout + CSRF gate |
-| GET /api/store/customers/me | ✓ | — | — | 200 customer | 401 AUTH_REQUIRED | storefront: me + 401 |
-| PUT /api/store/customers/me | ✓ | ✓ | — | 200 customer | 401/403 | storefront: profile update |
-| PUT /api/store/customers/me/password | ✓ | ✓ | — | 200 | 400/401/403 | (covered by fake-unit; gate only) |
-| POST /api/store/customers/me/set-password | ✓ | ✓ | — | 200 | 400/401/403 | (gate only) |
-| POST /api/store/customers/me/oauth | ✓ | ✓ | — | 200 | 401/403/409 | (oauth verify — store-level) |
-| GET /api/store/customers/me/orders | ✓ | — | — | 200 `{items,total,...}` | 401 | orders: ListOrders paginate+isolation |
-| POST /api/store/orders | ✓ | ✓ | — | 201 order | 400 VALIDATION_FAILED, 409 IDEMPOTENCY_REPLAY, 409 INSUFFICIENT_STOCK | orders: full suite |
-| POST /api/store/orders/upload-photo | ✓ | ✓ | — | 200 `{url}` | 400 | (multipart — out of base scope) |
-| GET /api/store/customers/me/cart | ✓ | — | — | 200 cart | 401 | storefront: cart round-trip |
-| PUT /api/store/customers/me/cart | ✓ | ✓ | — | 200 | 401/403 | storefront: cart round-trip |
-| GET /api/store/customers/me/favorites | ✓ | — | — | 200 | 401 | storefront: favorites round-trip |
-| PUT /api/store/customers/me/favorites | ✓ | ✓ | — | 200 | 401/403 | storefront: favorites round-trip |
+| POST /api/store/auth/register | — | — | ✓ | 201 customer + cookies | 400 VALIDATION_FAILED, 409 CONFLICT | `TestIntegrationCustomerRegisterHappy`, `...Duplicate`, `...Validation` |
+| POST /api/store/auth/login | — | — | ✓ | 200 customer + cookies | 401 AUTH_INVALID | `TestIntegrationCustomerLoginHappyAndReuseCookie`, `...WrongPassword`, `...MissingUser` |
+| POST /api/store/auth/telegram | — | — | ✓ | 200/201 customer + cookies | 401 AUTH_INVALID, 503 (not configured) | `TestIntegrationTelegramLoginNotConfigured`, `...FakeHash`, `...NewCustomer`, `...ExistingLink` |
+| POST /api/store/auth/logout | ✓ | ✓ | — | 200 | 403 CSRF_INVALID | `TestIntegrationCustomerLogoutCSRFGate` |
+| GET /api/store/customers/me | ✓ | — | — | 200 customer | 401 AUTH_REQUIRED* | `TestIntegrationCustomerMeReturnsProfile`, `...MeRequiresAuth` |
+| PUT /api/store/customers/me | ✓ | ✓ | — | 200 `{ok}` | 400, 401 AUTH_INVALID/AUTH_REQUIRED, 403 | `TestIntegrationCustomerUpdateProfileHappy`, `...WrongPassword`, `...MissingPassword` |
+| PUT /api/store/customers/me/password | ✓ | ✓ | — | 200 `{ok}` | 400/401/403 | `TestIntegrationCustomerChangePasswordInvalidatesOldToken` (happy + epoch invalidation) |
+| POST /api/store/customers/me/set-password | ✓ | ✓ | — | 200 `{ok}` | 400/401/403, 409 CONFLICT | `TestIntegrationCustomerSetPasswordRejectsPasswordedCustomer` |
+| POST /api/store/customers/me/oauth | ✓ | ✓ | — | 200 `{ok}` | 401 AUTH_INVALID, 403 | `TestIntegrationLinkOAuthTelegramRejectsUnsigned` (hijack guard), `...NonTelegramHappy` |
+| GET /api/store/customers/me/orders | ✓ | — | — | 200 `{items,total,...}` | 401 | `TestIntegrationListOrdersIsolation` (paginate + cross-customer isolation) |
+| POST /api/store/orders | ✓ | ✓ | — | 201 order | 400 VALIDATION_FAILED, 409 IDEMPOTENCY_REPLAY, 409 INSUFFICIENT_STOCK | `TestIntegrationCreateOrder*` (happy/stock/replay/conflict/oversell/missing-key) |
+| POST /api/store/orders/upload-photo | ✓ | ✓ | — | 200 `{url}` | 400, 403 | `TestIntegrationUploadOrderPhotoPNG`, `...RejectsNonPNG`, `...RequiresFile`, `...CSRFGate` |
+| GET /api/store/customers/me/cart | ✓ | — | — | 200 cart | 401 | `TestIntegrationCartRoundTrip` |
+| PUT /api/store/customers/me/cart | ✓ | ✓ | — | 200 | 401/403 | `TestIntegrationCartRoundTrip`, `TestIntegrationSaveCartCSRFGate` |
+| GET /api/store/customers/me/favorites | ✓ | — | — | 200 | 401 | `TestIntegrationCustomerFavoritesRoundTrip` |
+| PUT /api/store/customers/me/favorites | ✓ | ✓ | — | 200 | 400, 401/403 | `TestIntegrationCustomerFavoritesRoundTrip`, `...SaveFavoritesValidation` |
+
+\* The storefront auth-gate `401` is currently emitted as `text/plain` without a machine `code` — see the #31 note below; `TestIntegrationCustomerAuthGateEnvelope` pins the correct contract and is deliberately failing until the fix lands.
 
 ## Admin — auth & profile
 | Method+Path | Auth | CSRF | RL | Success | Errors | Integration test |
 |---|---|---|---|---|---|---|
-| POST /api/auth/register | ✓ super_admin | ✓ | — | 200 | 401/403 FORBIDDEN | admin: super-admin gate |
-| POST /api/auth/login | — | — | ✓ | 200 user | 401 AUTH_INVALID | admin: login happy + bad creds |
-| POST /api/auth/forgot-password | — | — | ✓ | 200 | — | (email — out of base scope) |
-| POST /api/auth/reset-password | — | — | ✓ | 200 | 400 | (store-level) |
-| POST /api/auth/logout | ✓ | ✓ | — | 204/200 | 403 CSRF_INVALID | admin: logout gate |
-| GET /api/users/me | ✓ | — | — | 200 user | 401 AUTH_REQUIRED | admin: me + 401 |
-| PUT /api/users/me/profile | ✓ | ✓ | — | 200 | 401/403 | (gate only) |
-| PUT /api/users/me/password | ✓ | ✓ | — | 200 | 400/401/403 | (gate only) |
+| POST /api/auth/register | ✓ super_admin | ✓ | — | 201 | 403 FORBIDDEN, 400 VALIDATION_FAILED (dup) | `TestIntegrationAdminRegisterRequiresSuperAdmin`, `...SuperAdminHappy`, `...Duplicate` |
+| POST /api/auth/login | — | — | ✓ | 200 user + cookies | 401 AUTH_INVALID | `TestIntegrationAdminLoginHappyAndReuseCookie`, `...WrongPassword`, `...MissingUser` |
+| POST /api/auth/forgot-password | — | — | ✓ | 200 (always, no enumeration) | 400 | `TestIntegrationAdminForgotPasswordAlways200`, `...BadEmail` |
+| POST /api/auth/reset-password | — | — | ✓ | 200 `{ok}` | 400 | `TestIntegrationAdminResetPasswordInvalidToken`, `...Happy` (login with new pw) |
+| POST /api/auth/logout | ✓ | ✓ | — | 200 | 403 CSRF_INVALID | `TestIntegrationAdminLogoutCSRFGate` |
+| GET /api/users/me | ✓ | — | — | 200 user | 401 AUTH_REQUIRED | `TestIntegrationAdminMeReturnsProfile` |
+| PUT /api/users/me/profile | ✓ | ✓ | — | 200 `{ok}` (no current_password) | 400, 401/403 | `TestIntegrationAdminUpdateProfileHappyNoPassword`, `...Validation` |
+| PUT /api/users/me/password | ✓ | ✓ | — | 200 `{ok}` | 400, 401 AUTH_INVALID, 403 | `TestIntegrationAdminChangePasswordHappy`, `...WrongCurrent`, `...InvalidatesOldToken` |
 
 ## Admin — resources (admin role, DB-checked)
 | Method+Path | Auth | CSRF | RL | Success | Errors | Integration test |
 |---|---|---|---|---|---|---|
-| GET /api/admin/users | ✓ super_admin | — | — | 200 | 401/403 FORBIDDEN | admin: super-admin gate |
-| DELETE /api/admin/users/{username} | ✓ super_admin | ✓ | — | 200 | 401/403 | admin: super-admin gate |
-| GET /api/admin/categories | ✓ admin | — | — | 200 tree | 401/403 | admin: 403 customer-token |
-| GET /api/admin/products | ✓ admin | — | — | 200 list | 401/403 | admin: CRUD + gates |
-| POST /api/admin/products | ✓ admin | ✓ | — | 201/200 | 400/401/403 | admin: create (status canon) |
-| GET /api/admin/products/{slug} | ✓ admin | — | — | 200 | 404 | admin: CRUD |
-| PUT /api/admin/products/{slug} | ✓ admin | ✓ | — | 200 | 400/401/403/404 | admin: update |
-| DELETE /api/admin/products/{slug} | ✓ admin | ✓ | — | 200 | 401/403/404 | admin: delete |
-| GET /api/admin/orders | ✓ admin | — | — | 200 | 401/403 | orders: admin list |
-| PATCH /api/admin/orders/{id}/status | ✓ admin | ✓ | — | 200 | 400/401/403/404 | orders: admin status update |
-| POST /api/admin/upload | ✓ admin | ✓ | — | 200 `{url}` | 400 | (multipart — out of base scope) |
+| GET /api/admin/users | ✓ super_admin | — | — | 200 array | 401/403 FORBIDDEN | `TestIntegrationAdminListUsersHappy`, `TestIntegrationNonSuperAdminCannotListUsers` |
+| DELETE /api/admin/users/{username} | ✓ super_admin | ✓ | — | 204 | 400 VALIDATION_FAILED (self), 401/403, 404 NOT_FOUND | `TestIntegrationAdminDeleteUserHappy`, `...Self`, `...NotFound` |
+| GET /api/admin/categories | ✓ admin | — | — | 200 tree/flat | 401/403 | `TestIntegrationAdminCategoriesTree`, `...Flat` |
+| GET /api/admin/products | ✓ admin | — | — | 200 `{products,total,...}` | 401/403 | `TestIntegrationAdminListProducts` |
+| POST /api/admin/products | ✓ admin | ✓ | — | 201 `{id,product}` | 400/401/403 | `TestIntegrationAdminCreateAndGetProduct`, `...CreateProductCSRFGate` |
+| GET /api/admin/products/{slug} | ✓ admin | — | — | 200 | 404 | `TestIntegrationAdminCreateAndGetProduct` |
+| PUT /api/admin/products/{slug} | ✓ admin | ✓ | — | 200 product | 400/401/403, 404 NOT_FOUND, 409 CONFLICT | `TestIntegrationAdminUpdateProductHappy`, `...NotFound`, `...DuplicateSlug` |
+| DELETE /api/admin/products/{slug} | ✓ admin | ✓ | — | 200 `{ok}` | 401/403, 404 NOT_FOUND | `TestIntegrationAdminDeleteProductHappy`, `...NotFound` |
+| GET /api/admin/orders | ✓ admin | — | — | 200 `{orders,total,...}` (joined customer_email) | 401/403 | `TestIntegrationAdminListAllOrdersJoinsCustomer` |
+| PATCH /api/admin/orders/{id}/status | ✓ admin | ✓ | — | 200 `{ok}` | 400 VALIDATION_FAILED, 401/403 | `TestIntegrationAdminUpdateOrderStatus` (valid), `...UpdateStatusInvalid`, `...NonNumericId` |
+| POST /api/admin/upload | ✓ admin | ✓ | — | 200 `{url}` | 400 | `TestIntegrationAdminUploadPNG`, `...RejectsNonPNG` |
 
-## Known contract notes (resolved)
-- `INSUFFICIENT_STOCK` is returned by `CreateOrder` but was NOT in the CLAUDE.md reserved code list. Resolved: added to the reserved codes in CLAUDE.md (documentation gap, the code is the intended distinct signal the storefront branches on).
-- Storefront `CustomerAuthMW` (`internal/middleware/customer_auth.go`) and the rate limiter (`internal/middleware/ratelimit.go`) previously emitted `http.Error` (`text/plain`, no machine `code`), violating the CLAUDE.md "JSON envelope with `code` from middleware too" rule. **Resolved in #34 (closes #31):** both now emit the JSON envelope via `jsonerr.ErrorCode`, mirroring the admin path (`auth.go`, `csrf.go`, `require_super_admin.go`) — `AUTH_REQUIRED` (no/empty cookie), `AUTH_INVALID` (bad/expired token, revoked session), `INTERNAL` (epoch lookup failure), `RATE_LIMITED` + `Retry-After: 60` (limit exceeded). The regression test `TestIntegrationCustomerAuthGateEnvelope` is now unskipped; `TestIntegrationCustomerAuthGateBadTokenEnvelope` and `TestRateLimitEnvelope`/`TestRateLimitUnderLimitPasses`/`TestRateLimitFailOpenOnStoreError` were added as additional pins.
+## Cross-cutting gates & infra
+| Concern | Integration test |
+|---|---|
+| Admin route rejects no session (401) | `TestIntegrationAdminRouteRejectsNoSession` |
+| Admin route rejects customer token / wrong `typ` (401) | `TestIntegrationAdminRouteRejectsCustomerToken` |
+| CORS reflects only allowlisted origins (+ credentials, Vary) | `TestCORSReflectsOnlyAllowlistedOrigin` (package main) |
+| CORS preflight short-circuits to 204 | `TestCORSPreflightReturns204` (package main) |
+| `/uploads/` nosniff + locked-down CSP | `TestUploadsSecurityHeaders` (package main) |
+| Server timeouts (Slowloris guard) | `TestNewServerHasTimeouts` (package main) |
+| Security headers / CSP no unsafe-inline | `TestSecurityHeadersCSPNoUnsafeInline` (package main) |
+
+## Known contract notes
+- `INSUFFICIENT_STOCK` is returned by `CreateOrder` but was NOT in the CLAUDE.md reserved code list. Resolved: added to the reserved codes in CLAUDE.md (documentation gap; the code is the intended distinct signal the storefront branches on).
+- **#31 (resolved in #34):** Storefront `CustomerAuthMW` (`internal/middleware/customer_auth.go`) and the rate limiter (`internal/middleware/ratelimit.go`) previously emitted `http.Error` (`text/plain`, no machine `code`), violating the CLAUDE.md "JSON envelope with `code` from middleware too" rule. Both now emit the JSON envelope via `jsonerr.ErrorCode`, mirroring the admin path (`auth.go`, `csrf.go`, `require_super_admin.go`) — `AUTH_REQUIRED` (no/empty cookie), `AUTH_INVALID` (bad/expired token, revoked session), `INTERNAL` (epoch lookup failure), `RATE_LIMITED` + `Retry-After: 60` (limit exceeded). The regression test `TestIntegrationCustomerAuthGateEnvelope` is unskipped; `TestIntegrationCustomerAuthGateBadTokenEnvelope` and `TestRateLimitEnvelope`/`TestRateLimitUnderLimitPasses`/`TestRateLimitFailOpenOnStoreError` were added as additional pins.
+- The GitHub Actions workflow (`.github/workflows/backend-ci.yml`, issue **#33**) is not part of this branch — the agent's PAT lacks `workflow` scope, so it must be added via SSH by a maintainer.
