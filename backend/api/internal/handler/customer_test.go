@@ -89,6 +89,12 @@ func (f *fakeCustomerStore) SaveCustomerFavorites(ctx context.Context, customerI
 	return nil
 }
 
+func (f *fakeCustomerStore) GetOrderByIdempotencyKey(ctx context.Context, key string, customerID int64) (*store.IdempotencyRecord, error) {
+	// Default: no race record exists. Tests that exercise the
+	// race-loser path override this in their own fake.
+	return nil, nil
+}
+
 func newCustomerHandlerForTest(fs customerStore) *CustomerHandler {
 	return NewCustomerHandler(fs, "test-secret-key-at-least-32-chars-long!!", 60, false, "", "", "", nil)
 }

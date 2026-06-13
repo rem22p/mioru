@@ -9,6 +9,8 @@ import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
 import { useAuthStore } from "@/stores/authStore";
+import { useCurrencyStore } from "@/stores/currencyStore";
+import { formatPrice } from "@/lib/currency";
 import AuthSection from "@/components/auth/AuthSection";
 
 export default function ProfilePage() {
@@ -161,7 +163,13 @@ const STATUS_ACCENT: Record<string, string> = {
 function OrderCard({ order: o }: { order: StoreOrder }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
-  const totalRub = (o.total_minor / 100).toFixed(2);
+  const currency = useCurrencyStore((s) => s.currency);
+  const totalMDL = o.total_minor / 100;
+  // _minor is always MDL (server-side authoritative), so the same
+  // helper that drives the catalog (ProductPageClient) drives the
+  // order list — no more raw MDL under a hardcoded ₽.
+  const totalFormatted = formatPrice(totalMDL, currency);
+  const itemPrice = (priceMinor: number) => formatPrice(priceMinor / 100, currency);
 
   const statusLabel = t(`profile.orderStatus.${o.status}`, o.status);
   const typeLabel = t(`profile.orderType.${o.type}`, o.type);
@@ -224,7 +232,7 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
 
         <div className="text-right shrink-0">
           <span className="text-lg font-bold text-[var(--color-text-primary)]">
-            {totalRub} ₽
+            {totalFormatted}
           </span>
           <div className="text-xs text-[var(--color-text-muted)] mt-0.5">
             {new Date(o.created_at).toLocaleString("ru-RU", {
@@ -267,7 +275,7 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
                         ×{item.quantity}
                       </span>
                       <span className="text-[var(--color-text-primary)] font-medium tabular-nums">
-                        {(item.price_minor / 100).toFixed(2)} ₽
+                        {itemPrice(item.price_minor)}
                       </span>
                     </div>
                   </div>

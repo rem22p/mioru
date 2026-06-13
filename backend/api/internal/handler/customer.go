@@ -50,6 +50,13 @@ type customerStore interface {
 	SaveCustomerCart(ctx context.Context, customerID int64, items []store.CartItem) error
 	GetCustomerFavorites(ctx context.Context, customerID int64) ([]int, error)
 	SaveCustomerFavorites(ctx context.Context, customerID int64, productIDs []int) error
+
+	// Idempotency: race-loser path. CreateOrder returns ErrIdempotencyRace
+	// when a concurrent first submit won the INSERT on
+	// order_idempotency_pkey. The handler then re-fetches the winner's
+	// stored record and decides between true replay (201) and hash
+	// mismatch (409 IDEMPOTENCY_REPLAY).
+	GetOrderByIdempotencyKey(ctx context.Context, key string, customerID int64) (*store.IdempotencyRecord, error)
 }
 
 // CustomerHandler handles store customer auth & profile.
@@ -832,6 +839,22 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// DeliveryTime: cap both the count and the per-element length.
+	// Same reasoning as Photos[] — strings that flow into orders TEXT
+	// columns and Telegram messages must have a max length, per
+	// CLAUDE.md. The valid set in i18n is {fast, medium, slow}, but
+	// we cap generously (10 entries × 32 chars) to allow future
+	// options without changing the wire format.
+	if len(req.DeliveryTime) > maxDeliveryTimeN {
+		jsonErrorCode(w, fmt.Sprintf("delivery_time: max %d entries", maxDeliveryTimeN), http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	for i, t := range req.DeliveryTime {
+		if len(t) > maxDeliveryTimeE {
+			jsonErrorCode(w, fmt.Sprintf("delivery_time[%d]: too long (max %d)", i, maxDeliveryTimeE), http.StatusBadRequest, "VALIDATION_FAILED")
+			return
+		}
+	}
 	// Per-item bounds validation. Two layers, ordered by what they
 	// protect:
 	//
@@ -865,6 +888,14 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		}
 		if it.Quantity < 1 || it.Quantity > 99 {
 			jsonErrorCode(w, "quantity out of range (1-99)", http.StatusBadRequest, "VALIDATION_FAILED")
+			return
+		}
+		// SizeLabel: cap matches the SaveCart contract (maxSizeLabelLen
+		// = 32); without it, the order store and the cart store disagree
+		// on the wire-format shape, and a single crafted item can dump
+		// ~1 MiB into the orders TEXT column.
+		if len(it.SizeLabel) > maxSizeLabelLen {
+			jsonErrorCode(w, fmt.Sprintf("size_label too long (max %d)", maxSizeLabelLen), http.StatusBadRequest, "VALIDATION_FAILED")
 			return
 		}
 	}
@@ -914,12 +945,29 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 			jsonErrorCode(w, "idempotency key reused with different request", http.StatusConflict, "IDEMPOTENCY_REPLAY")
 			return
 		}
-		if errors.Is(err, store.ErrIdempotencyReplay) {
-			// Concurrent first submit with the same Idempotency-Key won
-			// the race. Money/stock are safe; the loser's 500 is purely
-			// cosmetic. Surface as 409 IDEMPOTENCY_REPLAY so the client
-			// can retry or just refetch the order list.
-			jsonErrorCode(w, "concurrent submit with the same Idempotency-Key; order is already created", http.StatusConflict, "IDEMPOTENCY_REPLAY")
+		if errors.Is(err, store.ErrIdempotencyRace) {
+			// Concurrent first submit with the same Idempotency-Key
+			// won the race. Per CLAUDE.md, the loser should receive
+			// the winner's response when the request hash matches
+			// (true replay, 201), or 409 IDEMPOTENCY_REPLAY only
+			// when the hash differs (a real conflict, not a benign
+			// double-click). Re-fetch the stored record and branch.
+			rec, ferr := h.store.GetOrderByIdempotencyKey(r.Context(), idempotencyKey, customerID)
+			if ferr != nil {
+				slog.Error("GetOrderByIdempotencyKey failed", "customer_id", customerID, "error", ferr)
+				jsonError(w, "internal error", http.StatusInternalServerError)
+				return
+			}
+			if rec.RequestHash != requestHash {
+				// Same key, different request body — true conflict.
+				jsonErrorCode(w, "idempotency key reused with different request", http.StatusConflict, "IDEMPOTENCY_REPLAY")
+				return
+			}
+			// True replay: same key + same body. Return the winner's
+			// stored response verbatim — same status, same body.
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(rec.Status)
+			_, _ = w.Write([]byte(rec.ResponseBody))
 			return
 		}
 		if errors.Is(err, store.ErrInsufficientStock) {
@@ -1067,6 +1115,8 @@ const (
 	maxFavoritesItems = 200
 	maxSizeLabelLen   = 32
 	maxQuantity       = 999
+	maxDeliveryTimeN  = 10
+	maxDeliveryTimeE  = 32
 )
 
 type cartItemReq struct {
