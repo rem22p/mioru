@@ -813,6 +813,25 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		jsonErrorCode(w, "comment is too long (max 1000)", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
+	// Photos: defence-in-depth. Telegram notifier neutralises path
+	// traversal via filepath.Base, and the body is bounded at 1 MiB,
+	// but an unbounded list/format still lets a client queue hundreds
+	// of failed os.Open calls in the background notifier. Cap and
+	// whitelist the format so only `/uploads/<file>` references pass.
+	if len(req.Photos) > 10 {
+		jsonErrorCode(w, "photos: max 10 entries", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	for i, p := range req.Photos {
+		if len(p) > 200 {
+			jsonErrorCode(w, fmt.Sprintf("photos[%d]: path too long", i), http.StatusBadRequest, "VALIDATION_FAILED")
+			return
+		}
+		if !strings.HasPrefix(p, "/uploads/") {
+			jsonErrorCode(w, fmt.Sprintf("photos[%d]: must start with /uploads/", i), http.StatusBadRequest, "VALIDATION_FAILED")
+			return
+		}
+	}
 	// Per-item bounds validation. Applies to BOTH type= cart and
 	// type= individual — the bounds guard finance-critical paths
 	// (stock decrement + total_minor), and previously living inside
@@ -875,6 +894,14 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		slog.Error("CreateOrder failed", "customer_id", customerID, "error", err)
 		if errors.Is(err, store.ErrIdempotencyHashMismatch) {
 			jsonErrorCode(w, "idempotency key reused with different request", http.StatusConflict, "IDEMPOTENCY_REPLAY")
+			return
+		}
+		if errors.Is(err, store.ErrIdempotencyReplay) {
+			// Concurrent first submit with the same Idempotency-Key won
+			// the race. Money/stock are safe; the loser's 500 is purely
+			// cosmetic. Surface as 409 IDEMPOTENCY_REPLAY so the client
+			// can retry or just refetch the order list.
+			jsonErrorCode(w, "concurrent submit with the same Idempotency-Key; order is already created", http.StatusConflict, "IDEMPOTENCY_REPLAY")
 			return
 		}
 		if errors.Is(err, store.ErrInsufficientStock) {

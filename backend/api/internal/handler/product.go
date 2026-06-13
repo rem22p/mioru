@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -183,10 +184,28 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Preserve existing images (sent as text fields from the frontend)
+	// Preserve existing images (sent as text fields from the frontend).
+	// Defence-in-depth: cap, format whitelist, deterministic SortOrder.
+	// Admin-only route (RequireAdmin), but still: preserved images used
+	// to get SortOrder=0 (zero value) and were therefore shuffled to
+	// the front by the later `len(p.Images) + i` block. Now they get
+	// a deterministic sort based on their position in the form.
 	if r.MultipartForm != nil {
-		for _, url := range r.MultipartForm.Value["existing_images[]"] {
-			p.Images = append(p.Images, model.ProductImage{URL: url})
+		preserved := r.MultipartForm.Value["existing_images[]"]
+		if len(preserved) > 20 {
+			jsonError(w, "existing_images: max 20 entries", http.StatusBadRequest)
+			return
+		}
+		for i, url := range preserved {
+			if len(url) > 500 {
+				jsonError(w, fmt.Sprintf("existing_images[%d]: url too long", i), http.StatusBadRequest)
+				return
+			}
+			if !strings.HasPrefix(url, "/uploads/") && !strings.HasPrefix(url, "https://") {
+				jsonError(w, fmt.Sprintf("existing_images[%d]: must start with /uploads/ or https://", i), http.StatusBadRequest)
+				return
+			}
+			p.Images = append(p.Images, model.ProductImage{URL: url, SortOrder: i})
 		}
 	}
 

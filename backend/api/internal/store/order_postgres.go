@@ -9,12 +9,21 @@ import (
 	"time"
 
 	pgx "github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"mioru/internal/model"
 )
 
 // ErrIdempotencyHashMismatch is returned when an idempotency key is reused
 // with a different request body — a probable client bug or replay attack.
 var ErrIdempotencyHashMismatch = errors.New("idempotency key reused with different request hash")
+
+// ErrIdempotencyReplay is returned when a concurrent first submit with the
+// same Idempotency-Key wins the race and inserts the row; the loser
+// receives this sentinel and the handler can return 409 IDEMPOTENCY_REPLAY
+// instead of a generic 500. Money and stock are safe — the unique
+// constraint guarantees exactly one order per key. This is purely a
+// client-visible polish: a benign double-click no longer surfaces as 500.
+var ErrIdempotencyReplay = errors.New("idempotency race: concurrent submit won")
 
 // ErrInsufficientStock is returned when an order requests more units of a
 // product than the available stock. Wrapped with %w so the handler can
@@ -273,6 +282,16 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 		now.Add(48*time.Hour),
 	)
 	if err != nil {
+		// Concurrent first submit with the same key won the race —
+		// its INSERT is the only one that succeeded. Money/stock are
+		// safe (unique constraint), but the loser gets 500 today.
+		// Wrap the constraint violation in our sentinel so the
+		// handler can return a structured 409 IDEMPOTENCY_REPLAY.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" &&
+			pgErr.ConstraintName == "order_idempotency_pkey" {
+			return nil, fmt.Errorf("idempotency insert: %w", ErrIdempotencyReplay)
+		}
 		return nil, fmt.Errorf("insert idempotency: %w", err)
 	}
 
