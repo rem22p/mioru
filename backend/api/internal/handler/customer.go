@@ -832,15 +832,29 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	// Per-item bounds validation. Applies to BOTH type= cart and
-	// type= individual — the bounds guard finance-critical paths
-	// (stock decrement + total_minor), and previously living inside
-	// `if cart` left the individual vector open: a crafted
-	// type=individual with quantity=-100 flowed through to the store,
-	// where `stock_quantity = stock_quantity - (-100)` inflated stock
-	// and total_minor went negative. Per CLAUDE.md priority #1, stock
-	// and totals must never be silently distorted by client input.
-	if len(req.Items) == 0 || len(req.Items) > 50 {
+	// Per-item bounds validation. Two layers, ordered by what they
+	// protect:
+	//
+	//   1. Finance-critical bounds (apply to ANY type if items are
+	//      present): `len > 50`, `ProductID > 0`, `Quantity 1-99`.
+	//      These guard the common stock-decrement and total_minor
+	//      paths against crafted input. Previously lifted out of
+	//      `if cart` to fix the stock-drain vector (type=individual
+	//      + quantity=-100 inflated stock).
+	//
+	//   2. Presence rule (type-specific): cart MUST have at least one
+	//      item (otherwise total_minor is always 0 and nothing is
+	//      decremented, defeating the order). Individual orders
+	//      intentionally carry no items — the form on
+	//      CustomOrderPage.tsx:117-130 submits free-text fields
+	//      (height, weight, photos, comment) instead, and the store
+	//      layer (order_postgres.go::CreateOrder) treats the empty
+	//      list as a no-op (total_minor=0, stock untouched).
+	//
+	// Splitting these two layers keeps finance-critical checks
+	// single-sourced (no per-branch copy-paste drift) while restoring
+	// the legitimate individual-without-items path.
+	if len(req.Items) > 50 {
 		jsonErrorCode(w, "items must have 1-50 entries", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
@@ -853,6 +867,10 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 			jsonErrorCode(w, "quantity out of range (1-99)", http.StatusBadRequest, "VALIDATION_FAILED")
 			return
 		}
+	}
+	if req.Type == "cart" && len(req.Items) == 0 {
+		jsonErrorCode(w, "items must have at least 1 entry for cart orders", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
 	}
 
 	// ── Idempotency ──

@@ -81,17 +81,10 @@ func TestCreateOrderIndividualRejectsCraftedItems(t *testing.T) {
 				"total_minor": 0
 			}`,
 		},
-		{
-			name: "empty items list is invalid for any type",
-			body: `{
-				"type": "individual",
-				"city": "Тирасполь",
-				"delivery_method": "personal",
-				"payment_method": "card",
-				"items": [],
-				"total_minor": 0
-			}`,
-		},
+		// Note: "empty items list" used to be invalid for any type, but
+		// the regression fix split per-type presence: cart must have
+		// at least one item (see TestCreateOrderCartStillRejectsEmptyItems),
+		// individual may carry none (see TestCreateOrderIndividualAcceptsEmptyItems).
 		{
 			name: "more than 50 items is invalid",
 			body: `{
