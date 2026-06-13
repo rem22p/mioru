@@ -820,6 +820,19 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		jsonErrorCode(w, "comment is too long (max 1000)", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
+	// Height/Weight (optional, individual orders): bound to a sane human
+	// range. Go's encoding/json already rejects NaN/Inf, but absurd
+	// finite values (1e30, negatives) would still reach the DB and the
+	// Telegram message. Per CLAUDE.md, validate bounds on every incoming
+	// numeric argument, not just strings.
+	if req.Height != nil && (*req.Height < minBodyHeightCm || *req.Height > maxBodyHeightCm) {
+		jsonErrorCode(w, fmt.Sprintf("height out of range (%g-%g cm)", minBodyHeightCm, maxBodyHeightCm), http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	if req.Weight != nil && (*req.Weight < minBodyWeightKg || *req.Weight > maxBodyWeightKg) {
+		jsonErrorCode(w, fmt.Sprintf("weight out of range (%g-%g kg)", minBodyWeightKg, maxBodyWeightKg), http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
 	// Photos: defence-in-depth. Telegram notifier neutralises path
 	// traversal via filepath.Base, and the body is bounded at 1 MiB,
 	// but an unbounded list/format still lets a client queue hundreds
@@ -1117,6 +1130,13 @@ const (
 	maxQuantity       = 999
 	maxDeliveryTimeN  = 10
 	maxDeliveryTimeE  = 32
+
+	// Body-measurement bounds for individual orders (defence-in-depth
+	// against absurd finite values reaching the DB / Telegram message).
+	minBodyHeightCm = 50.0
+	maxBodyHeightCm = 300.0
+	minBodyWeightKg = 20.0
+	maxBodyWeightKg = 400.0
 )
 
 type cartItemReq struct {
