@@ -99,6 +99,25 @@ func TestIntegrationCustomerMeRequiresAuth(t *testing.T) {
 	}
 }
 
+// TestIntegrationCustomerAuthGateEnvelope pins the CORRECT contract for the
+// storefront auth gate: a JSON envelope with a machine code, per CLAUDE.md
+// ("never http.Error … breaks the SPA's code-based branching"). The admin path
+// already complies via jsonerr.ErrorCode; CustomerAuthMW still uses http.Error
+// (text/plain, no code). Skipped until the bug is fixed.
+func TestIntegrationCustomerAuthGateEnvelope(t *testing.T) {
+	t.Skip("blocked by #31: CustomerAuthMW uses http.Error (text/plain, no machine code)")
+	e := newEnv(t)
+	rr := e.do(t, e.wrapCustomer(e.customerH.Me), http.MethodGet, "/api/store/customers/me", reqOpts{})
+	if ct := rr.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("Content-Type = %q, want application/json", ct)
+	}
+	var env errEnvelope
+	decode(t, rr, &env)
+	if env.Code != "AUTH_REQUIRED" {
+		t.Errorf("code = %q, want AUTH_REQUIRED", env.Code)
+	}
+}
+
 func TestIntegrationCartRoundTrip(t *testing.T) {
 	e := newEnv(t)
 	sess, _ := e.customerSession(t, "cart@ex.com")
