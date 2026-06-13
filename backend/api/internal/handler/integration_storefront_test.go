@@ -103,7 +103,7 @@ func TestIntegrationCustomerMeRequiresAuth(t *testing.T) {
 // TestIntegrationCustomerAuthGateEnvelope pins the CORRECT contract for the
 // storefront auth gate: a JSON envelope with a machine code, per CLAUDE.md
 // ("never http.Error … breaks the SPA's code-based branching"). The admin path
-// already complies via jsonerr.ErrorCode; CustomerAuthMW must mirror that.
+// already complies via jsonerr.ErrorCode; CustomerAuthMW mirrors that (#31/#34).
 func TestIntegrationCustomerAuthGateEnvelope(t *testing.T) {
 	e := newEnv(t)
 	rr := e.do(t, e.wrapCustomer(e.customerH.Me), http.MethodGet, "/api/store/customers/me", reqOpts{})
