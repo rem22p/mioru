@@ -65,6 +65,6 @@ elsewhere).
 | PATCH /api/admin/orders/{id}/status | ✓ admin | ✓ | — | 200 | 400/401/403/404 | orders: admin status update |
 | POST /api/admin/upload | ✓ admin | ✓ | — | 200 `{url}` | 400 | (multipart — out of base scope) |
 
-## Known contract notes (candidates to verify / file as issues)
-- `INSUFFICIENT_STOCK` is returned by `CreateOrder` but is NOT in the CLAUDE.md reserved code list. Confirm intended; file an issue if it should be added to the contract.
-- Middleware auth/CSRF 401/403 responses (`CustomerAuthMW`, `AuthMW`) currently use `http.Error` (`text/plain`, no machine `code`) per `internal/middleware/customer_auth.go`. CLAUDE.md requires the JSON envelope with `code` from middleware too. The gate tests below assert the status; if they reveal a `text/plain`/no-`code` body, file an issue (do NOT fix in this branch).
+## Known contract notes (resolved)
+- `INSUFFICIENT_STOCK` is returned by `CreateOrder` but was NOT in the CLAUDE.md reserved code list. Resolved: added to the reserved codes in CLAUDE.md (documentation gap, the code is the intended distinct signal the storefront branches on).
+- Storefront `CustomerAuthMW` (`internal/middleware/customer_auth.go`, 5 sites) and the rate limiter (`internal/middleware/ratelimit.go`) emit `http.Error` (`text/plain`, no machine `code`), violating the CLAUDE.md "JSON envelope with `code` from middleware too" rule. The **admin** path (`auth.go`, `csrf.go`, `require_super_admin.go`) already complies via `jsonerr.ErrorCode`. Filed as **#31**; a skipped regression test (`TestIntegrationCustomerAuthGateEnvelope`) pins the correct contract and unskips when #31 lands. Not fixed in this branch.
