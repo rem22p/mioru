@@ -11,22 +11,39 @@
 -- last line of defence for any path that bypasses the handler.
 --
 -- Backfill BEFORE the constraint is added: the legacy admin SPA wrote
--- status='none' for sold-out rows (the dropdown value the admin code
--- still sends today). Without this backfill, a filtered query
--- (WHERE p.status IN ('in_stock','preorder')) would silently drop those
--- rows from the storefront. We map every non-canonical status to
--- 'in_stock' as a conservative default — the next admin edit can correct
--- it. (Mapping to 'out_of_stock' would be more accurate semantically,
--- but 'in_stock' is the visible default the storefront already shows for
--- the bulk of legacy rows.) The CHECK is NOT VALID so it doesn't run on
--- existing rows; the backfill is the only place we read them.
+-- non-canonical values that the storefront filter (`WHERE p.status = $n`
+-- in product_postgres.go) would silently drop. We translate each legacy
+-- value to its semantic equivalent, matching the live mapping in
+-- handler/product_form.go:normalizeProductStatus — same function, same
+-- input → output rules, so data on disk after the migration is
+-- consistent with what the admin SPA would have written if the
+-- constraint had existed all along.
+--
+--   pre_order (legacy underscore)  →  preorder       ("made to order")
+--   none       (legacy sold-out)   →  out_of_stock   ("not available")
+--   ''         (empty)             →  out_of_stock   (safe default;
+--                                                      product_form.go
+--                                                      inStock=false branch)
+--   NULL       (if any)            →  out_of_stock   (safe default)
+--   <other>    (typo / future)     →  out_of_stock   (safe default)
 --
 -- tern applies each file once per version, so plain ADD CONSTRAINT is
 -- safe — the file is only applied on the version bump.
 
 UPDATE products
-SET    status = 'in_stock'
+SET    status = 'preorder'
+WHERE  status = 'pre_order';
+
+UPDATE products
+SET    status = 'out_of_stock'
+WHERE  status = 'none';
+
+-- Catch-all for NULLs, empty strings, and any other non-canonical value
+-- (typos, future legacy values that pre-date this constraint).
+UPDATE products
+SET    status = 'out_of_stock'
 WHERE  status IS NULL
+   OR  status = ''
    OR  status NOT IN ('in_stock', 'preorder', 'out_of_stock');
 
 ALTER TABLE products
