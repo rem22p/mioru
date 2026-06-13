@@ -417,9 +417,8 @@ func (e *env) userSession(t *testing.T, username, role string) *session {
 
 type reqOpts struct {
 	sess           *session
-	csrfCookieName string // StoreCSRFCookie or AdminCSRFCookie; set to send a csrf cookie+header
-	sendCSRFHeader bool   // when true, X-CSRF-Token is set to sess.csrfValue
-	badCSRF        bool   // when true, X-CSRF-Token is set to a wrong value
+	csrfCookieName string            // StoreCSRFCookie/AdminCSRFCookie — sends the CSRF cookie AND a matching X-CSRF-Token header (a valid mutation)
+	badCSRF        bool              // with csrfCookieName set: sends the cookie but a wrong X-CSRF-Token header (mismatch → expect 403)
 	idempotencyKey string
 	body           any
 	pathValues     map[string]string // applied via req.SetPathValue (for {slug}/{id} routes)
@@ -440,17 +439,18 @@ func (e *env) do(t *testing.T, h http.Handler, method, target string, o reqOpts)
 		bodyReader = bytes.NewReader(nil)
 	}
 	req := httptest.NewRequest(method, target, bodyReader)
-	req.Header.Set("Content-Type", "application/json")
+	if o.body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	if o.sess != nil {
 		req.AddCookie(o.sess.authCookie)
 		if o.csrfCookieName != "" {
 			req.AddCookie(&http.Cookie{Name: o.csrfCookieName, Value: o.sess.csrfValue})
-		}
-		if o.sendCSRFHeader {
-			req.Header.Set("X-CSRF-Token", o.sess.csrfValue)
-		}
-		if o.badCSRF {
-			req.Header.Set("X-CSRF-Token", "wrong-value")
+			if o.badCSRF {
+				req.Header.Set("X-CSRF-Token", "wrong-value")
+			} else {
+				req.Header.Set("X-CSRF-Token", o.sess.csrfValue)
+			}
 		}
 	}
 	if o.idempotencyKey != "" {
@@ -645,7 +645,7 @@ func TestIntegrationCartRoundTrip(t *testing.T) {
 	// Save cart (mutation → needs CSRF cookie + header).
 	saveBody := map[string]any{"items": []map[string]any{{"product_id": 1, "size_label": "M", "quantity": 2}}}
 	rr := e.do(t, e.wrapCustomer(e.customerH.SaveCart), http.MethodPut, "/api/store/customers/me/cart",
-		reqOpts{sess: sess, csrfCookieName: "store_csrf", sendCSRFHeader: true, body: saveBody})
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", body: saveBody})
 	if rr.Code != http.StatusOK {
 		t.Fatalf("SaveCart: want 200, got %d (%s)", rr.Code, rr.Body.String())
 	}
@@ -734,7 +734,7 @@ func TestIntegrationCreateOrderHappyAndDecrementsStock(t *testing.T) {
 	pid := seedProduct(t, e, "ord-1", 500, 10) // price 500 MDL, stock 10
 
 	rr := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
-		reqOpts{sess: sess, csrfCookieName: "store_csrf", sendCSRFHeader: true, idempotencyKey: "key-happy-1", body: orderBody(pid, 3)})
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: "key-happy-1", body: orderBody(pid, 3)})
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("CreateOrder: want 201, got %d (%s)", rr.Code, rr.Body.String())
 	}
@@ -766,7 +766,7 @@ func TestIntegrationCreateOrderMissingIdempotencyKey(t *testing.T) {
 	pid := seedProduct(t, e, "ord-noidem", 500, 10)
 
 	rr := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
-		reqOpts{sess: sess, csrfCookieName: "store_csrf", sendCSRFHeader: true, body: orderBody(pid, 1)})
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", body: orderBody(pid, 1)})
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("missing Idempotency-Key: want 400, got %d (%s)", rr.Code, rr.Body.String())
 	}
@@ -796,7 +796,7 @@ func TestIntegrationCreateOrderIdempotentReplay(t *testing.T) {
 	const key = "replay-key-1"
 
 	first := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
-		reqOpts{sess: sess, csrfCookieName: "store_csrf", sendCSRFHeader: true, idempotencyKey: key, body: body})
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: key, body: body})
 	if first.Code != http.StatusCreated {
 		t.Fatalf("first submit: want 201, got %d (%s)", first.Code, first.Body.String())
 	}
@@ -805,7 +805,7 @@ func TestIntegrationCreateOrderIdempotentReplay(t *testing.T) {
 
 	// Replay: same key + same body → same order, NOT a new one.
 	second := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
-		reqOpts{sess: sess, csrfCookieName: "store_csrf", sendCSRFHeader: true, idempotencyKey: key, body: body})
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: key, body: body})
 	if second.Code != http.StatusCreated {
 		t.Fatalf("replay: want 201, got %d (%s)", second.Code, second.Body.String())
 	}
@@ -828,13 +828,13 @@ func TestIntegrationCreateOrderIdempotencyConflict(t *testing.T) {
 	const key = "conflict-key-1"
 
 	first := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
-		reqOpts{sess: sess, csrfCookieName: "store_csrf", sendCSRFHeader: true, idempotencyKey: key, body: orderBody(pid, 1)})
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: key, body: orderBody(pid, 1)})
 	if first.Code != http.StatusCreated {
 		t.Fatalf("first submit: want 201, got %d (%s)", first.Code, first.Body.String())
 	}
 	// Same key, DIFFERENT body → 409 IDEMPOTENCY_REPLAY.
 	second := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
-		reqOpts{sess: sess, csrfCookieName: "store_csrf", sendCSRFHeader: true, idempotencyKey: key, body: orderBody(pid, 5)})
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: key, body: orderBody(pid, 5)})
 	if second.Code != http.StatusConflict {
 		t.Fatalf("idempotency conflict: want 409, got %d (%s)", second.Code, second.Body.String())
 	}
@@ -851,7 +851,7 @@ func TestIntegrationCreateOrderOversell(t *testing.T) {
 	pid := seedProduct(t, e, "ord-oversell", 500, 2) // only 2 in stock
 
 	rr := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
-		reqOpts{sess: sess, csrfCookieName: "store_csrf", sendCSRFHeader: true, idempotencyKey: "oversell-1", body: orderBody(pid, 5)})
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: "oversell-1", body: orderBody(pid, 5)})
 	if rr.Code != http.StatusConflict {
 		t.Fatalf("oversell: want 409, got %d (%s)", rr.Code, rr.Body.String())
 	}
@@ -882,7 +882,7 @@ func TestIntegrationListOrdersIsolation(t *testing.T) {
 	// Alice places 2 orders.
 	for i, k := range []string{"a-1", "a-2"} {
 		rr := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
-			reqOpts{sess: alice, csrfCookieName: "store_csrf", sendCSRFHeader: true, idempotencyKey: k, body: orderBody(pid, 1)})
+			reqOpts{sess: alice, csrfCookieName: "store_csrf", idempotencyKey: k, body: orderBody(pid, 1)})
 		if rr.Code != http.StatusCreated {
 			t.Fatalf("alice order %d: want 201, got %d (%s)", i, rr.Code, rr.Body.String())
 		}
@@ -914,7 +914,7 @@ func TestIntegrationAdminUpdateOrderStatus(t *testing.T) {
 	cust, _ := e.customerSession(t, "statuscust@ex.com")
 	pid := seedProduct(t, e, "ord-status", 500, 10)
 	createRR := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
-		reqOpts{sess: cust, csrfCookieName: "store_csrf", sendCSRFHeader: true, idempotencyKey: "status-1", body: orderBody(pid, 1)})
+		reqOpts{sess: cust, csrfCookieName: "store_csrf", idempotencyKey: "status-1", body: orderBody(pid, 1)})
 	if createRR.Code != http.StatusCreated {
 		t.Fatalf("seed order: want 201, got %d (%s)", createRR.Code, createRR.Body.String())
 	}
@@ -924,7 +924,7 @@ func TestIntegrationAdminUpdateOrderStatus(t *testing.T) {
 	admin := e.userSession(t, "admin1", "admin")
 	target := "/api/admin/orders/" + itoa(created.ID) + "/status"
 	rr := e.do(t, e.wrapAdmin(e.adminOrdH.UpdateStatus), http.MethodPatch, target,
-		reqOpts{sess: admin, csrfCookieName: "csrf_token", sendCSRFHeader: true,
+		reqOpts{sess: admin, csrfCookieName: "csrf_token",
 			pathValues: map[string]string{"id": itoa(created.ID)}, body: map[string]any{"status": "processing"}})
 	if rr.Code != http.StatusOK {
 		t.Fatalf("UpdateStatus: want 200, got %d (%s)", rr.Code, rr.Body.String())
@@ -985,7 +985,7 @@ func TestIntegrationAdminCreateAndGetProduct(t *testing.T) {
 		"sizes": []string{"M"},
 	}
 	rr := e.do(t, e.wrapAdmin(e.productH.Create), http.MethodPost, "/api/admin/products",
-		reqOpts{sess: admin, csrfCookieName: "csrf_token", sendCSRFHeader: true, body: create})
+		reqOpts{sess: admin, csrfCookieName: "csrf_token", body: create})
 	if rr.Code != http.StatusCreated && rr.Code != http.StatusOK {
 		t.Fatalf("admin create product: want 201/200, got %d (%s)", rr.Code, rr.Body.String())
 	}
@@ -1134,6 +1134,6 @@ issues filed for findings.
 
 **Placeholder scan:** No TBD/TODO. Two explicit "verify the signature against main.go" notes (constructors, handler method names) are deliberate guardrails, not placeholders — the code to run is fully written; the note says where to look if a signature drifted.
 
-**Type consistency:** `session{authCookie, csrfValue}`, `reqOpts{sess, csrfCookieName, sendCSRFHeader, badCSRF, idempotencyKey, body, pathValues}`, `env{st, customerH, authH, productH, storeH, adminOrdH}` used consistently. `pathValues` is introduced in Task 6's harness-addition note and reused in Task 7 — both reference the same field. `seedProduct(t, e, slug, price, stock)` defined in Task 5, reused in Task 6. `orderBody`, `itoa`, `decode`, `errEnvelope`, `contains` defined once and reused.
+**Type consistency:** `session{authCookie, csrfValue}`, `reqOpts{sess, csrfCookieName, badCSRF, idempotencyKey, body, pathValues}`, `env{st, customerH, authH, productH, storeH, adminOrdH}` used consistently. `pathValues` is introduced in Task 6's harness-addition note and reused in Task 7 — both reference the same field. `seedProduct(t, e, slug, price, stock)` defined in Task 5, reused in Task 6. `orderBody`, `itoa`, `decode`, `errEnvelope`, `contains` defined once and reused.
 
 **Known cross-task dependency:** `reqOpts.pathValues` (used by Tasks 5, 6, 7 for `{slug}`/`{id}` routes) is defined in the Task 4 harness from the start, so tasks can run in order with no retro-fit.
