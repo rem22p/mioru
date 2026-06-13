@@ -116,6 +116,11 @@ func TestIntegrationCustomerLoginMissingUser(t *testing.T) {
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("missing user: want 401, got %d (%s)", rr.Code, rr.Body.String())
 	}
+	var env errEnvelope
+	decode(t, rr, &env)
+	if env.Code != "AUTH_INVALID" {
+		t.Errorf("code = %q, want AUTH_INVALID", env.Code)
+	}
 }
 
 func TestIntegrationCustomerLogoutCSRFGate(t *testing.T) {
