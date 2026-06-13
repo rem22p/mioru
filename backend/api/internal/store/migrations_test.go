@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"io/fs"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -90,10 +89,7 @@ func TestMigrationsVersionAfterMigrate(t *testing.T) {
 // already-migrated database (every restart and every redeploy) is a safe no-op:
 // the version is unchanged and no error is returned.
 func TestMigrationsIdempotentRerun(t *testing.T) {
-	url := os.Getenv("TEST_DATABASE_URL")
-	if url == "" {
-		t.Skip("TEST_DATABASE_URL not set — skipping PostgreSQL store tests")
-	}
+	url := testStoreURL(t)
 	ctx := context.Background()
 
 	s1, err := NewPostgresStore(ctx, url)
