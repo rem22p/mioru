@@ -16,6 +16,12 @@ import (
 // with a different request body — a probable client bug or replay attack.
 var ErrIdempotencyHashMismatch = errors.New("idempotency key reused with different request hash")
 
+// ErrInsufficientStock is returned when an order requests more units of a
+// product than the available stock. Wrapped with %w so the handler can
+// branch via errors.Is instead of substring-matching the error text —
+// per CLAUDE.md, finance-critical paths use sentinels.
+var ErrInsufficientStock = errors.New("insufficient stock")
+
 // validOrderStatuses is the set of allowed order status values.
 var validOrderStatuses = map[string]bool{
 	"pending":    true,
@@ -253,7 +259,7 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 			return nil, fmt.Errorf("decrement stock for product %d: %w", it.ProductID, err)
 		}
 		if tag.RowsAffected() == 0 {
-			return nil, fmt.Errorf("product %d: insufficient stock (requested %d)", it.ProductID, it.Quantity)
+			return nil, fmt.Errorf("product %d: %w (requested %d)", it.ProductID, ErrInsufficientStock, it.Quantity)
 		}
 	}
 
