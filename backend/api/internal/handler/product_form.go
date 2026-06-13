@@ -9,6 +9,39 @@ import (
 	"mioru/internal/model"
 )
 
+// normalizeProductStatus maps whatever the admin SPA sends on the wire to
+// one of the three canonical values {in_stock, preorder, out_of_stock} that
+// the products_status_chk CHECK constraint accepts. The SPA predates the
+// constraint, so it can still emit "pre_order" (with underscore) and "none";
+// rather than break the admin by forcing a frontend rename, we translate on
+// the way in. The DB is the single source of truth — nothing else should
+// write to products.status with a non-canonical value.
+func normalizeProductStatus(raw string, inStock bool) string {
+	switch strings.TrimSpace(raw) {
+	case "in_stock", "preorder", "out_of_stock":
+		return strings.TrimSpace(raw)
+	case "pre_order":
+		// Legacy: admin dropdown used underscore before the catalogue toggle.
+		return "preorder"
+	case "none":
+		// Legacy: admin dropdown used "none" for "sold out / not available".
+		return "out_of_stock"
+	case "":
+		if inStock {
+			return "in_stock"
+		}
+		return "out_of_stock"
+	default:
+		// Unknown value: fall through to the inStock-derived default rather
+		// than 400 the request. The CHECK constraint would also reject this
+		// string, so the next layer down is the data-integrity backstop.
+		if inStock {
+			return "in_stock"
+		}
+		return "out_of_stock"
+	}
+}
+
 // parseProductFromForm extracts a Product from multipart form values.
 func parseProductFromForm(r *http.Request) (model.Product, error) {
 	p := model.Product{
@@ -33,14 +66,7 @@ func parseProductFromForm(r *http.Request) (model.Product, error) {
 	}
 	p.InStock = r.FormValue("in_stock") == "true" || r.FormValue("in_stock") == "1"
 
-	p.Status = strings.TrimSpace(r.FormValue("status"))
-	if p.Status == "" {
-		if p.InStock {
-			p.Status = "in_stock"
-		} else {
-			p.Status = "none"
-		}
-	}
+	p.Status = normalizeProductStatus(r.FormValue("status"), p.InStock)
 	if v, err := strconv.Atoi(r.FormValue("stock_quantity")); err == nil {
 		p.StockQty = v
 	}

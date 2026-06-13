@@ -252,3 +252,116 @@ func equalStrings(a, b []string) bool {
 	}
 	return true
 }
+
+// TestListProductsByStatus verifies the storefront catalog honours the
+// status filter (in_stock | preorder | out_of_stock). It is the regression
+// guard for the catalog "В наличии / Под заказ" toggle wired by the
+// feat/catalog-status-toggle change.
+func TestListProductsByStatus(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	mustCreateProduct(t, s, model.Product{Slug: "is-1", CategoryID: 2, Name: "IS1", Price: 100, Status: "in_stock", InStock: true})
+	mustCreateProduct(t, s, model.Product{Slug: "is-2", CategoryID: 2, Name: "IS2", Price: 100, Status: "in_stock", InStock: true})
+	mustCreateProduct(t, s, model.Product{Slug: "po-1", CategoryID: 2, Name: "PO1", Price: 100, Status: "preorder", InStock: false, StockQty: 0})
+	mustCreateProduct(t, s, model.Product{Slug: "po-2", CategoryID: 2, Name: "PO2", Price: 100, Status: "preorder", InStock: false, StockQty: 0})
+
+	// Filter: in_stock → exactly 2
+	got, total, err := s.ListProducts(ctx, model.ProductFilter{Status: "in_stock", Sort: "name"})
+	if err != nil {
+		t.Fatalf("ListProducts(in_stock): %v", err)
+	}
+	if total != 2 {
+		t.Errorf("in_stock total = %d, want 2", total)
+	}
+	for _, p := range got {
+		if p.Status != "in_stock" {
+			t.Errorf("in_stock filter returned %s, want only in_stock", p.Status)
+		}
+	}
+
+	// Filter: preorder → exactly 2
+	got, total, err = s.ListProducts(ctx, model.ProductFilter{Status: "preorder", Sort: "name"})
+	if err != nil {
+		t.Fatalf("ListProducts(preorder): %v", err)
+	}
+	if total != 2 {
+		t.Errorf("preorder total = %d, want 2", total)
+	}
+	for _, p := range got {
+		if p.Status != "preorder" {
+			t.Errorf("preorder filter returned %s, want only preorder", p.Status)
+		}
+	}
+
+	// Empty filter → all 4
+	_, total, err = s.ListProducts(ctx, model.ProductFilter{})
+	if err != nil {
+		t.Fatalf("ListProducts(no filter): %v", err)
+	}
+	if total < 4 {
+		t.Errorf("unfiltered total = %d, want >= 4", total)
+	}
+}
+
+// TestListProductFacetsByStatus documents the design decision: status is a
+// 2-state toggle (in_stock | preorder), not a multi-value chip. Unlike brand/
+// color/size — where the facets endpoint drops the user's selection so every
+// option stays visible — status is kept in the facets query. The user expects
+// the size chart and brand list to reflect "products in the currently toggled
+// bucket", not "every product globally". This test exercises both code paths
+// (filtered and unfiltered) so the SQL does not regress.
+func TestListProductFacetsByStatus(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	mustCreateProduct(t, s, model.Product{Slug: "is-facets", CategoryID: 2, Brand: "FACETS-IS", Name: "ISF", Price: 100, Status: "in_stock", InStock: true})
+	mustCreateProduct(t, s, model.Product{Slug: "po-facets", CategoryID: 2, Brand: "FACETS-PO", Name: "POF", Price: 100, Status: "preorder", InStock: false, StockQty: 0})
+
+	// Filtered: status=in_stock → only the in_stock brand should appear
+	filtered, err := s.ListProductFacets(ctx, model.ProductFilter{Status: "in_stock"})
+	if err != nil {
+		t.Fatalf("ListProductFacets(in_stock): %v", err)
+	}
+	if !contains(filtered.Brands, "FACETS-IS") {
+		t.Errorf("in_stock facets missing FACETS-IS brand, got %v", filtered.Brands)
+	}
+	if contains(filtered.Brands, "FACETS-PO") {
+		t.Errorf("in_stock facets should NOT include FACETS-PO, got %v", filtered.Brands)
+	}
+
+	// Unfiltered → both brands appear
+	unfiltered, err := s.ListProductFacets(ctx, model.ProductFilter{})
+	if err != nil {
+		t.Fatalf("ListProductFacets(no filter): %v", err)
+	}
+	if !contains(unfiltered.Brands, "FACETS-IS") || !contains(unfiltered.Brands, "FACETS-PO") {
+		t.Errorf("unfiltered facets missing seeded brands, got %v", unfiltered.Brands)
+	}
+}
+
+func contains(xs []string, want string) bool {
+	for _, x := range xs {
+		if x == want {
+			return true
+		}
+	}
+	return false
+}
+
+// TestCreateProductRejectsUnknownStatus verifies the CHECK constraint on
+// products.status rejects anything outside {in_stock, preorder, out_of_stock}.
+// The constraint is the data-integrity backstop — the handler also validates,
+// but a DB-level guarantee means a buggy code path can never poison the column.
+func TestCreateProductRejectsUnknownStatus(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	_, err := s.CreateProduct(ctx, model.Product{
+		Slug: "bad-status", CategoryID: 2, Name: "BAD", Price: 100,
+		Status: "ghost", InStock: true,
+	})
+	if err == nil {
+		t.Fatal("expected CreateProduct to reject unknown status, got nil")
+	}
+}

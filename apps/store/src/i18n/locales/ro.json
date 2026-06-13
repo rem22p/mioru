@@ -139,6 +139,10 @@
     "title": "Toate produsele",
     "badge": "Catalog",
     "count": "{{count}} produse",
+    "toggle": {
+      "inStock": "În stoc",
+      "preorder": "La comandă"
+    },
     "sortBy": {
       "newest": "Cele mai noi",
       "priceAsc": "Preț ↑",

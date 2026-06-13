@@ -6,7 +6,18 @@ import type {
   ProductsResponse,
 } from "@/types";
 
-const API_URL = import.meta.env.VITE_API_URL || "https://api.mioru.store";
+// Dev/prod API URL.
+// Vite 8.x bug: import.meta.env.DEV is stable false in dev mode, so the
+// intended `??`-style fallback on DEV cannot be used. We branch on MODE
+// instead, which is the documented workaround. In dev, VITE_API_URL=""
+// falls through to an empty string → fetch("/api/...") is same-origin and
+// hits the Vite proxy. In production, VITE_API_URL must be set explicitly
+// at build time; we fall back to api.mioru.store if absent (build-time
+// resolution — no runtime env var read on the server).
+const API_URL =
+  import.meta.env.MODE === "production"
+    ? import.meta.env.VITE_API_URL || "https://api.mioru.store"
+    : import.meta.env.VITE_API_URL || "";
 
 export function getImageUrl(path: string): string {
   if (!path) return "";

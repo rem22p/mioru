@@ -131,7 +131,7 @@ func seedProduct(t *testing.T, s *PostgresStore, slug string, priceMDL int, stoc
 	var id int64
 	err := s.pool.QueryRow(context.Background(), `
 		INSERT INTO products (slug, category_id, brand, name, price, color, status, stock_quantity, created_by)
-		VALUES ($1, 1, 'TestBrand', 'Test Product', $2, 'red', 'active', $3, 'test')
+		VALUES ($1, 1, 'TestBrand', 'Test Product', $2, 'red', 'in_stock', $3, 'test')
 		RETURNING id`, slug, priceMDL, stock).Scan(&id)
 	if err != nil {
 		t.Fatalf("seedProduct: %v", err)

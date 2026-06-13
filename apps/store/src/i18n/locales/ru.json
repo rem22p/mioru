@@ -138,6 +138,10 @@
     "title": "Все товары",
     "badge": "Каталог",
     "count": "{{count}} товаров",
+    "toggle": {
+      "inStock": "В наличии",
+      "preorder": "Под заказ"
+    },
     "sortBy": {
       "newest": "Сначала новые",
       "priceAsc": "Цена ↑",

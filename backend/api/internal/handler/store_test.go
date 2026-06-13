@@ -200,6 +200,68 @@ func TestStoreListFacetsIgnoresFacetSelection(t *testing.T) {
 	}
 }
 
+// TestStoreListProductsAcceptsKnownStatus verifies the catalog "В наличии /
+// Под заказ" toggle param is plumbed through to the store layer untouched for
+// the two real values. Out-of-scope values are covered by the next test.
+func TestStoreListProductsAcceptsKnownStatus(t *testing.T) {
+	var gotFilter model.ProductFilter
+	fake := &fakeStoreReader{
+		listFn: func(_ context.Context, f model.ProductFilter) ([]model.Product, int, error) {
+			gotFilter = f
+			return []model.Product{}, 0, nil
+		},
+	}
+	h := NewStoreHandler(fake)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/products?status=preorder", nil)
+	rr := httptest.NewRecorder()
+	h.ListProducts(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rr.Code)
+	}
+	if gotFilter.Status != "preorder" {
+		t.Errorf("filter.Status = %q, want preorder", gotFilter.Status)
+	}
+}
+
+// TestStoreListProductsRejectsUnknownStatus verifies the handler returns a
+// 400 envelope with code VALIDATION_FAILED when ?status= carries a value
+// outside the closed enum. The store must never see a malformed value.
+func TestStoreListProductsRejectsUnknownStatus(t *testing.T) {
+	fake := &fakeStoreReader{
+		listFn: func(_ context.Context, _ model.ProductFilter) ([]model.Product, int, error) {
+			t.Fatal("store should not be called for invalid status")
+			return nil, 0, nil
+		},
+	}
+	h := NewStoreHandler(fake)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/products?status=ghost", nil)
+	rr := httptest.NewRecorder()
+	h.ListProducts(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rr.Code)
+	}
+	var body struct {
+		Error string `json:"error"`
+		Code  string `json:"code"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.Code != "VALIDATION_FAILED" {
+		t.Errorf("code = %q, want VALIDATION_FAILED", body.Code)
+	}
+	// Body must NOT leak the raw enum hint to a public client (defence in
+	// depth — the wire format is "VALIDATION_FAILED", the operator log is the
+	// only place the full message belongs).
+	if !strings.Contains(strings.ToLower(body.Error), "status") {
+		t.Errorf("error = %q, expected to mention 'status'", body.Error)
+	}
+}
+
 func equalStrSlices(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

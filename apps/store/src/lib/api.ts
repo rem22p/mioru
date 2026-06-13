@@ -94,6 +94,7 @@ export type CatalogQuery = Partial<{
   brand: string[];
   color: string[];
   size: string[];
+  status: string; // "in_stock" | "preorder" | "out_of_stock"
 }>;
 
 export interface ProductsPage {

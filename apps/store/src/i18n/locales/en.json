@@ -139,6 +139,10 @@
     "title": "All products",
     "badge": "Catalog",
     "count": "{{count}} products",
+    "toggle": {
+      "inStock": "In stock",
+      "preorder": "Preorder"
+    },
     "sortBy": {
       "newest": "Newest first",
       "priceAsc": "Price ↑",
