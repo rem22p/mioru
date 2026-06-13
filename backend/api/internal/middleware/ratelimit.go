@@ -5,6 +5,8 @@ import (
 	"net"
 	"net/http"
 	"strings"
+
+	"mioru/internal/jsonerr"
 )
 
 // IncrFunc increments the fixed-window counter for key and returns the resulting
@@ -16,7 +18,8 @@ type IncrFunc func(ctx context.Context, key string) (int, error)
 // `name` namespaces the counter so endpoints don't share a budget; `limit` is the
 // maximum number of requests allowed per window. `trustProxy` controls whether
 // forwarded headers are honored when identifying the client (see clientIP). On
-// exceedance it responds 429.
+// exceedance it responds 429 with the JSON envelope + RATE_LIMITED code
+// (per CLAUDE.md API contract — fixed for #31).
 //
 // If the backing store errors, the request is allowed through (fail-open) so a
 // transient store hiccup cannot lock everyone out of authentication.
@@ -27,7 +30,7 @@ func RateLimit(name string, limit int, trustProxy bool, incr IncrFunc) func(http
 			count, err := incr(r.Context(), key)
 			if err == nil && count > limit {
 				w.Header().Set("Retry-After", "60")
-				http.Error(w, `{"error":"too many requests"}`, http.StatusTooManyRequests)
+				jsonerr.ErrorCode(w, "rate limited", http.StatusTooManyRequests, "RATE_LIMITED")
 				return
 			}
 			next(w, r)
