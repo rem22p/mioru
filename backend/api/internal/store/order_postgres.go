@@ -17,23 +17,13 @@ import (
 // with a different request body — a probable client bug or replay attack.
 var ErrIdempotencyHashMismatch = errors.New("idempotency key reused with different request hash")
 
-// ErrIdempotencyReplay is returned when a concurrent first submit with the
-// same Idempotency-Key wins the race and inserts the row; the loser
-// receives this sentinel and the handler can return 409 IDEMPOTENCY_REPLAY
-// instead of a generic 500. Money and stock are safe — the unique
-// constraint guarantees exactly one order per key. This is purely a
-// client-visible polish: a benign double-click no longer surfaces as 500.
-var ErrIdempotencyReplay = errors.New("idempotency race: concurrent submit won")
-
 // ErrIdempotencyRace is returned when a concurrent first submit with the
-// same Idempotency-Key won the INSERT on order_idempotency_pkey. Unlike
-// ErrIdempotencyReplay, this sentinel signals the *correct* race-loser
-// flow: the handler should re-fetch the winner's stored record and
-// return 201 with the winner's body when the request hash matches
-// (true idempotent replay), or 409 IDEMPOTENCY_REPLAY only when the
-// hash differs (a real conflict, not a benign double-click). The two
-// sentinels exist so the handler can branch by cause, not by string
-// match.
+// same Idempotency-Key won the INSERT on order_idempotency_pkey. The
+// handler re-fetches the winner's stored record and returns 201 with the
+// winner's body when the request hash matches (true idempotent replay),
+// or 409 IDEMPOTENCY_REPLAY only when the hash differs (a real conflict,
+// not a benign double-click). Money and stock are safe regardless — the
+// unique constraint guarantees exactly one order per key.
 var ErrIdempotencyRace = errors.New("idempotency race: winner already inserted")
 
 // IdempotencyRecord is the row stored in order_idempotency. The handler

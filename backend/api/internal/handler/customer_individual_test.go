@@ -81,6 +81,57 @@ func TestCreateOrderIndividualRejectsCraftedItems(t *testing.T) {
 				"total_minor": 0
 			}`,
 		},
+		{
+			name: "size_label over 32 chars is rejected",
+			body: `{
+				"type": "individual",
+				"city": "Тирасполь",
+				"delivery_method": "personal",
+				"payment_method": "card",
+				"items": [{"product_id": 105, "size_label": "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM", "quantity": 1}],
+				"total_minor": 0
+			}`,
+		},
+		{
+			name: "delivery_time over 10 entries is rejected",
+			body: `{
+				"type": "individual",
+				"city": "Тирасполь",
+				"delivery_method": "personal",
+				"payment_method": "card",
+				"delivery_time": ["a","b","c","d","e","f","g","h","i","j","k"]
+			}`,
+		},
+		{
+			name: "delivery_time element over 32 chars is rejected",
+			body: `{
+				"type": "individual",
+				"city": "Тирасполь",
+				"delivery_method": "personal",
+				"payment_method": "card",
+				"delivery_time": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+			}`,
+		},
+		{
+			name: "height out of range is rejected",
+			body: `{
+				"type": "individual",
+				"city": "Тирасполь",
+				"delivery_method": "personal",
+				"payment_method": "card",
+				"height": 1000
+			}`,
+		},
+		{
+			name: "weight out of range is rejected",
+			body: `{
+				"type": "individual",
+				"city": "Тирасполь",
+				"delivery_method": "personal",
+				"payment_method": "card",
+				"weight": -5
+			}`,
+		},
 		// Note: "empty items list" used to be invalid for any type, but
 		// the regression fix split per-type presence: cart must have
 		// at least one item (see TestCreateOrderCartStillRejectsEmptyItems),

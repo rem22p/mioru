@@ -1,6 +1,13 @@
 import type { Product, Category } from "@/types";
 
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.MODE === "development" ? "" : "https://api.mioru.store");
+// Mirror apps/admin/src/lib/api.ts: branch on production explicitly so a
+// custom MODE (staging/preview) resolves the same way in both SPAs. In
+// production VITE_API_URL must be set at build time; we fall back to
+// api.mioru.store if absent. Outside production, "" → same-origin Vite proxy.
+const API_URL =
+  import.meta.env.MODE === "production"
+    ? import.meta.env.VITE_API_URL || "https://api.mioru.store"
+    : import.meta.env.VITE_API_URL || "";
 
 export function getImageUrl(path: string): string {
   if (!path) return "";
