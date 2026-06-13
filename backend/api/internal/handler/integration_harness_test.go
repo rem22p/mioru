@@ -131,6 +131,27 @@ func (e *env) userSession(t *testing.T, username, role string) *session {
 	}
 }
 
+// sessionFromResponse builds a session from the Set-Cookie headers a bootstrap
+// endpoint (register/login) wrote, so a test can reuse the real minted cookies
+// on subsequent authenticated calls.
+func sessionFromResponse(t *testing.T, rr *httptest.ResponseRecorder, authCookieName, csrfCookieName string) *session {
+	t.Helper()
+	var authCookie *http.Cookie
+	var csrf string
+	for _, c := range rr.Result().Cookies() {
+		switch c.Name {
+		case authCookieName:
+			authCookie = c
+		case csrfCookieName:
+			csrf = c.Value
+		}
+	}
+	if authCookie == nil {
+		t.Fatalf("response set no %q cookie; cookies=%v", authCookieName, rr.Result().Cookies())
+	}
+	return &session{authCookie: authCookie, csrfValue: csrf}
+}
+
 // --- request driver ---
 
 type reqOpts struct {
