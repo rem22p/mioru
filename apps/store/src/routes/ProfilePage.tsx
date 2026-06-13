@@ -1,12 +1,16 @@
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { fetchStoreCustomerOrders, type StoreOrder } from "@/lib/api";
-import { VIP_LEVELS } from "@/lib/constants";
-import { User, Settings, Package, ChevronRight, LogOut } from "lucide-react";
+import {
+  User, Settings, ChevronRight, LogOut,
+  MapPin, Truck, CreditCard, ShoppingBag,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
 import { useAuthStore } from "@/stores/authStore";
+import { useCurrencyStore } from "@/stores/currencyStore";
+import { formatPrice } from "@/lib/currency";
 import AuthSection from "@/components/auth/AuthSection";
 
 export default function ProfilePage() {
@@ -55,16 +59,6 @@ export default function ProfilePage() {
       </div>
     );
   }
-
-  const currentVip = VIP_LEVELS.reduce((prev, curr) =>
-    user.xpBalance >= curr.minXp ? curr : prev,
-  );
-  const nextVip = VIP_LEVELS.find((v) => v.level > currentVip.level);
-  const progress = nextVip
-    ? ((user.xpBalance - currentVip.minXp) /
-        (nextVip.minXp - currentVip.minXp)) *
-      100
-    : 100;
 
   return (
     <div className="px-6 py-24 lg:px-8">
@@ -119,42 +113,6 @@ export default function ProfilePage() {
           </div>
         </motion.div>
 
-        {/* XP Progress */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="mt-6 rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-6"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-primary)]">
-                {t("profile.level")}:{" "}
-                <span className="text-[#44944A]">{currentVip.name}</span>
-              </h3>
-              <p className="text-xs text-[var(--color-text-secondary)] mt-1">
-                {t("profile.xp", {
-                  xp: (user.xpBalance || 0).toLocaleString("ru-RU"),
-                })}
-              </p>
-            </div>
-            {nextVip && (
-              <span className="text-xs text-[var(--color-text-muted)] font-mono">
-                {t("profile.toNextLevel", {
-                  level: nextVip.name,
-                  xp: nextVip.minXp.toLocaleString("ru-RU"),
-                })}
-              </span>
-            )}
-          </div>
-          <div className="h-2 rounded-full bg-[var(--color-bg-primary)] overflow-hidden">
-            <div
-              className="h-full rounded-full bg-[#44944A] transition-all"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </motion.div>
-
         {/* Quick Links */}
         <div className="mt-6">
           <Link
@@ -172,7 +130,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Orders */}
-        <div className="mt-12">
+        <div id="orders" className="mt-12">
           <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-6">
             {t("profile.orderHistory")}
           </h3>
@@ -183,40 +141,206 @@ export default function ProfilePage() {
               </p>
             ) : (
               orders.map((order) => (
-                <div
-                  key={order.id}
-                  className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-5"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Package className="h-5 w-5 text-[var(--color-text-muted)]" />
-                      <div>
-                        <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                          #{order.id}
-                        </p>
-                        <p className="text-xs text-[var(--color-text-muted)]">
-                          {new Date(order.created_at).toLocaleDateString("ru-RU")}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                        {(order.total_minor / 100).toLocaleString("ru-RU", {
-                          minimumFractionDigits: 2,
-                        })}{" "}
-                        ₽
-                      </p>
-                      <p className="text-xs text-[#44944A]">
-                        {t(`profile.orderStatus.${order.status}`, order.status)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                <OrderCard key={order.id} order={order} />
               ))
             )}
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Order Card ──
+
+const STATUS_ACCENT: Record<string, string> = {
+  pending: "text-amber-400 bg-amber-400/10",
+  processing: "text-blue-400 bg-blue-400/10",
+  shipped: "text-purple-400 bg-purple-400/10",
+  delivered: "text-green-400 bg-green-400/10",
+};
+
+function OrderCard({ order: o }: { order: StoreOrder }) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const currency = useCurrencyStore((s) => s.currency);
+  const totalMDL = o.total_minor / 100;
+  // _minor is always MDL (server-side authoritative), so the same
+  // helper that drives the catalog (ProductPageClient) drives the
+  // order list — no more raw MDL under a hardcoded ₽.
+  const totalFormatted = formatPrice(totalMDL, currency);
+  const itemPrice = (priceMinor: number) => formatPrice(priceMinor / 100, currency);
+
+  const statusLabel = t(`profile.orderStatus.${o.status}`, o.status);
+  const typeLabel = t(`profile.orderType.${o.type}`, o.type);
+  const deliveryLabel = t(`profile.delivery.${o.delivery_method}`, o.delivery_method);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] overflow-hidden hover:border-[var(--color-text-muted)] transition-colors"
+    >
+      {/* Card header — click to expand */}
+      <div
+        className="p-4 sm:p-5 flex items-start justify-between gap-3 cursor-pointer select-none"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+            <span className="text-lg font-bold text-[var(--color-text-primary)] font-mono">
+              #{o.id}
+            </span>
+            <span
+              className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                o.type === "individual"
+                  ? "text-pink-400 bg-pink-400/10"
+                  : "text-gray-400 bg-gray-400/10"
+              }`}
+            >
+              {typeLabel}
+            </span>
+            <span
+              className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                STATUS_ACCENT[o.status] || ""
+              }`}
+            >
+              {statusLabel}
+            </span>
+          </div>
+
+          {/* Quick info */}
+          <div className="flex items-center gap-3 mt-2 text-xs text-[var(--color-text-muted)] flex-wrap">
+            <span className="flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              {o.city}
+            </span>
+            <span className="flex items-center gap-1">
+              <Truck className="h-3 w-3" />
+              {deliveryLabel}
+            </span>
+            <span className="flex items-center gap-1">
+              <CreditCard className="h-3 w-3" />
+              {o.payment_method === "card" ? t("checkout.payment.card") : t("checkout.payment.cod")}
+            </span>
+            <span className="flex items-center gap-1">
+              <ShoppingBag className="h-3 w-3" />
+              {o.items?.length || 0} {t("profile.itemsCount")}
+            </span>
+          </div>
+        </div>
+
+        <div className="text-right shrink-0">
+          <span className="text-lg font-bold text-[var(--color-text-primary)]">
+            {totalFormatted}
+          </span>
+          <div className="text-xs text-[var(--color-text-muted)] mt-0.5">
+            {new Date(o.created_at).toLocaleString("ru-RU", {
+              day: "2-digit",
+              month: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Expanded details */}
+      {expanded && (
+        <div className="px-4 sm:px-5 pb-5 border-t border-[var(--color-border-custom)] pt-4 space-y-4">
+          {/* Items */}
+          {o.items && o.items.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
+                Товары
+              </h4>
+              <div className="space-y-1.5">
+                {o.items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between text-sm py-1.5 px-3 rounded-lg bg-[var(--color-bg-secondary)]"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[var(--color-text-primary)]">
+                        {item.product_name || `#${item.product_id}`}
+                      </span>
+                      {item.size_label && (
+                        <span className="text-[var(--color-text-muted)] ml-1.5 text-xs">
+                          {item.size_label}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0 ml-3">
+                      <span className="text-[var(--color-text-muted)] text-xs">
+                        ×{item.quantity}
+                      </span>
+                      <span className="text-[var(--color-text-primary)] font-medium tabular-nums">
+                        {itemPrice(item.price_minor)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Individual order details */}
+          {o.type === "individual" && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(o.height || o.weight) && (
+                <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
+                  <span className="text-xs text-[var(--color-text-muted)]">{t("profile.orderDetail.parameters")}</span>
+                  <p className="text-sm text-[var(--color-text-primary)] mt-0.5">
+                    {o.height ? t("profile.orderDetail.heightCm", { value: o.height }) : ""}
+                    {o.height && o.weight ? ", " : ""}
+                    {o.weight ? t("profile.orderDetail.weightKg", { value: o.weight }) : ""}
+                  </p>
+                </div>
+              )}
+              {o.delivery_time && o.delivery_time.length > 0 && (
+                <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
+                  <span className="text-xs text-[var(--color-text-muted)]">{t("profile.orderDetail.timeframes")}</span>
+                  <p className="text-sm text-[var(--color-text-primary)] mt-0.5">
+                    {o.delivery_time.map((timeKey) =>
+                      t(`profile.deliveryTime.${timeKey}`, timeKey)
+                    ).join(", ")}
+                  </p>
+                </div>
+              )}
+              {o.comment && (
+                <div className="sm:col-span-2 p-3 rounded-xl bg-[var(--color-bg-secondary)]">
+                  <span className="text-xs text-[var(--color-text-muted)]">{t("profile.orderDetail.comment")}</span>
+                  <p className="text-sm text-[var(--color-text-primary)] mt-0.5 whitespace-pre-wrap">
+                    {o.comment}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Address for cart orders */}
+          {o.type === "cart" && (o.street || o.house) && (
+            <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
+              <span className="text-xs text-[var(--color-text-muted)]">{t("profile.orderDetail.deliveryAddress")}</span>
+              <p className="text-sm text-[var(--color-text-primary)] mt-0.5">
+                {[o.street, o.house, o.apartment ? t("profile.orderDetail.apt", { value: o.apartment }) : null]
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
+            </div>
+          )}
+
+          {/* Comment for cart orders */}
+          {o.type === "cart" && o.comment && (
+            <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
+              <span className="text-xs text-[var(--color-text-muted)]">{t("profile.orderDetail.comment")}</span>
+              <p className="text-sm text-[var(--color-text-primary)] mt-0.5 whitespace-pre-wrap">
+                {o.comment}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </motion.div>
   );
 }

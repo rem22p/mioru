@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -57,7 +58,11 @@ func NewStoreHandler(s storeReader) *StoreHandler {
 // price_max, sort, page, per_page. brand/color/size accept repeated keys
 // (?brand=A&brand=B) or comma-separated values (?brand=A,B).
 func (h *StoreHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
-	filter := parseProductFilter(r)
+	filter, err := parseProductFilter(r)
+	if err != nil {
+		jsonErrorCode(w, err.Error(), http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
 
 	products, total, err := h.store.ListProducts(r.Context(), filter)
 	if err != nil {
@@ -86,11 +91,19 @@ func (h *StoreHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 // color, and size are *ignored* when building facets — otherwise selecting a
 // brand would immediately hide every other brand from the UI.
 func (h *StoreHandler) ListFacets(w http.ResponseWriter, r *http.Request) {
-	filter := parseProductFilter(r)
+	filter, err := parseProductFilter(r)
+	if err != nil {
+		jsonErrorCode(w, err.Error(), http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
 	filter.Brand = ""
 	filter.Brands = nil
 	filter.Colors = nil
 	filter.Sizes = nil
+	// status is also kept (unlike brand/color/size) — it is a TOGGLE, not a
+	// narrowing facet, and the user is expected to see products from the same
+	// status bucket when computing facet counts. Dropping it would make the
+	// size chart look broken when toggled to "Под заказ".
 
 	facets, err := h.store.ListProductFacets(r.Context(), filter)
 	if err != nil {
@@ -105,8 +118,9 @@ func (h *StoreHandler) ListFacets(w http.ResponseWriter, r *http.Request) {
 
 // parseProductFilter reads the storefront filter/sort/pagination params off
 // the request, clamping per_page to maxPerPage so a client cannot ask the DB
-// to ship a million rows.
-func parseProductFilter(r *http.Request) model.ProductFilter {
+// to ship a million rows. Returns a non-nil error when ?status= is set to a
+// value outside the closed enum {in_stock, preorder, out_of_stock}.
+func parseProductFilter(r *http.Request) (model.ProductFilter, error) {
 	q := r.URL.Query()
 
 	filter := model.ProductFilter{
@@ -129,6 +143,21 @@ func parseProductFilter(r *http.Request) model.ProductFilter {
 	if v, err := strconv.Atoi(q.Get("price_max")); err == nil && v > 0 {
 		filter.PriceMax = v
 	}
+	// status is a closed enum; an unknown value would silently become "" (=
+	// "all products") and confuse the catalog toggle. Reject it explicitly.
+	if raw := q.Get("status"); raw != "" {
+		switch raw {
+		case "in_stock", "preorder", "out_of_stock":
+			filter.Status = raw
+		default:
+			// Don't echo the raw user input or the full enum in a public
+			// error message — the wire-format contract is "valid or
+			// rejected", and a generic code is enough for the client
+			// to surface. A leaked enum tells an attacker the exact
+			// set to probe.
+			return filter, fmt.Errorf("invalid status value")
+		}
+	}
 	filter.Sort = q.Get("sort")
 	if v, err := strconv.Atoi(q.Get("page")); err == nil && v > 0 {
 		filter.Page = v
@@ -139,7 +168,7 @@ func parseProductFilter(r *http.Request) model.ProductFilter {
 	if filter.PerPage > maxPerPage {
 		filter.PerPage = maxPerPage
 	}
-	return filter
+	return filter, nil
 }
 
 // GetProduct handles GET /api/products/{slug}

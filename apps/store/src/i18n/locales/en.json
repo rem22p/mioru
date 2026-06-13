@@ -59,12 +59,14 @@
     "afterSubmit": "Our manager will contact you soon on Telegram with information about your order. If this format of communication doesn't work for you, please reach out to us on Instagram @mioru.store."
   },
   "nav": {
-    "inStock": "IN STOCK",
+    "inStock": "CATALOG",
     "customOrder": "CUSTOM ORDER",
     "avatar": "AVATAR",
     "cart": "CART",
     "favorites": "FAVORITES",
-    "profile": "Profile"
+    "profile": "Profile",
+    "language": "Language",
+    "currency": "Currency"
   },
   "favorites": {
     "empty": "You haven't added anything to favorites yet"
@@ -89,29 +91,38 @@
       "allProducts": "All products →"
     },
     "about": {
-      "badge": "02 / About us",
+      "badge": "01 / About us",
       "title": "Our advantages",
       "items": [
         {
-          "label": "3D Avatar",
-          "desc": "Create an accurate digital twin of your body"
+          "label": "Easy clothing catalog",
+          "desc": "Browse the full collection with filters",
+          "link": "/catalog"
         },
         {
-          "label": "Virtual Try-On",
-          "desc": "See how it fits before you buy"
+          "label": "Custom orders",
+          "desc": "Get any item tailored to your measurements",
+          "link": "/custom-order"
         },
         {
           "label": "XP bonus system",
-          "desc": "Earn points and unlock rewards"
+          "desc": "Earn points and unlock rewards",
+          "link": "/profile"
         },
         {
-          "label": "Order tracking — coming soon",
-          "desc": ""
+          "label": "Order tracking",
+          "desc": "See your orders and their status",
+          "link": "/profile#orders"
+        },
+        {
+          "label": "Virtual Try-On",
+          "desc": "See how it fits before you buy",
+          "link": "/avatar"
         }
       ]
     },
     "featured": {
-      "badge": "03 / Featured",
+      "badge": "02 / Featured",
       "title": "This season's trends",
       "allProducts": "All products →",
       "addToCart": "Add to cart"
@@ -120,7 +131,6 @@
       "badge": "Start now",
       "title1": "Ready to find",
       "title2": "your perfect fit?",
-      "description": "Create your avatar, try on clothes in 3D, and order with zero surprises.",
       "button": "Create avatar"
     }
   },
@@ -128,6 +138,10 @@
     "title": "All products",
     "badge": "Catalog",
     "count": "{{count}} products",
+    "toggle": {
+      "inStock": "In stock",
+      "preorder": "Preorder"
+    },
     "sortBy": {
       "newest": "Newest first",
       "priceAsc": "Price ↑",
@@ -263,12 +277,38 @@
     "myAvatar": "My avatar",
     "orderHistory": "Order history",
     "noOrders": "No orders yet",
+    "itemsCount": "items",
     "orderStatus": {
       "pending": "Pending",
       "processing": "Processing",
       "shipped": "Shipped",
       "delivered": "Delivered",
       "cancelled": "Cancelled"
+    },
+    "orderType": {
+      "cart": "Cart",
+      "individual": "Individual"
+    },
+    "delivery": {
+      "personal": "Personal meeting",
+      "address": "Address delivery",
+      "bus": "Shuttle bus",
+      "express": "Express mail",
+      "moldovaPost": "Moldova Post"
+    },
+    "deliveryTime": {
+      "fast": "As soon as possible",
+      "medium": "Within a week",
+      "slow": "Within a month"
+    },
+    "orderDetail": {
+      "parameters": "Parameters",
+      "timeframes": "Timeframes",
+      "comment": "Comment",
+      "deliveryAddress": "Delivery address",
+      "heightCm": "Height {{value}} cm",
+      "weightKg": "Weight {{value}} kg",
+      "apt": "Apt {{value}}"
     }
   },
   "avatar": {

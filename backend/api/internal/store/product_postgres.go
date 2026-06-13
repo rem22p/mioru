@@ -538,6 +538,11 @@ func buildProductFilterWhere(filter model.ProductFilter, startIdx int) (where st
 		args = append(args, filter.PriceMax)
 		argIdx++
 	}
+	if filter.Status != "" {
+		where += fmt.Sprintf(" AND p.status = $%d", argIdx)
+		args = append(args, filter.Status)
+		argIdx++
+	}
 
 	return where, args, argIdx
 }

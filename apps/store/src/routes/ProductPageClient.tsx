@@ -1,7 +1,7 @@
 import { useState, lazy, Suspense, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import type { Product, Review } from "@/types";
+import type { Product } from "@/types";
 import { toSizeChart } from "@/types";
 import { useCartStore } from "@/stores/cartStore";
 import { useFavoritesStore } from "@/stores/favoritesStore";
@@ -9,12 +9,13 @@ import { useTranslation } from "react-i18next";
 import {
   ShoppingBag,
   ArrowLeft,
-  Star,
   Ruler,
   Check,
   Heart,
   Share2,
 } from "lucide-react";
+import { useCurrencyStore } from "@/stores/currencyStore";
+import { formatPrice } from "@/lib/currency";
 import { Helmet } from "react-helmet-async";
 
 // Lazy-load below-the-fold components
@@ -27,9 +28,6 @@ const SizeChartModal = lazy(
 const ProductDetails = lazy(
   () => import("@/components/product/ProductDetails"),
 );
-const ReviewsSection = lazy(
-  () => import("@/components/product/ReviewsSection"),
-);
 const RelatedProducts = lazy(
   () => import("@/components/product/RelatedProducts"),
 );
@@ -38,11 +36,9 @@ interface ProductPageClientProps {
   product: Product;
 }
 
-/** Empty reviews array — backend doesn't have reviews yet. */
-const EMPTY_REVIEWS: Review[] = [];
-
 export default function ProductPageClient({ product }: ProductPageClientProps) {
   const { t } = useTranslation();
+  const { currency } = useCurrencyStore();
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [showSizeChart, setShowSizeChart] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
@@ -63,13 +59,6 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
 
   // Transform backend size_chart rows into UI format
   const sizeChart = toSizeChart(product.size_chart);
-
-  const reviews = EMPTY_REVIEWS;
-
-  const averageRating =
-    reviews.length > 0
-      ? Math.round(reviews.reduce((s, r) => s + r.rating, 0) / reviews.length)
-      : 0;
 
   // How many of this product+size are already in the cart
   const cartQty = selectedSize
@@ -103,11 +92,11 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
       <Helmet>
         <title>
           {product.name} — купить в MIORU | Цена{" "}
-          {product.price.toLocaleString("ru-RU")} ₽
+          {formatPrice(product.price, currency)}
         </title>
         <meta
           name="description"
-          content={`${product.name} — ${product.description.slice(0, 150)}... Цена: ${product.price.toLocaleString("ru-RU")} ₽. Виртуальная примерка на 3D-аватаре. Быстрая доставка.`}
+          content={`${product.name} — ${product.description.slice(0, 150)}... Цена: ${formatPrice(product.price, currency)}. Виртуальная примерка на 3D-аватаре. Быстрая доставка.`}
         />
         <meta property="og:title" content={`${product.name} — MIORU`} />
         <meta
@@ -146,7 +135,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
             >
               <Suspense
                 fallback={
-                  <div className="aspect-[4/5] rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] animate-pulse" />
+                  <div className="aspect-[4/5] rounded-2xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)] animate-pulse" />
                 }
               >
                 <ProductGallery product={product} />
@@ -168,34 +157,15 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                 {product.name}
               </h1>
 
-              {/* Rating & Price Row */}
+              {/* Color + Price Row */}
               <div className="mt-6 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star
-                        key={star}
-                        className={`h-4 w-4 ${
-                          star <= averageRating
-                            ? "fill-[#44944A] text-[#44944A]"
-                            : "fill-transparent text-[var(--color-border-light)]"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-xs text-[var(--color-text-secondary)]">
-                    {t("product.reviews", { count: reviews.length })}
-                  </span>
-                </div>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[#44944A]/10 text-[#44944A] border border-[#44944A]/20">
+                  <span className="w-2 h-2 rounded-full bg-[#44944A]" />
+                  {product.color}
+                </span>
                 <p className="text-3xl font-bold text-[#44944A]">
-                  {product.price.toLocaleString("ru-RU")} ₽
+                  {formatPrice(product.price, currency)}
                 </p>
-              </div>
-
-              {/* XP Badge */}
-              <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#44944A]/10 px-4 py-2 text-xs font-mono text-[#44944A] w-fit">
-                <Star className="h-3 w-3 fill-[#44944A]" />
-                {t("product.xpReward", { xp: product.xp_reward })}
               </div>
 
               {/* Short Description */}
@@ -376,11 +346,6 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
             }
           >
             <ProductDetails product={product} />
-          </Suspense>
-
-          {/* Reviews */}
-          <Suspense fallback={null}>
-            <ReviewsSection reviews={reviews} />
           </Suspense>
 
           {/* Related Products */}

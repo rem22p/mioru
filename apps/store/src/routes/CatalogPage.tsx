@@ -1,11 +1,14 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useCatalogStore } from "@/stores/catalogStore";
+import { useCurrencyStore } from "@/stores/currencyStore";
+import { formatPrice } from "@/lib/currency";
 import { useCartStore } from "@/stores/cartStore";
 import { getThumbUrl, getImageUrl } from "@/lib/api";
 import { ShoppingBag, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import CatalogStatusToggle from "@/components/catalog/CatalogStatusToggle";
 import { Helmet } from "react-helmet-async";
 
 const PER_PAGE = 20;
@@ -23,6 +26,7 @@ function categoryEmoji(slug: string): string {
 
 export default function CatalogPage() {
   const { t } = useTranslation();
+  const { currency } = useCurrencyStore();
   const {
     products,
     categories,
@@ -52,6 +56,49 @@ export default function CatalogPage() {
     colors: false,
   });
   const [page, setPage] = useState(1);
+  // Catalog status toggle: "in_stock" (default) | "preorder". Two-state
+  // (per the customer spec in JIRA) — no "All" option, the toggle is the
+  // boundary the user commits to when they enter the catalog. State mirrors
+  // the ?status= search param so a deep link / shared URL survives a refresh.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialStatus = ((): "in_stock" | "preorder" => {
+    const raw = searchParams.get("status");
+    return raw === "preorder" ? "preorder" : "in_stock";
+  })();
+  const [status, setStatusRaw] = useState<"in_stock" | "preorder">(initialStatus);
+
+  // Keep URL in sync with the toggle. Page resets to 1 on every change so
+  // the user never lands on a page that no longer matches the filter scope
+  // (CLAUDE.md: "Reset page on filter change").
+  const setStatus = (next: "in_stock" | "preorder") => {
+    setStatusRaw(next);
+    setPage(1);
+    const sp = new URLSearchParams(searchParams);
+    if (next === "in_stock") {
+      sp.delete("status");
+    } else {
+      sp.set("status", next);
+    }
+    setSearchParams(sp, { replace: true });
+  };
+
+  // Sync state from URL on back/forward navigation. When the user pops the
+  // history, searchParams changes but our local state doesn't — pull it back
+  // in. Page is reset to 1 because the new bucket may have fewer pages than
+  // the previous one.
+  useEffect(() => {
+    const raw = searchParams.get("status");
+    const fromURL: "in_stock" | "preorder" = raw === "preorder" ? "preorder" : "in_stock";
+    if (fromURL !== status) {
+      setStatusRaw(fromURL);
+      setPage(1);
+    }
+    // We intentionally exclude `status` from deps — this effect only fires on
+    // URL changes, not on every local toggle click (which would cause a loop
+    // since setStatus also updates the URL).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const addItem = useCartStore((state) => state.addItem);
 
   const handleCategoryChange = (slug: string) => {
@@ -175,6 +222,7 @@ export default function CatalogPage() {
       sort: sortParam,
       page: String(page),
       per_page: String(PER_PAGE),
+      status,
     });
   }, [
     fetchProducts,
@@ -187,6 +235,7 @@ export default function CatalogPage() {
     priceMax,
     sortParam,
     page,
+    status,
   ]);
 
   // Facets follow the scope (category + price + search) only — brand/color/size
@@ -272,9 +321,13 @@ export default function CatalogPage() {
           <p className="text-xs font-mono uppercase tracking-[0.3em] text-[#558b5c]">
             {t("catalog.badge")}
           </p>
-          <h1 className="mt-4 text-5xl font-bold tracking-tighter text-[var(--color-text-primary)] sm:text-6xl">
-            {t("catalog.title")}
-          </h1>
+          {/* Two-state status toggle ("В наличии" | "Под заказ"). Per the
+              customer spec, no "All" option — the toggle replaces the
+              "Все товары" heading so the chosen bucket is unambiguous. The
+              sliding pill animates with a spring so the active side feels
+              physical; muted border + soft shadow keep it tactile but not
+              loud (CLAUDE.md: "плавность/скорость, тактильный отклик"). */}
+          <CatalogStatusToggle value={status} onChange={setStatus} />
         </motion.div>
 
         {loading && products.length === 0 ? (
@@ -574,7 +627,7 @@ export default function CatalogPage() {
                   className="group"
                 >
                   <Link to={`/product/${product.slug}`}>
-                    <div className="card-hover overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)]">
+                    <div className="card-hover overflow-hidden rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)]">
                       <div className="relative aspect-[4/5] overflow-hidden">
                         {product.images?.[0]?.url ? (
                           <img
@@ -599,7 +652,6 @@ export default function CatalogPage() {
                             </span>
                           </div>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-bg-primary)] via-transparent to-transparent opacity-60 pointer-events-none" />
                         <button
                           onClick={(e) => {
                             e.preventDefault();
@@ -619,7 +671,7 @@ export default function CatalogPage() {
                           {product.name}
                         </h3>
                         <p className="mt-1 text-sm font-bold text-[#44944A]">
-                          {product.price.toLocaleString("ru-RU")} ₽
+                          {formatPrice(product.price, currency)}
                         </p>
                       </div>
                     </div>

@@ -1,6 +1,9 @@
 import { Link } from "react-router-dom";
 import { useCartStore } from "@/stores/cartStore";
 import { useAuthStore } from "@/stores/authStore";
+import { useFavoritesStore } from "@/stores/favoritesStore";
+import { useCurrencyStore } from "@/stores/currencyStore";
+import { formatPrice } from "@/lib/currency";
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
 import { getThumbUrl, getImageUrl } from "@/lib/api";
 import { motion } from "framer-motion";
@@ -9,6 +12,7 @@ import { Helmet } from "react-helmet-async";
 
 export default function CartPage() {
   const { t } = useTranslation();
+  const { currency } = useCurrencyStore();
   const items = useCartStore((state) => state.items);
   const removeItem = useCartStore((state) => state.removeItem);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
@@ -76,7 +80,7 @@ export default function CartPage() {
               className="flex items-start gap-3 sm:gap-4 rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-3 sm:p-4"
             >
               {/* Image */}
-              <Link to={`/product/${item.product.slug}`} className="relative aspect-[4/5] w-20 sm:w-24 shrink-0 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] overflow-hidden">
+              <Link to={`/product/${item.product.slug}`} className="relative aspect-[4/5] w-20 sm:w-24 shrink-0 rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)] overflow-hidden">
                 {item.product.images?.[0]?.url ? (
                   <img
                     src={getThumbUrl(item.product.images[0].url)}
@@ -106,7 +110,7 @@ export default function CartPage() {
                     </h3>
                   </Link>
                   <span className="text-sm font-bold text-[var(--color-text-primary)] whitespace-nowrap shrink-0">
-                    {(item.product.price * item.quantity).toLocaleString("ru-RU")} ₽
+                    {formatPrice(item.product.price * item.quantity, currency)}
                   </span>
                 </div>
 
@@ -156,7 +160,7 @@ export default function CartPage() {
                 {t("cart.items")} ({totalItems})
               </span>
               <span className="text-[var(--color-text-primary)]">
-                {totalPrice.toLocaleString("ru-RU")} ₽
+                {formatPrice(totalPrice, currency)}
               </span>
             </div>
             <div className="flex justify-between text-sm">
@@ -171,7 +175,7 @@ export default function CartPage() {
                   {t("cart.total")}
                 </span>
                 <span className="font-bold text-[#44944A] text-lg">
-                  {totalPrice.toLocaleString("ru-RU")} ₽
+                  {formatPrice(totalPrice, currency)}
                 </span>
               </div>
             </div>

@@ -9,12 +9,41 @@ import (
 	"time"
 
 	pgx "github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"mioru/internal/model"
 )
 
 // ErrIdempotencyHashMismatch is returned when an idempotency key is reused
 // with a different request body — a probable client bug or replay attack.
 var ErrIdempotencyHashMismatch = errors.New("idempotency key reused with different request hash")
+
+// ErrIdempotencyRace is returned when a concurrent first submit with the
+// same Idempotency-Key won the INSERT on order_idempotency_pkey. The
+// handler re-fetches the winner's stored record and returns 201 with the
+// winner's body when the request hash matches (true idempotent replay),
+// or 409 IDEMPOTENCY_REPLAY only when the hash differs (a real conflict,
+// not a benign double-click). Money and stock are safe regardless — the
+// unique constraint guarantees exactly one order per key.
+var ErrIdempotencyRace = errors.New("idempotency race: winner already inserted")
+
+// IdempotencyRecord is the row stored in order_idempotency. The handler
+// fetches it on the race-loser path to return the winner's response
+// when the request hash matches. Status is the HTTP status (typically
+// 201), ResponseBody is the marshalled order that the winner saw.
+type IdempotencyRecord struct {
+	Key          string
+	CustomerID   int64
+	OrderID      int64
+	RequestHash  string
+	Status       int
+	ResponseBody string
+}
+
+// ErrInsufficientStock is returned when an order requests more units of a
+// product than the available stock. Wrapped with %w so the handler can
+// branch via errors.Is instead of substring-matching the error text —
+// per CLAUDE.md, finance-critical paths use sentinels.
+var ErrInsufficientStock = errors.New("insufficient stock")
 
 // validOrderStatuses is the set of allowed order status values.
 var validOrderStatuses = map[string]bool{
@@ -253,7 +282,7 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 			return nil, fmt.Errorf("decrement stock for product %d: %w", it.ProductID, err)
 		}
 		if tag.RowsAffected() == 0 {
-			return nil, fmt.Errorf("product %d: insufficient stock (requested %d)", it.ProductID, it.Quantity)
+			return nil, fmt.Errorf("product %d: %w (requested %d)", it.ProductID, ErrInsufficientStock, it.Quantity)
 		}
 	}
 
@@ -267,6 +296,18 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 		now.Add(48*time.Hour),
 	)
 	if err != nil {
+		// Concurrent first submit with the same key won the race —
+		// its INSERT is the only one that succeeded. Money/stock are
+		// safe (unique constraint), but the loser needs the
+		// winner's response on the same path. Return a dedicated
+		// sentinel so the handler re-fetches the stored
+		// IdempotencyRecord and decides between true replay (201)
+		// and hash mismatch (409 IDEMPOTENCY_REPLAY).
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" &&
+			pgErr.ConstraintName == "order_idempotency_pkey" {
+			return nil, fmt.Errorf("idempotency insert: %w", ErrIdempotencyRace)
+		}
 		return nil, fmt.Errorf("insert idempotency: %w", err)
 	}
 
@@ -275,6 +316,29 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 	}
 
 	return o, nil
+}
+
+// GetOrderByIdempotencyKey fetches the winner's stored response on the
+// race-loser path. Called by the handler after CreateOrder returns
+// ErrIdempotencyRace. The handler compares the fetched RequestHash
+// with the loser's hash: match → return 201 + ResponseBody (true
+// replay), mismatch → 409 IDEMPOTENCY_REPLAY. Returns pgx.ErrNoRows
+// if the row is missing (shouldn't happen after a confirmed 23505 —
+// vacuumed, perhaps, or expired mid-flight).
+func (s *PostgresStore) GetOrderByIdempotencyKey(ctx context.Context, key string, customerID int64) (*IdempotencyRecord, error) {
+	rec := &IdempotencyRecord{}
+	var status int
+	err := s.pool.QueryRow(ctx, `
+		SELECT key, user_id, order_id, request_hash, status, response_body
+		FROM order_idempotency
+		WHERE key = $1 AND user_id = $2`,
+		key, customerID,
+	).Scan(&rec.Key, &rec.CustomerID, &rec.OrderID, &rec.RequestHash, &status, &rec.ResponseBody)
+	if err != nil {
+		return nil, err
+	}
+	rec.Status = status
+	return rec, nil
 }
 
 // ListAllOrders returns paginated orders for admin with customer info, newest first.

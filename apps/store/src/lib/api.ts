@@ -1,6 +1,13 @@
 import type { Product, Category } from "@/types";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "https://api.mioru.store";
+// Mirror apps/admin/src/lib/api.ts: branch on production explicitly so a
+// custom MODE (staging/preview) resolves the same way in both SPAs. In
+// production VITE_API_URL must be set at build time; we fall back to
+// api.mioru.store if absent. Outside production, "" → same-origin Vite proxy.
+const API_URL =
+  import.meta.env.MODE === "production"
+    ? import.meta.env.VITE_API_URL || "https://api.mioru.store"
+    : import.meta.env.VITE_API_URL || "";
 
 export function getImageUrl(path: string): string {
   if (!path) return "";
@@ -94,6 +101,7 @@ export type CatalogQuery = Partial<{
   brand: string[];
   color: string[];
   size: string[];
+  status: string; // "in_stock" | "preorder" | "out_of_stock"
 }>;
 
 export interface ProductsPage {
@@ -130,14 +138,18 @@ export const fetchStoreProducts = (query: CatalogQuery = {}) => {
 };
 
 export const fetchStoreProductFacets = (query: CatalogQuery = {}) => {
-  // Strip the chip selections — the backend ignores them anyway, but trimming
-  // here keeps the URL short and avoids a wasteful re-fetch when the user
-  // toggles a chip (facets only depend on category/search/price scope).
+  // Facets follow the scope of the active catalog view: category, search,
+  // price, AND the in-stock / preorder status toggle. Without `status`,
+  // chip counts on the "Preorder" tab would mirror the "In stock" tab —
+  // a real UX bug. The backend's ListFacets already keeps
+  // `filter.Status` and totals products per status, so this just stops
+  // the client from stripping it.
   const scope: CatalogQuery = {
     category_id: query.category_id,
     search: query.search,
     price_min: query.price_min,
     price_max: query.price_max,
+    status: query.status,
   };
   const qs = buildCatalogParams(scope);
   return api<ProductFacets>("/api/products/facets" + (qs ? "?" + qs : ""));
@@ -209,10 +221,31 @@ export const fetchStoreCustomerChangePassword = (data: {
 
 // ── Orders ──
 
+export interface StoreOrderItem {
+  id: number;
+  product_id: number;
+  product_name: string;
+  size_label: string;
+  quantity: number;
+  price_minor: number;
+}
+
 export interface StoreOrder {
   id: number;
   total_minor: number;
   status: string;
+  type: string;
+  city: string;
+  delivery_method: string;
+  payment_method: string;
+  street: string;
+  house: string;
+  apartment: string;
+  comment: string;
+  height?: number;
+  weight?: number;
+  delivery_time?: string[];
+  items?: StoreOrderItem[];
   created_at: string;
 }
 

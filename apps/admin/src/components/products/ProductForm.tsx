@@ -308,10 +308,12 @@ export default function ProductForm({
         .filter((c) => c.trim())
         .forEach((c) => fd.append("care[]", c));
 
-      // Images — only send new files
+      // Images — send existing URLs + new files
       images.forEach((img) => {
         if (img.file) {
           fd.append("images", img.file);
+        } else if (img.url) {
+          fd.append("existing_images[]", img.url);
         }
       });
 

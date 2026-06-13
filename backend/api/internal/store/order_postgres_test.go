@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	pgx "github.com/jackc/pgx/v5"
 	"mioru/internal/model"
 )
 
@@ -131,7 +132,7 @@ func seedProduct(t *testing.T, s *PostgresStore, slug string, priceMDL int, stoc
 	var id int64
 	err := s.pool.QueryRow(context.Background(), `
 		INSERT INTO products (slug, category_id, brand, name, price, color, status, stock_quantity, created_by)
-		VALUES ($1, 1, 'TestBrand', 'Test Product', $2, 'red', 'active', $3, 'test')
+		VALUES ($1, 1, 'TestBrand', 'Test Product', $2, 'red', 'in_stock', $3, 'test')
 		RETURNING id`, slug, priceMDL, stock).Scan(&id)
 	if err != nil {
 		t.Fatalf("seedProduct: %v", err)
@@ -464,5 +465,62 @@ func TestGetProductPriceMap(t *testing.T) {
 	}
 	if _, ok := prices[99999]; ok {
 		t.Error("non-existent product should not be in map")
+	}
+}
+
+// TestGetOrderByIdempotencyKey exercises the real SQL behind the
+// race-loser replay path against the migrated schema. The handler calls
+// this after CreateOrder returns ErrIdempotencyRace to fetch the
+// winner's stored record and decide replay (201) vs conflict (409). The
+// fields it reads (request_hash, status, response_body, order_id) must
+// round-trip exactly — a wrong column name here would pass the handler
+// fake-store tests but fail in production.
+func TestGetOrderByIdempotencyKey(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	if err := s.CreateCustomer(ctx, model.Customer{Email: "getidem@test.com", HashedPW: "h"}); err != nil {
+		t.Fatalf("CreateCustomer: %v", err)
+	}
+	cust, _ := s.GetCustomerByEmail(ctx, "getidem@test.com")
+	pid := seedProduct(t, s, "getidem-test", 100, 10)
+
+	order := &model.Order{Type: "cart", City: "Tiraspol", DeliveryMethod: "personal", PaymentMethod: "cash"}
+	items := []model.OrderItem{{ProductID: pid, SizeLabel: "M", Quantity: 1}}
+	created, err := s.CreateOrder(ctx, cust.ID, order, items, "get-idem-key", "hash-xyz")
+	if err != nil {
+		t.Fatalf("CreateOrder: %v", err)
+	}
+
+	rec, err := s.GetOrderByIdempotencyKey(ctx, "get-idem-key", cust.ID)
+	if err != nil {
+		t.Fatalf("GetOrderByIdempotencyKey: %v", err)
+	}
+	if rec.Key != "get-idem-key" {
+		t.Errorf("Key = %q, want get-idem-key", rec.Key)
+	}
+	if rec.CustomerID != cust.ID {
+		t.Errorf("CustomerID = %d, want %d", rec.CustomerID, cust.ID)
+	}
+	if rec.OrderID != created.ID {
+		t.Errorf("OrderID = %d, want %d", rec.OrderID, created.ID)
+	}
+	if rec.RequestHash != "hash-xyz" {
+		t.Errorf("RequestHash = %q, want hash-xyz", rec.RequestHash)
+	}
+	if rec.Status != 201 {
+		t.Errorf("Status = %d, want 201", rec.Status)
+	}
+	if rec.ResponseBody == "" {
+		t.Error("ResponseBody must not be empty (winner's marshalled order)")
+	}
+
+	// Scoping: another customer's lookup of the same key must miss.
+	if err := s.CreateCustomer(ctx, model.Customer{Email: "other@test.com", HashedPW: "h"}); err != nil {
+		t.Fatalf("CreateCustomer other: %v", err)
+	}
+	other, _ := s.GetCustomerByEmail(ctx, "other@test.com")
+	if _, err := s.GetOrderByIdempotencyKey(ctx, "get-idem-key", other.ID); !errors.Is(err, pgx.ErrNoRows) {
+		t.Errorf("cross-customer lookup err = %v, want pgx.ErrNoRows", err)
 	}
 }

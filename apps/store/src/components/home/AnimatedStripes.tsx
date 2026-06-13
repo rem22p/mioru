@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 export default function AnimatedStripes() {
   const { t } = useTranslation();
@@ -18,7 +19,7 @@ export default function AnimatedStripes() {
     return () => observer.disconnect();
   }, []);
 
-  const items = t('home.about.items', { returnObjects: true }) as { label: string; desc: string }[];
+  const items = t('home.about.items', { returnObjects: true }) as { label: string; desc: string; link: string }[];
 
   return (
     <section ref={ref} className="py-24 overflow-hidden">
@@ -49,7 +50,10 @@ export default function AnimatedStripes() {
               transition={{ duration: 0.6, delay: index * 0.15 }}
               className="group relative"
             >
-              <div className="flex items-center justify-between border-b border-[var(--color-border-custom)] py-6 transition-colors hover:border-[#44944A]">
+              <Link
+                to={item.link}
+                className="flex items-center justify-between border-b border-[var(--color-border-custom)] py-6 transition-colors hover:border-[#44944A] cursor-pointer"
+              >
                 <div className="flex items-center gap-6">
                   <span className="text-xs font-mono text-[var(--color-text-muted)]">
                     0{index + 1}
@@ -65,7 +69,7 @@ export default function AnimatedStripes() {
                 <p className="hidden text-sm text-[var(--color-text-muted)] sm:block">
                   {item.desc}
                 </p>
-              </div>
+              </Link>
               {/* Hover fill */}
               <div className="absolute bottom-0 left-0 h-px w-0 bg-[#44944A] transition-all duration-500 group-hover:w-full" />
             </motion.div>

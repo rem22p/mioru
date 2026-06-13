@@ -31,7 +31,7 @@ export default function ProductGallery({ product }: ProductGalleryProps) {
   return (
     <div className="relative">
       {/* Main Photo Display */}
-      <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)]">
+      <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)]">
         <motion.div
           key={selectedPhotoIndex}
           initial={{ opacity: 0 }}

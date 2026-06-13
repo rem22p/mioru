@@ -46,29 +46,29 @@ export interface ProductImage {
 }
 
 export interface Product {
-	id: number;
-	name: string;
-	slug: string;
-	description: string;
-	brand: string;
-	price: number;
-	xp_reward: number;
-	in_stock: boolean;
-	status: string;
-	stock_quantity: number;
-	category_id: number;
-	category_name?: string;
-	images: ProductImage[];
-	sizes: string[];
-	color: string;
-	model: string;
-	fit: string;
-	material: string;
-	size_chart: SizeChartEntry[];
-	care: string[];
-	created_by: string;
-	created_at: string;
-	updated_at: string;
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  brand: string;
+  price: number;
+  xp_reward: number;
+  in_stock: boolean;
+  status: string;
+  stock_quantity: number;
+  category_id: number;
+  category_name?: string;
+  images: ProductImage[];
+  sizes: string[];
+  color: string;
+  model: string;
+  fit: string;
+  material: string;
+  size_chart: SizeChartEntry[];
+  care: string[];
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ProductFilter {

@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useCatalogStore } from "@/stores/catalogStore";
 import HeroSection from "@/components/home/HeroSection";
-import HorizontalCategories from "@/components/home/HorizontalCategories";
 import AnimatedStripes from "@/components/home/AnimatedStripes";
 import FeaturedProducts from "@/components/home/FeaturedProducts";
 import CTASection from "@/components/home/CTASection";
@@ -35,7 +34,6 @@ export default function HomePage() {
         <link rel="canonical" href="https://mioru.store" />
       </Helmet>
       <HeroSection />
-      <HorizontalCategories />
       <AnimatedStripes />
       <FeaturedProducts />
       <CTASection />

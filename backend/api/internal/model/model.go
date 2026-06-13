@@ -83,8 +83,9 @@ type ProductFilter struct {
 	Brands      []string
 	Colors      []string
 	Sizes       []string
-	PriceMin    int // 0 = no lower bound
-	PriceMax    int // 0 = no upper bound
+	PriceMin    int    // 0 = no lower bound
+	PriceMax    int    // 0 = no upper bound
+	Status      string // "in_stock" | "preorder" | "out_of_stock" | "" (all)
 	Sort        string
 	Page        int
 	PerPage     int

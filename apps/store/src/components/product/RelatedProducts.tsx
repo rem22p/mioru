@@ -3,6 +3,9 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useCatalogStore } from "@/stores/catalogStore";
 import { ArrowUpRight } from "lucide-react";
+import { useCurrencyStore } from "@/stores/currencyStore";
+import { formatPrice } from "@/lib/currency";
+import { getThumbUrl, getImageUrl } from "@/lib/api";
 import { useTranslation } from "react-i18next";
 
 interface RelatedProductsProps {
@@ -15,6 +18,7 @@ export default function RelatedProducts({
   currentProductId,
 }: RelatedProductsProps) {
   const { t } = useTranslation();
+  const { currency } = useCurrencyStore();
   const { products, fetchProducts } = useCatalogStore();
 
   useEffect(() => {
@@ -57,8 +61,26 @@ export default function RelatedProducts({
           >
             <Link to={`/product/${product.slug}`}>
               <div className="group">
-                <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] transition-all group-hover:border-[#44944A]/50">
-                  <div className="absolute inset-0 flex items-center justify-center">
+                <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)] transition-all group-hover:border-[#44944A]/50">
+                  {product.images?.[0]?.url ? (
+                    <img
+                      src={getThumbUrl(product.images[0].url)}
+                      alt={product.name}
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        if (!target.dataset.fallback) {
+                          target.dataset.fallback = "1";
+                          target.src = getImageUrl(product.images[0].url);
+                        } else {
+                          target.style.display = "none";
+                          target.parentElement!.querySelector(".fallback-emoji")?.classList.remove("hidden");
+                        }
+                      }}
+                    />
+                  ) : null}
+                  <div className={`absolute inset-0 flex items-center justify-center fallback-emoji ${product.images?.[0]?.url ? 'hidden' : ''}`}>
                     <span className="text-4xl transition-transform duration-500 group-hover:scale-110">
                       📦
                     </span>
@@ -81,7 +103,7 @@ export default function RelatedProducts({
                     {product.name}
                   </p>
                   <p className="mt-1 text-sm font-bold text-[var(--color-text-primary)]">
-                    {product.price.toLocaleString("ru-RU")} ₽
+                    {formatPrice(product.price, currency)}
                   </p>
                 </div>
               </div>

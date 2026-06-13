@@ -59,12 +59,14 @@
     "afterSubmit": "În curând managerul nostru te va contacta pe Telegram cu informații despre comanda ta. Dacă acest format de comunicare nu este posibil pentru tine, te rugăm să ne scrii pe Instagram @mioru.store."
   },
   "nav": {
-    "inStock": "ÎN STOC",
+    "inStock": "CATALOG",
     "customOrder": "COMANDĂ PERSONALIZATĂ",
     "avatar": "AVATAR",
     "cart": "COȘ",
     "favorites": "FAVORITE",
-    "profile": "Profil"
+    "profile": "Profil",
+    "language": "Limbă",
+    "currency": "Valută"
   },
   "favorites": {
     "empty": "Nu ai adăugat nimic la favorite încă"
@@ -89,29 +91,38 @@
       "allProducts": "Toate produsele →"
     },
     "about": {
-      "badge": "02 / Despre noi",
+      "badge": "01 / Despre noi",
       "title": "Avantajele noastre",
       "items": [
         {
-          "label": "Avatar 3D",
-          "desc": "Creează o copie digitală fidelă a corpului tău"
+          "label": "Catalog de haine comod",
+          "desc": "Răsfoiește colecția completă cu filtre",
+          "link": "/catalog"
         },
         {
-          "label": "Probă virtuală",
-          "desc": "Vezi cum îți stă înainte să cumperi"
+          "label": "Comenzi personalizate",
+          "desc": "Comandă orice articol pe măsurile tale",
+          "link": "/custom-order"
         },
         {
           "label": "Sistem XP",
-          "desc": "Câștigă puncte și deblochează recompense"
+          "desc": "Câștigă puncte și deblochează recompense",
+          "link": "/profile"
         },
         {
-          "label": "Tracking comenzi — în curând",
-          "desc": ""
+          "label": "Tracking comenzi",
+          "desc": "Vezi comenzile și statusul lor",
+          "link": "/profile#orders"
+        },
+        {
+          "label": "Probă virtuală",
+          "desc": "Vezi cum îți stă înainte să cumperi",
+          "link": "/avatar"
         }
       ]
     },
     "featured": {
-      "badge": "03 / Populare",
+      "badge": "02 / Populare",
       "title": "Tendințele sezonului",
       "allProducts": "Toate produsele →",
       "addToCart": "Adaugă în coș"
@@ -120,7 +131,6 @@
       "badge": "Începe acum",
       "title1": "Ești gata să găsești",
       "title2": "potrivirea perfectă?",
-      "description": "Creează-ți avatarul, probează hainele în 3D și comandă fără surprize.",
       "button": "Creează avatar"
     }
   },
@@ -128,6 +138,10 @@
     "title": "Toate produsele",
     "badge": "Catalog",
     "count": "{{count}} produse",
+    "toggle": {
+      "inStock": "În stoc",
+      "preorder": "La comandă"
+    },
     "sortBy": {
       "newest": "Cele mai noi",
       "priceAsc": "Preț ↑",
@@ -263,12 +277,38 @@
     "myAvatar": "Avatarul meu",
     "orderHistory": "Istoric comenzi",
     "noOrders": "Nu ai comenzi încă",
+    "itemsCount": "poz.",
     "orderStatus": {
       "pending": "În așteptare",
       "processing": "În procesare",
       "shipped": "Expediat",
       "delivered": "Livrat",
       "cancelled": "Anulat"
+    },
+    "orderType": {
+      "cart": "Coș",
+      "individual": "Individual"
+    },
+    "delivery": {
+      "personal": "Întâlnire personală",
+      "address": "Livrare la adresă",
+      "bus": "Rutieră",
+      "express": "Poștă express",
+      "moldovaPost": "Poșta Moldovei"
+    },
+    "deliveryTime": {
+      "fast": "Cât mai repede",
+      "medium": "În decurs de o săptămână",
+      "slow": "În decurs de o lună"
+    },
+    "orderDetail": {
+      "parameters": "Parametri",
+      "timeframes": "Termene",
+      "comment": "Comentariu",
+      "deliveryAddress": "Adresă de livrare",
+      "heightCm": "Înălțime {{value}} cm",
+      "weightKg": "Greutate {{value}} kg",
+      "apt": "Ap. {{value}}"
     }
   },
   "avatar": {

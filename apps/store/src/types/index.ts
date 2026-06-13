@@ -54,8 +54,6 @@ export interface Product {
   images: ProductImage[];
 }
 
-// ── UI-specific types (derived / extended) ──
-
 /** Size chart transformed for the SizeChartModal table */
 export interface SizeChart {
   unit: "cm";

@@ -24,6 +24,7 @@ import (
 )
 
 var customerEmailRe = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+var customerPhoneRe = regexp.MustCompile(`^\+?[\d\s\-()]{7,15}$`)
 
 // customerStore is the subset of the store consumed by the storefront customer
 // handlers. Defined here (where it is used) to keep the seam small and let tests
@@ -49,6 +50,13 @@ type customerStore interface {
 	SaveCustomerCart(ctx context.Context, customerID int64, items []store.CartItem) error
 	GetCustomerFavorites(ctx context.Context, customerID int64) ([]int, error)
 	SaveCustomerFavorites(ctx context.Context, customerID int64, productIDs []int) error
+
+	// Idempotency: race-loser path. CreateOrder returns ErrIdempotencyRace
+	// when a concurrent first submit won the INSERT on
+	// order_idempotency_pkey. The handler then re-fetches the winner's
+	// stored record and decides between true replay (201) and hash
+	// mismatch (409 IDEMPOTENCY_REPLAY).
+	GetOrderByIdempotencyKey(ctx context.Context, key string, customerID int64) (*store.IdempotencyRecord, error)
 }
 
 // CustomerHandler handles store customer auth & profile.
@@ -143,6 +151,10 @@ func (h *CustomerHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 	if !customerEmailRe.MatchString(req.Email) {
 		jsonError(w, "некорректный email", http.StatusBadRequest)
+		return
+	}
+	if req.Phone != "" && !customerPhoneRe.MatchString(req.Phone) {
+		jsonError(w, "некорректный номер телефона", http.StatusBadRequest)
 		return
 	}
 	if len(req.Password) < 8 {
@@ -808,11 +820,80 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		jsonErrorCode(w, "comment is too long (max 1000)", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
-	if len(req.Items) == 0 || len(req.Items) > 50 {
-		jsonErrorCode(w, "items must have 1-50 entries", http.StatusBadRequest, "VALIDATION_FAILED")
+	// Height/Weight (optional, individual orders): bound to a sane human
+	// range. Go's encoding/json already rejects NaN/Inf, but absurd
+	// finite values (1e30, negatives) would still reach the DB and the
+	// Telegram message. Per CLAUDE.md, validate bounds on every incoming
+	// numeric argument, not just strings.
+	if req.Height != nil && (*req.Height < minBodyHeightCm || *req.Height > maxBodyHeightCm) {
+		jsonErrorCode(w, fmt.Sprintf("height out of range (%g-%g cm)", minBodyHeightCm, maxBodyHeightCm), http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
-
+	if req.Weight != nil && (*req.Weight < minBodyWeightKg || *req.Weight > maxBodyWeightKg) {
+		jsonErrorCode(w, fmt.Sprintf("weight out of range (%g-%g kg)", minBodyWeightKg, maxBodyWeightKg), http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	// Photos: defence-in-depth. Telegram notifier neutralises path
+	// traversal via filepath.Base, and the body is bounded at 1 MiB,
+	// but an unbounded list/format still lets a client queue hundreds
+	// of failed os.Open calls in the background notifier. Cap and
+	// whitelist the format so only `/uploads/<file>` references pass.
+	if len(req.Photos) > 10 {
+		jsonErrorCode(w, "photos: max 10 entries", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	for i, p := range req.Photos {
+		if len(p) > 200 {
+			jsonErrorCode(w, fmt.Sprintf("photos[%d]: path too long", i), http.StatusBadRequest, "VALIDATION_FAILED")
+			return
+		}
+		if !strings.HasPrefix(p, "/uploads/") {
+			jsonErrorCode(w, fmt.Sprintf("photos[%d]: must start with /uploads/", i), http.StatusBadRequest, "VALIDATION_FAILED")
+			return
+		}
+	}
+	// DeliveryTime: cap both the count and the per-element length.
+	// Same reasoning as Photos[] — strings that flow into orders TEXT
+	// columns and Telegram messages must have a max length, per
+	// CLAUDE.md. The valid set in i18n is {fast, medium, slow}, but
+	// we cap generously (10 entries × 32 chars) to allow future
+	// options without changing the wire format.
+	if len(req.DeliveryTime) > maxDeliveryTimeN {
+		jsonErrorCode(w, fmt.Sprintf("delivery_time: max %d entries", maxDeliveryTimeN), http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	for i, t := range req.DeliveryTime {
+		if len(t) > maxDeliveryTimeE {
+			jsonErrorCode(w, fmt.Sprintf("delivery_time[%d]: too long (max %d)", i, maxDeliveryTimeE), http.StatusBadRequest, "VALIDATION_FAILED")
+			return
+		}
+	}
+	// Per-item bounds validation. Two layers, ordered by what they
+	// protect:
+	//
+	//   1. Finance-critical bounds (apply to ANY type if items are
+	//      present): `len > 50`, `ProductID > 0`, `Quantity 1-99`.
+	//      These guard the common stock-decrement and total_minor
+	//      paths against crafted input. Previously lifted out of
+	//      `if cart` to fix the stock-drain vector (type=individual
+	//      + quantity=-100 inflated stock).
+	//
+	//   2. Presence rule (type-specific): cart MUST have at least one
+	//      item (otherwise total_minor is always 0 and nothing is
+	//      decremented, defeating the order). Individual orders
+	//      intentionally carry no items — the form on
+	//      CustomOrderPage.tsx:117-130 submits free-text fields
+	//      (height, weight, photos, comment) instead, and the store
+	//      layer (order_postgres.go::CreateOrder) treats the empty
+	//      list as a no-op (total_minor=0, stock untouched).
+	//
+	// Splitting these two layers keeps finance-critical checks
+	// single-sourced (no per-branch copy-paste drift) while restoring
+	// the legitimate individual-without-items path.
+	if len(req.Items) > 50 {
+		jsonErrorCode(w, "items: max 50 entries", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
 	for _, it := range req.Items {
 		if it.ProductID <= 0 {
 			jsonErrorCode(w, "invalid product_id in items", http.StatusBadRequest, "VALIDATION_FAILED")
@@ -822,6 +903,18 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 			jsonErrorCode(w, "quantity out of range (1-99)", http.StatusBadRequest, "VALIDATION_FAILED")
 			return
 		}
+		// SizeLabel: cap matches the SaveCart contract (maxSizeLabelLen
+		// = 32); without it, the order store and the cart store disagree
+		// on the wire-format shape, and a single crafted item can dump
+		// ~1 MiB into the orders TEXT column.
+		if len(it.SizeLabel) > maxSizeLabelLen {
+			jsonErrorCode(w, fmt.Sprintf("size_label too long (max %d)", maxSizeLabelLen), http.StatusBadRequest, "VALIDATION_FAILED")
+			return
+		}
+	}
+	if req.Type == "cart" && len(req.Items) == 0 {
+		jsonErrorCode(w, "items must have at least 1 entry for cart orders", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
 	}
 
 	// ── Idempotency ──
@@ -860,11 +953,51 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.store.CreateOrder(r.Context(), customerID, order, items, idempotencyKey, requestHash)
 	if err != nil {
-		slog.Error("CreateOrder failed", "customer_id", customerID, "error", err)
+		// Sentinel branches first — these are *expected* business
+		// outcomes (concurrent double-click, hash conflict, oversell),
+		// not operation failures. Per CLAUDE.md log standard, ERROR
+		// means "operation failed" — logging these at ERROR would
+		// noise the alerting channel with benign traffic. The
+		// catch-all slog.Error at the bottom of this block stays for
+		// the genuine 500 path.
 		if errors.Is(err, store.ErrIdempotencyHashMismatch) {
 			jsonErrorCode(w, "idempotency key reused with different request", http.StatusConflict, "IDEMPOTENCY_REPLAY")
 			return
 		}
+		if errors.Is(err, store.ErrIdempotencyRace) {
+			// Concurrent first submit with the same Idempotency-Key
+			// won the race. Per CLAUDE.md, the loser should receive
+			// the winner's response when the request hash matches
+			// (true replay, 201), or 409 IDEMPOTENCY_REPLAY only
+			// when the hash differs (a real conflict, not a benign
+			// double-click). Re-fetch the stored record and branch.
+			rec, ferr := h.store.GetOrderByIdempotencyKey(r.Context(), idempotencyKey, customerID)
+			if ferr != nil {
+				slog.Error("GetOrderByIdempotencyKey failed", "customer_id", customerID, "error", ferr)
+				jsonError(w, "internal error", http.StatusInternalServerError)
+				return
+			}
+			if rec.RequestHash != requestHash {
+				// Same key, different request body — true conflict.
+				jsonErrorCode(w, "idempotency key reused with different request", http.StatusConflict, "IDEMPOTENCY_REPLAY")
+				return
+			}
+			// True replay: same key + same body. Return the winner's
+			// stored response verbatim — same status, same body.
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(rec.Status)
+			_, _ = w.Write([]byte(rec.ResponseBody))
+			return
+		}
+		if errors.Is(err, store.ErrInsufficientStock) {
+			jsonErrorCode(w, "товара нет в наличии", http.StatusConflict, "INSUFFICIENT_STOCK")
+			return
+		}
+		// Catch-all 500: this is the only path that warrants
+		// slog.Error under the CLAUDE.md log standard. Sentinels
+		// above (idempotency, oversell) are expected business
+		// outcomes and intentionally silent at the log level.
+		slog.Error("CreateOrder failed", "customer_id", customerID, "error", err)
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -1006,6 +1139,15 @@ const (
 	maxFavoritesItems = 200
 	maxSizeLabelLen   = 32
 	maxQuantity       = 999
+	maxDeliveryTimeN  = 10
+	maxDeliveryTimeE  = 32
+
+	// Body-measurement bounds for individual orders (defence-in-depth
+	// against absurd finite values reaching the DB / Telegram message).
+	minBodyHeightCm = 50.0
+	maxBodyHeightCm = 300.0
+	minBodyWeightKg = 20.0
+	maxBodyWeightKg = 400.0
 )
 
 type cartItemReq struct {

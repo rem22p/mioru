@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { useCartStore } from "@/stores/cartStore";
 import { useAuthStore } from "@/stores/authStore";
 import { createOrder } from "@/lib/api";
+import { useCurrencyStore } from "@/stores/currencyStore";
+import { formatPrice } from "@/lib/currency";
 import { CreditCard, Check, ChevronRight, Package } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
@@ -35,6 +37,7 @@ const TIRASPOL_BENDERY = new Set(["тирасполь", "бендеры"]);
 
 export default function CheckoutPage() {
   const { t } = useTranslation();
+  const currency = useCurrencyStore((s) => s.currency);
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [currentStep, setCurrentStep] = useState(1);
@@ -79,8 +82,8 @@ export default function CheckoutPage() {
       );
       clearCart();
       setSubmitted(true);
-    } catch (e: any) {
-      setOrderError(e.message || "Ошибка при создании заказа");
+    } catch (e: unknown) {
+      setOrderError(e instanceof Error ? e.message : "Ошибка при создании заказа");
     } finally {
       setSubmitting(false);
     }
@@ -360,7 +363,7 @@ export default function CheckoutPage() {
                       {item.product.name} × {item.quantity} ({item.size})
                     </span>
                     <span className="text-[var(--color-text-primary)]">
-                      {(item.product.price * item.quantity).toLocaleString("ru-RU")} ₽
+                      {formatPrice(item.product.price * item.quantity, currency)}
                     </span>
                   </div>
                 ))}
@@ -369,7 +372,7 @@ export default function CheckoutPage() {
                     {t("checkout.total")}
                   </span>
                   <span className="font-bold text-[#44944A]">
-                    {totalPrice.toLocaleString("ru-RU")} ₽
+                    {formatPrice(totalPrice, currency)}
                   </span>
                 </div>
               </div>

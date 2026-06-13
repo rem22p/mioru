@@ -2,11 +2,14 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Heart, Trash2, ArrowRight } from "lucide-react";
 import { useFavoritesStore } from "@/stores/favoritesStore";
+import { useCurrencyStore } from "@/stores/currencyStore";
+import { formatPrice } from "@/lib/currency";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
 
 export default function FavoritesPage() {
   const { t } = useTranslation();
+  const { currency } = useCurrencyStore();
   const items = useFavoritesStore((s) => s.items);
   const removeFavorite = useFavoritesStore((s) => s.removeFavorite);
 
@@ -59,7 +62,7 @@ export default function FavoritesPage() {
               transition={{ duration: 0.4, delay: index * 0.05 }}
               className="group"
             >
-              <div className="card-hover overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)]">
+              <div className="card-hover overflow-hidden rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)]">
                 <Link to={`/product/${item.slug}`}>
                   <div className="relative aspect-[4/5] overflow-hidden">
                     {item.imageUrl ? (
@@ -76,8 +79,6 @@ export default function FavoritesPage() {
                         </span>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-bg-primary)] via-transparent to-transparent opacity-60 pointer-events-none" />
-
                     {/* Delete button — top right */}
                     <button
                       onClick={(e) => {
@@ -101,7 +102,7 @@ export default function FavoritesPage() {
                     {item.name}
                   </h3>
                   <p className="mt-1 text-sm font-bold text-[#44944A]">
-                    {item.price.toLocaleString("ru-RU")} ₽
+                    {formatPrice(item.price, currency)}
                   </p>
                 </div>
               </div>

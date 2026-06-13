@@ -1,13 +1,17 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import { useCurrencyStore } from "@/stores/currencyStore";
+import { formatPrice } from "@/lib/currency";
+import { useTranslation } from "react-i18next";
 import { useCatalogStore } from "@/stores/catalogStore";
 import { useCartStore } from "@/stores/cartStore";
+import { getThumbUrl, getImageUrl } from "@/lib/api";
 import { ShoppingBag } from "lucide-react";
-import { useTranslation } from "react-i18next";
 
 export default function FeaturedProducts() {
   const { t } = useTranslation();
+  const { currency } = useCurrencyStore();
   const { products, fetchProducts } = useCatalogStore();
   const addItem = useCartStore((state) => state.addItem);
 
@@ -50,7 +54,7 @@ export default function FeaturedProducts() {
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className="relative aspect-[4/5] overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] animate-pulse"
+                className="relative aspect-[4/5] overflow-hidden rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)] animate-pulse"
               >
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-5xl opacity-20">👤</span>
@@ -70,17 +74,29 @@ export default function FeaturedProducts() {
                 className="group"
               >
                 <Link to={`/product/${product.slug}`}>
-                    <div className="card-hover overflow-hidden rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)]">
+                    <div className="card-hover overflow-hidden rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)]">
                       <div className="relative aspect-[4/5] overflow-hidden">
-                        {/* Product image placeholder */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-3xl sm:text-5xl transition-transform duration-500 group-hover:scale-110">
-                            📦
-                          </span>
-                        </div>
-
-                        {/* Overlay on hover */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-bg-primary)] via-transparent to-transparent opacity-60 pointer-events-none" />
+                        {product.images?.[0]?.url ? (
+                          <img
+                            src={getThumbUrl(product.images[0].url)}
+                            alt={product.name}
+                            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            loading="lazy"
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              if (!target.dataset.fallback) {
+                                target.dataset.fallback = "1";
+                                target.src = getImageUrl(product.images[0].url);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-3xl sm:text-5xl transition-transform duration-500 group-hover:scale-110">
+                              📦
+                            </span>
+                          </div>
+                        )}
 
                         {/* Quick add button */}
                         <button
@@ -104,7 +120,7 @@ export default function FeaturedProducts() {
                           {product.name}
                         </h3>
                         <p className="mt-1 text-sm font-bold text-[#44944A]">
-                          {product.price.toLocaleString("ru-RU")} ₽
+                          {formatPrice(product.price, currency)}
                         </p>
                       </div>
                     </div>
