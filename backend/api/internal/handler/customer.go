@@ -813,21 +813,26 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		jsonErrorCode(w, "comment is too long (max 1000)", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
-	// Items required for cart orders, optional for individual orders
-	if req.Type == "cart" {
-		if len(req.Items) == 0 || len(req.Items) > 50 {
-			jsonErrorCode(w, "items must have 1-50 entries", http.StatusBadRequest, "VALIDATION_FAILED")
+	// Per-item bounds validation. Applies to BOTH type= cart and
+	// type= individual — the bounds guard finance-critical paths
+	// (stock decrement + total_minor), and previously living inside
+	// `if cart` left the individual vector open: a crafted
+	// type=individual with quantity=-100 flowed through to the store,
+	// where `stock_quantity = stock_quantity - (-100)` inflated stock
+	// and total_minor went negative. Per CLAUDE.md priority #1, stock
+	// and totals must never be silently distorted by client input.
+	if len(req.Items) == 0 || len(req.Items) > 50 {
+		jsonErrorCode(w, "items must have 1-50 entries", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	for _, it := range req.Items {
+		if it.ProductID <= 0 {
+			jsonErrorCode(w, "invalid product_id in items", http.StatusBadRequest, "VALIDATION_FAILED")
 			return
 		}
-		for _, it := range req.Items {
-			if it.ProductID <= 0 {
-				jsonErrorCode(w, "invalid product_id in items", http.StatusBadRequest, "VALIDATION_FAILED")
-				return
-			}
-			if it.Quantity < 1 || it.Quantity > 99 {
-				jsonErrorCode(w, "quantity out of range (1-99)", http.StatusBadRequest, "VALIDATION_FAILED")
-				return
-			}
+		if it.Quantity < 1 || it.Quantity > 99 {
+			jsonErrorCode(w, "quantity out of range (1-99)", http.StatusBadRequest, "VALIDATION_FAILED")
+			return
 		}
 	}
 

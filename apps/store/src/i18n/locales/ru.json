@@ -300,6 +300,15 @@
       "fast": "Как можно быстрее",
       "medium": "В течение недели",
       "slow": "В течение месяца"
+    },
+    "orderDetail": {
+      "parameters": "Параметры",
+      "timeframes": "Сроки",
+      "comment": "Комментарий",
+      "deliveryAddress": "Адрес доставки",
+      "heightCm": "Рост {{value}} см",
+      "weightKg": "Вес {{value}} кг",
+      "apt": "кв. {{value}}"
     }
   },
   "avatar": {

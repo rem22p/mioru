@@ -281,17 +281,17 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
             <div className="grid gap-3 sm:grid-cols-2">
               {(o.height || o.weight) && (
                 <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
-                  <span className="text-xs text-[var(--color-text-muted)]">Параметры</span>
+                  <span className="text-xs text-[var(--color-text-muted)]">{t("profile.orderDetail.parameters")}</span>
                   <p className="text-sm text-[var(--color-text-primary)] mt-0.5">
-                    {o.height ? `Рост ${o.height} см` : ""}
+                    {o.height ? t("profile.orderDetail.heightCm", { value: o.height }) : ""}
                     {o.height && o.weight ? ", " : ""}
-                    {o.weight ? `Вес ${o.weight} кг` : ""}
+                    {o.weight ? t("profile.orderDetail.weightKg", { value: o.weight }) : ""}
                   </p>
                 </div>
               )}
               {o.delivery_time && o.delivery_time.length > 0 && (
                 <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
-                  <span className="text-xs text-[var(--color-text-muted)]">Сроки</span>
+                  <span className="text-xs text-[var(--color-text-muted)]">{t("profile.orderDetail.timeframes")}</span>
                   <p className="text-sm text-[var(--color-text-primary)] mt-0.5">
                     {o.delivery_time.map((timeKey) =>
                       t(`profile.deliveryTime.${timeKey}`, timeKey)
@@ -301,7 +301,7 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
               )}
               {o.comment && (
                 <div className="sm:col-span-2 p-3 rounded-xl bg-[var(--color-bg-secondary)]">
-                  <span className="text-xs text-[var(--color-text-muted)]">Комментарий</span>
+                  <span className="text-xs text-[var(--color-text-muted)]">{t("profile.orderDetail.comment")}</span>
                   <p className="text-sm text-[var(--color-text-primary)] mt-0.5 whitespace-pre-wrap">
                     {o.comment}
                   </p>
@@ -313,9 +313,9 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
           {/* Address for cart orders */}
           {o.type === "cart" && (o.street || o.house) && (
             <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
-              <span className="text-xs text-[var(--color-text-muted)]">Адрес доставки</span>
+              <span className="text-xs text-[var(--color-text-muted)]">{t("profile.orderDetail.deliveryAddress")}</span>
               <p className="text-sm text-[var(--color-text-primary)] mt-0.5">
-                {[o.street, o.house, o.apartment ? `кв. ${o.apartment}` : null]
+                {[o.street, o.house, o.apartment ? t("profile.orderDetail.apt", { value: o.apartment }) : null]
                   .filter(Boolean)
                   .join(", ")}
               </p>
@@ -325,7 +325,7 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
           {/* Comment for cart orders */}
           {o.type === "cart" && o.comment && (
             <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
-              <span className="text-xs text-[var(--color-text-muted)]">Комментарий</span>
+              <span className="text-xs text-[var(--color-text-muted)]">{t("profile.orderDetail.comment")}</span>
               <p className="text-sm text-[var(--color-text-primary)] mt-0.5 whitespace-pre-wrap">
                 {o.comment}
               </p>

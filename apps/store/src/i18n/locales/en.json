@@ -301,6 +301,15 @@
       "fast": "As soon as possible",
       "medium": "Within a week",
       "slow": "Within a month"
+    },
+    "orderDetail": {
+      "parameters": "Parameters",
+      "timeframes": "Timeframes",
+      "comment": "Comment",
+      "deliveryAddress": "Delivery address",
+      "heightCm": "Height {{value}} cm",
+      "weightKg": "Weight {{value}} kg",
+      "apt": "Apt {{value}}"
     }
   },
   "avatar": {
