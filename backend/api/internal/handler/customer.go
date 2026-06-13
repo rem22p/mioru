@@ -855,7 +855,7 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	// single-sourced (no per-branch copy-paste drift) while restoring
 	// the legitimate individual-without-items path.
 	if len(req.Items) > 50 {
-		jsonErrorCode(w, "items must have 1-50 entries", http.StatusBadRequest, "VALIDATION_FAILED")
+		jsonErrorCode(w, "items: max 50 entries", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
 	for _, it := range req.Items {
