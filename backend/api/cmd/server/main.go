@@ -122,15 +122,7 @@ func main() {
 	mux.Handle("PUT /api/users/me/profile", authMW(adminCSRF(http.HandlerFunc(authH.UpdateProfile))))
 	mux.Handle("PUT /api/users/me/password", authMW(adminCSRF(http.HandlerFunc(authH.ChangePassword))))
 
-	// Test-only: reset the bootstrap admin (development mode only). Used by
-	// apps/admin/e2e/security.spec.ts so the security-critical test can run
-	// from a known state. Never registered in production builds — cfg.IsProduction
-	// below flips this off in CI/prod. The /api/_test/ prefix makes the
-	// dev-only intent obvious in the URL.
-	if !cfg.IsProduction() {
-		testAdminH := handler.NewTestResetAdminHandler(pgStore)
-		mux.HandleFunc("POST /api/_test/reset-admin", testAdminH.ServeHTTP)
-	}
+	registerTestRoutes(mux, pgStore, cfg, os.Getenv)
 
 	// Store: Customer auth & profile (separate namespace, separate JWT)
 	mux.HandleFunc("POST /api/store/auth/register", cors(rl("cust-register", 5)(customerH.Register)))

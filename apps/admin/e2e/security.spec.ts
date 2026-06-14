@@ -43,22 +43,36 @@ test.beforeAll(async () => {
   // truncation also clears password_changed_at's "now" offset that other
   // tests may have left behind, so login() won't reject tokens with
   // iat < password_changed_at on the very first call.
+  //
+  // Auth: the dev-only reset endpoint requires the X-E2E-Reset-Key header
+  // to match the server-side E2E_RESET_KEY env var (constant-time compare
+  // in handler). The header is read from E2E_RESET_KEY in the test env
+  // (set by apps/admin/.env.local or the CI workflow). On production
+  // builds the endpoint does not even compile (//go:build e2e), so the
+  // header is meaningless there.
+  const resetKey = process.env.E2E_RESET_KEY || "";
+  if (!resetKey) {
+    test.skip(
+      true,
+      "E2E_RESET_KEY not set in env — security project requires a known server-side reset secret. Set it in apps/admin/.env.local (never commit) or in the CI workflow.",
+    );
+  }
   const pgCtx = await pwRequest.newContext();
   try {
     const res = await pgCtx.post(`${API}/api/_test/reset-admin`, {
-      headers: { "x-test-reset-key": "playwright-security" },
+      headers: { "X-E2E-Reset-Key": resetKey },
       data: {
         username: ADMIN_USER,
         hashed_password: ADMIN_BCRYPT_HASH,
       },
     });
-    // If the test-reset endpoint doesn't exist, the security project relies
-    // on the backend's bootstrap admin being correct. That's a CI config
-    // concern (BOOTSTRAP_ADMIN_PASSWORD) — we don't fail the suite here.
+    // 503 TEST_RESET_DISABLED if the server has E2E_RESET_KEY unset;
+    // 403 if the headers don't match (key drift between spec and env);
+    // 200 + {"ok":true} on success.
     if (!res.ok()) {
       test.skip(
         true,
-        `admin reset endpoint returned ${res.status()} — security test requires a dedicated reset path; run in CI with --project=security AND backend with admin-reset enabled.`,
+        `admin reset endpoint returned ${res.status()} — security test requires E2E_RESET_KEY set on the backend (and matching the test env).`,
       );
     }
   } finally {

@@ -58,6 +58,12 @@ export default defineConfig({
       name: "security",
       testMatch: /security\.spec\.ts/,
       testIgnore: [],
+      // Depend on the regular setup so the same shared session cookie
+      // is in place when this project starts. The spec's beforeAll then
+      // calls /api/_test/reset-admin to put the admin password in a
+      // known bcrypt hash, so the shared session is still valid for
+      // the subsequent login().
+      dependencies: ["setup"],
       use: { storageState: AUTH_FILE },
     },
   ],
