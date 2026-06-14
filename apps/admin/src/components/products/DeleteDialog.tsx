@@ -58,6 +58,7 @@ export default function DeleteDialog({ product, onCancel, onConfirm }: DeleteDia
           </button>
           <button
             onClick={onConfirm}
+            data-testid="product-delete-confirm"
             className="rounded-xl bg-red-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-600 transition-colors"
           >
             Удалить
