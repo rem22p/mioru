@@ -106,6 +106,8 @@ export default function ProductTable({
       {products.map((product, i) => (
         <motion.div
           key={product.id}
+          data-testid="product-row"
+          data-slug={product.slug}
           variants={cardVariant}
           initial="hidden"
           animate="show"
@@ -147,6 +149,7 @@ export default function ProductTable({
                     e.stopPropagation();
                     onEdit(product);
                   }}
+                  data-testid="product-edit"
                   className="h-10 w-10 rounded-xl bg-white/90 text-gray-800 flex items-center justify-center hover:bg-white transition-colors"
                   title="Редактировать"
                 >
@@ -157,6 +160,7 @@ export default function ProductTable({
                     e.stopPropagation();
                     onDuplicate(product);
                   }}
+                  data-testid="product-duplicate"
                   className="h-10 w-10 rounded-xl bg-white/90 text-gray-800 flex items-center justify-center hover:bg-white transition-colors"
                   title="Дублировать"
                 >
@@ -167,6 +171,7 @@ export default function ProductTable({
                     e.stopPropagation();
                     onDelete(product);
                   }}
+                  data-testid="product-delete"
                   className="h-10 w-10 rounded-xl bg-white/90 text-red-500 flex items-center justify-center hover:bg-white transition-colors"
                   title="Удалить"
                 >

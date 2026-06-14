@@ -66,6 +66,7 @@ export default function Login() {
               <input
                 type="text"
                 placeholder="Никнейм"
+                data-testid="login-username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
@@ -76,12 +77,17 @@ export default function Login() {
 
             <PasswordInput
               placeholder="Пароль"
+              testId="login-password"
               value={password}
               onChange={setPassword}
               autoComplete="current-password"
             />
 
-            {error && <p className="text-sm text-red-500 px-1">{error}</p>}
+            {error && (
+              <p data-testid="login-error" className="text-sm text-red-500 px-1">
+                {error}
+              </p>
+            )}
 
             {success ? (
               <div className="flex items-center justify-center gap-2 w-full rounded-xl bg-[#44944A] px-4 py-2.5 text-sm font-semibold text-black">
@@ -102,6 +108,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading}
+                data-testid="login-submit"
                 className="flex items-center justify-center gap-2 w-full rounded-xl bg-[#44944A] px-4 py-2.5 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(68,148,74,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <LogIn className="h-4 w-4" />

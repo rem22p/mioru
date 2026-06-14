@@ -150,6 +150,7 @@ export default function Products() {
         </div>
         <button
           onClick={handleAdd}
+          data-testid="product-add"
           className="flex items-center gap-2 rounded-xl bg-[#44944A] px-5 py-2.5 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(68,148,74,0.3)]"
         >
           <Plus className="h-4 w-4" />
@@ -171,6 +172,7 @@ export default function Products() {
             <input
               type="text"
               placeholder="Поиск по названию..."
+              data-testid="product-search"
               value={filter.search}
               onChange={(e) => handleFilterChange("search", e.target.value)}
               className="w-full rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] pl-10 pr-4 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] transition-colors"
