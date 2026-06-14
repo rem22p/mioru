@@ -1,4 +1,4 @@
-import { Helmet } from "react-helmet-async";
+import { Helmet } from "@dr.pogodin/react-helmet";
 import { motion } from "framer-motion";
 import { MessageCircle, Camera, Mail } from "lucide-react";
 

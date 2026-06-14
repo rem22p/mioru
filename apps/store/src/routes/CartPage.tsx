@@ -8,7 +8,7 @@ import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
 import { getThumbUrl, getImageUrl } from "@/lib/api";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { Helmet } from "react-helmet-async";
+import { Helmet } from "@dr.pogodin/react-helmet";
 
 export default function CartPage() {
   const { t } = useTranslation();
@@ -75,6 +75,8 @@ export default function CartPage() {
           {items.map((item) => (
             <motion.div
               key={`${item.product.id}-${item.size}`}
+              data-testid="cart-row"
+              data-product-id={item.product.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="flex items-start gap-3 sm:gap-4 rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-3 sm:p-4"
@@ -174,7 +176,7 @@ export default function CartPage() {
                 <span className="font-semibold text-[var(--color-text-primary)]">
                   {t("cart.total")}
                 </span>
-                <span className="font-bold text-[#44944A] text-lg">
+                <span data-testid="cart-total" className="font-bold text-[#44944A] text-lg">
                   {formatPrice(totalPrice, currency)}
                 </span>
               </div>
@@ -183,6 +185,7 @@ export default function CartPage() {
 
           <div className="mt-6 flex gap-4">
             <Link
+              data-testid="cart-checkout"
               to={isAuthenticated ? "/checkout" : "/profile?redirect=/checkout"}
               className="flex-1 rounded-xl bg-[#44944A] px-6 py-4 text-center text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(192,254,57,0.3)]"
             >

@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { Helmet } from "react-helmet-async";
+import { Helmet } from "@dr.pogodin/react-helmet";
 import { useAuthStore } from "@/stores/authStore";
 import { useCurrencyStore } from "@/stores/currencyStore";
 import { formatPrice } from "@/lib/currency";
@@ -134,7 +134,7 @@ export default function ProfilePage() {
           <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-6">
             {t("profile.orderHistory")}
           </h3>
-          <div className="space-y-4">
+          <div data-testid="orders-list" className="space-y-4">
             {orders.length === 0 ? (
               <p className="text-sm text-[var(--color-text-muted)] text-center py-4">
                 {t("profile.noOrders")}
@@ -177,6 +177,8 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
 
   return (
     <motion.div
+      data-testid="order-row"
+      data-order-id={o.id}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] overflow-hidden hover:border-[var(--color-text-muted)] transition-colors"

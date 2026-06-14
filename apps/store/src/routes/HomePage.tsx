@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Helmet } from "react-helmet-async";
+import { Helmet } from "@dr.pogodin/react-helmet";
 import { useCatalogStore } from "@/stores/catalogStore";
 import HeroSection from "@/components/home/HeroSection";
 import AnimatedStripes from "@/components/home/AnimatedStripes";

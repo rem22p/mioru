@@ -90,6 +90,7 @@ export default function Users() {
 				</div>
 				<button
 					onClick={() => setFormOpen(true)}
+					data-testid="user-add"
 					className="flex items-center gap-2 rounded-xl bg-[#44944A] px-5 py-2.5 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(68,148,74,0.3)]"
 				>
 					<Plus className="h-4 w-4" />
@@ -138,6 +139,8 @@ export default function Users() {
 							{users.map((u) => (
 								<tr
 									key={u.id}
+									data-testid="user-row"
+									data-username={u.username}
 									className="border-b border-[var(--color-border-custom)] last:border-0 hover:bg-[var(--color-bg-primary)]/50 transition-colors"
 								>
 									<td className="px-6 py-4">
@@ -181,6 +184,7 @@ export default function Users() {
 									<td className="px-6 py-4 text-right">
 										<button
 											onClick={() => setDeleteTarget(u)}
+											data-testid="user-delete"
 											className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-[var(--color-text-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors"
 											title="Удалить"
 										>
@@ -240,6 +244,7 @@ export default function Users() {
 										<input
 											type="text"
 											placeholder="Иван"
+											data-testid="uf-first-name"
 											value={form.first_name}
 											onChange={(e) => updateForm("first_name", e.target.value)}
 											className="w-full rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] transition-colors"
@@ -252,6 +257,7 @@ export default function Users() {
 										<input
 											type="text"
 											placeholder="Иванов"
+											data-testid="uf-last-name"
 											value={form.last_name}
 											onChange={(e) => updateForm("last_name", e.target.value)}
 											className="w-full rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] transition-colors"
@@ -268,6 +274,7 @@ export default function Users() {
 										<input
 											type="text"
 											placeholder="admin"
+											data-testid="uf-username"
 											value={form.username}
 											onChange={(e) => updateForm("username", e.target.value)}
 											className="w-full rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] pl-9 pr-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] transition-colors"
@@ -284,6 +291,7 @@ export default function Users() {
 										<input
 											type="email"
 											placeholder="admin@mioru.store"
+											data-testid="uf-email"
 											value={form.email}
 											onChange={(e) => updateForm("email", e.target.value)}
 											className="w-full rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] pl-9 pr-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] transition-colors"
@@ -298,6 +306,7 @@ export default function Users() {
 									<input
 										type="password"
 										placeholder="Минимум 8 символов"
+										data-testid="uf-password"
 										value={form.password}
 										onChange={(e) => updateForm("password", e.target.value)}
 										className="w-full rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] transition-colors"
@@ -311,6 +320,7 @@ export default function Users() {
 								<button
 									onClick={handleCreate}
 									disabled={submitting}
+									data-testid="uf-submit"
 									className="w-full rounded-xl bg-[#44944A] px-4 py-2.5 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(68,148,74,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
 								>
 									{submitting ? "Создание..." : "Создать"}
@@ -354,6 +364,7 @@ export default function Users() {
 								</button>
 								<button
 									onClick={handleDelete}
+									data-testid="user-delete-confirm"
 									className="flex-1 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-red-600"
 								>
 									Удалить

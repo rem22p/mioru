@@ -8,7 +8,7 @@ import { useCurrencyStore } from "@/stores/currencyStore";
 import { formatPrice } from "@/lib/currency";
 import { CreditCard, Check, ChevronRight, Package } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Helmet } from "react-helmet-async";
+import { Helmet } from "@dr.pogodin/react-helmet";
 import CityAutocomplete from "@/components/ui/CityAutocomplete";
 
 const deliveryMethods = [
@@ -166,6 +166,7 @@ export default function CheckoutPage() {
                 value={formData.city}
                 onChange={(v) => updateField("city", v)}
                 className={inputBaseClass}
+                testId="checkout-city"
               />
             </div>
 
@@ -189,6 +190,7 @@ export default function CheckoutPage() {
                   >
                     <input
                       type="radio"
+                      data-testid={`checkout-delivery-${method.key}`}
                       name="deliveryMethod"
                       value={method.key}
                       checked={formData.deliveryMethod === method.key}
@@ -307,6 +309,7 @@ export default function CheckoutPage() {
         if (submitted) {
           return (
             <motion.div
+              data-testid="checkout-success"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-8 text-center"
@@ -378,9 +381,10 @@ export default function CheckoutPage() {
               </div>
             </div>
             {orderError && (
-              <p className="text-sm text-red-400 text-center">{orderError}</p>
+              <p data-testid="checkout-error" className="text-sm text-red-400 text-center">{orderError}</p>
             )}
             <button
+              data-testid="checkout-confirm"
               onClick={submitOrder}
               disabled={submitting}
               className="w-full rounded-xl bg-[#44944A] px-6 py-4 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(192,254,57,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -456,6 +460,7 @@ export default function CheckoutPage() {
           )}
           {currentStep < 3 && (
             <button
+              data-testid="checkout-next"
               onClick={() => setCurrentStep(currentStep + 1)}
               disabled={!canProceed()}
               className="ml-auto rounded-xl bg-[#44944A] px-6 py-3 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(192,254,57,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
