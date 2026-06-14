@@ -142,6 +142,18 @@ jobs:
           done
           echo "backend failed to become healthy"; exit 1
 
+      # The storefront order journey (apps/store/e2e/user-flow.spec.ts) needs a
+      # populated catalog: it picks an in-stock product with sizes, and skips
+      # itself when none exists. The fresh CI DB only has seeded categories, so
+      # without this the priority-#1 order flow would silently skip. Admin specs
+      # create their own products via CRUD, so they don't need it.
+      - name: Seed catalog (store only)
+        if: steps.detect.outputs.present == 'true' && matrix.app == 'store'
+        env:
+          PGPASSWORD: mioru
+        run: |
+          bash scripts/seed-300.sh | psql -h localhost -p 5432 -U mioru -d mioru_test -q -v ON_ERROR_STOP=1
+
       - uses: actions/setup-node@v4
         if: steps.detect.outputs.present == 'true'
         with:
