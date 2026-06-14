@@ -85,7 +85,7 @@ export default function Orders() {
   const totalPages = Math.max(1, Math.ceil(total / perPage));
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto" data-testid="orders-page">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
@@ -93,6 +93,7 @@ export default function Orders() {
         </h1>
         <button
           onClick={loadOrders}
+          data-testid="orders-refresh"
           className="flex items-center gap-2 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
         >
           <RefreshCw className="h-4 w-4" />
@@ -101,7 +102,7 @@ export default function Orders() {
       </div>
 
       {error && (
-        <p className="text-sm text-red-400 mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+        <p data-testid="orders-error" className="text-sm text-red-400 mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
           {error}
         </p>
       )}
@@ -114,6 +115,7 @@ export default function Orders() {
             setStatusFilter(e.target.value);
             setPage(1);
           }}
+          data-testid="orders-filter-status"
           className="rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-4 py-2 text-sm text-[var(--color-text-primary)]"
         >
           <option value="">Все статусы</option>
@@ -130,6 +132,7 @@ export default function Orders() {
             setTypeFilter(e.target.value);
             setPage(1);
           }}
+          data-testid="orders-filter-type"
           className="rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-4 py-2 text-sm text-[var(--color-text-primary)]"
         >
           <option value="">Все типы</option>
@@ -137,18 +140,18 @@ export default function Orders() {
           <option value="individual">Индивидуальный</option>
         </select>
 
-        <span className="text-sm text-[var(--color-text-muted)] ml-auto">
+        <span data-testid="orders-total" className="text-sm text-[var(--color-text-muted)] ml-auto">
           {total} заказов
         </span>
       </div>
 
       {/* Content */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
+        <div data-testid="orders-loading" className="flex items-center justify-center py-20">
           <RefreshCw className="h-6 w-6 text-[var(--color-text-muted)] animate-spin" />
         </div>
       ) : orders.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div data-testid="orders-empty" className="flex flex-col items-center justify-center py-20 text-center">
           <Package className="h-12 w-12 text-[var(--color-text-muted)] mb-4" />
           <p className="text-[var(--color-text-muted)]">
             {statusFilter || typeFilter
@@ -158,7 +161,7 @@ export default function Orders() {
         </div>
       ) : (
         <>
-          <div className="grid gap-4">
+          <div data-testid="orders-list" className="grid gap-4">
             {orders.map((o) => (
               <OrderCard
                 key={o.id}
@@ -171,20 +174,22 @@ export default function Orders() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-8">
+            <div data-testid="orders-pagination" className="flex items-center justify-center gap-2 mt-8">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
+                data-testid="orders-pagination-prev"
                 className="px-3 py-2 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] text-sm text-[var(--color-text-secondary)] disabled:opacity-30"
               >
                 ←
               </button>
-              <span className="text-sm text-[var(--color-text-muted)]">
+              <span data-testid="orders-pagination-info" className="text-sm text-[var(--color-text-muted)]">
                 {page} / {totalPages}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
+                data-testid="orders-pagination-next"
                 className="px-3 py-2 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] text-sm text-[var(--color-text-secondary)] disabled:opacity-30"
               >
                 →
@@ -233,7 +238,7 @@ function OrderCard({
   const totalLei = (o.total_minor / 100).toFixed(2);
 
   return (
-    <div className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] overflow-hidden hover:border-[var(--color-text-muted)] transition-colors">
+    <div data-testid={`orders-row-${o.id}`} className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] overflow-hidden hover:border-[var(--color-text-muted)] transition-colors">
       {/* Card header */}
       <div className="p-4 sm:p-5 flex items-start justify-between gap-3 cursor-pointer select-none"
            onClick={() => setExpanded(!expanded)}>
@@ -253,6 +258,7 @@ function OrderCard({
               value={o.status}
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => onStatusChange(o.id, e.target.value)}
+              data-testid={`orders-row-${o.id}-status-select`}
               className={`text-xs font-medium px-2 py-0.5 rounded-full border-0 cursor-pointer ${STATUS_ACCENT[o.status] || ""}`}
             >
               {STATUS_OPTIONS.map((s) => (
