@@ -9,6 +9,18 @@ and `backend/api/cmd/server/main_test.go` (package `main` — infra helpers).
 For exact request/response shapes and security checks per route, see the companion
 `public-api-contract-reference.md`.
 
+## Build-time-only routes
+
+The following routes are **not** in the production binary. They live behind
+the `//go:build e2e` build tag and are exercised by Playwright security specs
+that need to drop the admin back to a known bcrypt hash. See
+`docs/api/test-only-endpoints.md` for the full security model and verification
+commands.
+
+| Method+Path | Build | Auth | Success | Errors | E2E consumer |
+|---|---|---|---|---|---|
+| POST /api/_test/reset-admin | `e2e` tag | `X-E2E-Reset-Key` header (constant-time compare to `E2E_RESET_KEY` env) | 200 `{ok:true}` | 400 VALIDATION_FAILED, 403 FORBIDDEN, 500 INTERNAL, 503 TEST_RESET_DISABLED | `apps/admin/e2e/security.spec.ts` |
+
 ## Health
 | Method+Path | Auth | CSRF | RL | Success | Errors | Integration test |
 |---|---|---|---|---|---|---|
