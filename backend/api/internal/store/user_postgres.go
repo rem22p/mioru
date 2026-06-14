@@ -146,6 +146,34 @@ func (s *PostgresStore) UpdatePassword(ctx context.Context, username, hashedPW s
 	return nil
 }
 
+// ResetAdminForTest is a test-only helper that UPSERTs the bootstrap admin
+// with a caller-supplied bcrypt hash and an EXPLICIT password_changed_at.
+// Used by apps/admin/e2e/security.spec.ts to drop the admin back to a known
+// state (idempotent across CI re-runs) before running security-critical
+// specs that mutate the password.
+//
+// Differs from UpdatePassword in that it also sets the email/role/display
+// fields (idempotent seed) and accepts a *past* password_changed_at (so the
+// next login's iat > changed_at is guaranteed). Never registered in
+// production builds — see TestResetAdminHandler.
+func (s *PostgresStore) ResetAdminForTest(ctx context.Context, u model.User, passwordChangedAt time.Time) error {
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO users (username, email, hashed_password, first_name, last_name, display_name, avatar_color, role, password_changed_at)
+		VALUES ($1, $2, $3, '', '', $4, $5, $6, $7)
+		ON CONFLICT (username) DO UPDATE SET
+			hashed_password = EXCLUDED.hashed_password,
+			email = EXCLUDED.email,
+			display_name = EXCLUDED.display_name,
+			avatar_color = EXCLUDED.avatar_color,
+			role = EXCLUDED.role,
+			password_changed_at = EXCLUDED.password_changed_at`,
+		u.Username, u.Email, u.HashedPW, u.DisplayName, u.AvatarColor, u.Role, passwordChangedAt)
+	if err != nil {
+		return fmt.Errorf("reset admin for test: %w", err)
+	}
+	return nil
+}
+
 // ListUsers returns all admin users ordered by creation date newest first.
 func (s *PostgresStore) ListUsers(ctx context.Context) ([]model.User, error) {
 	rows, err := s.pool.Query(ctx, `
