@@ -135,8 +135,8 @@ func (e *env) userSession(t *testing.T, username, role string) *session {
 
 type reqOpts struct {
 	sess           *session
-	csrfCookieName string            // StoreCSRFCookie/AdminCSRFCookie — sends the CSRF cookie AND a matching X-CSRF-Token header (a valid mutation)
-	badCSRF        bool              // with csrfCookieName set: sends the cookie but a wrong X-CSRF-Token header (mismatch → expect 403)
+	csrfCookieName string // StoreCSRFCookie/AdminCSRFCookie — sends the CSRF cookie AND a matching X-CSRF-Token header (a valid mutation)
+	badCSRF        bool   // with csrfCookieName set: sends the cookie but a wrong X-CSRF-Token header (mismatch → expect 403)
 	idempotencyKey string
 	body           any
 	pathValues     map[string]string // applied via req.SetPathValue (for {slug}/{id} routes)
