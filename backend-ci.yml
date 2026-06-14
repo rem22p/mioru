@@ -1,0 +1,56 @@
+name: backend-ci
+
+# Auto-run the Go backend suite on every branch push and on pull requests.
+# The DB-backed integration tests need a real PostgreSQL, provided here as a
+# service container exposed on localhost:5432 (mirrors docker-compose.test.yml).
+on:
+  push:
+  pull_request:
+
+# A newer push to the same ref cancels an in-flight run for it.
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: build + vet + test (race)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/api
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: mioru
+          POSTGRES_PASSWORD: mioru
+          POSTGRES_DB: mioru_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mioru -d mioru_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      # Matches the local throwaway test DB contract; the store harness skips
+      # DB tests when this is unset, so CI must set it to actually run them.
+      TEST_DATABASE_URL: postgres://mioru:mioru@localhost:5432/mioru_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          # Single source of truth for the Go version — read from go.mod.
+          go-version-file: backend/api/go.mod
+          cache-dependency-path: backend/api/go.sum
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test (race)
+        run: go test ./... -race -count=1
