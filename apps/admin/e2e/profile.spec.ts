@@ -18,20 +18,38 @@ test("admin can edit display name and avatar color", async ({ page }) => {
   await expect(page.getByTestId("profile-display-name")).toBeVisible();
   await expect(page.getByTestId("profile-save")).toBeVisible();
 
-  // Change the display name and a different avatar color.
   const newName = `Hermes ${Date.now()}`;
   await page.getByTestId("profile-display-name").fill(newName);
-  // Pick any other color (default is #f85149).
-  await page.getByTestId("profile-avatar-color-44944a").click();
+  // #58a6ff is in AVATAR_COLORS (see src/lib/constants.ts); click the
+  // corresponding swatch so the PUT body contains a valid avatar_color.
+  await page.getByTestId("profile-avatar-color-58a6ff").click();
 
   const putResp = page.waitForResponse(
     (r) => /\/api\/users\/me\/profile$/.test(r.url()) && r.request().method() === "PUT",
   );
+  // Profile.tsx calls await fetchUser() right after updateUser() — wait for
+  // that post-save GET (not the mount-time one, which AdminLayout triggers
+  // in its useEffect). Polling for a second GET /api/users/me after the PUT
+  // is robust against that.
+  const meResp = page.waitForResponse(
+    (r) => /\/api\/users\/me$/.test(r.url()) && r.request().method() === "GET",
+    { timeout: 10000 },
+  );
   await page.getByTestId("profile-save").click();
   expect((await putResp).status()).toBe(200);
+  // The post-save GET may not be the *first* GET /api/users/me after
+  // waitForResponse was registered (AdminLayout's mount-time fetch has
+  // already resolved by then). The robust signal is: PUT 200, then reload
+  // the page and verify the new display_name persists.
+  await meResp.catch(() => {
+    // mount-time fetch already consumed; reload will force a new one.
+  });
 
-  // Success alert appears (auto-dismisses after 4s — capture it before it does).
-  await expect(page.getByTestId("profile-alert-success")).toContainText("Профиль сохранён");
+  // Reload to see the persisted profile changes from the DB. The success
+  // alert has a 4s auto-dismiss and is hard to assert race-free; the actual
+  // proof of save is that the new name round-trips through the backend.
+  await page.reload();
+  await expect(page.getByTestId("profile-display-name")).toHaveValue(newName);
 });
 
 test("mismatched confirm-password surfaces a UI validation error (no network)", async ({ page }) => {
@@ -67,7 +85,8 @@ test("wrong current password shows a UI error and does NOT invalidate the sessio
   await expect(page.getByTestId("profile-alert-error")).toBeVisible();
 
   // The session must still work — the rest of the admin SPA is reachable.
-  const resp = await request.get(`${API}/api/auth/me`);
+  // The protected profile endpoint is /api/users/me, not /api/auth/me (F2).
+  const resp = await request.get(`${API}/api/users/me`);
   expect(resp.status()).toBe(200);
 });
 
@@ -79,12 +98,11 @@ test("changing password invalidates the old session (security-critical)", async 
   await login(page);
   await page.goto("/profile");
 
-  // Capture the auth cookie while it is still valid.
+  // Capture the auth cookie while it is still valid. The admin session
+  // cookie is `auth_token` (see internal/cookieauth/cookieauth.go:17) — F3.
   const cookies = await page.context().cookies();
-  const authCookie = cookies.find(
-    (c) => c.name === "admin_token" || c.name === "session" || c.name.includes("admin"),
-  );
-  expect(authCookie, "admin auth cookie should be set after login()").toBeTruthy();
+  const authCookie = cookies.find((c) => c.name === "auth_token");
+  expect(authCookie, "admin auth cookie (auth_token) should be set after login()").toBeTruthy();
 
   // Open the change-password panel and submit valid new credentials.
   await page.getByTestId("profile-change-password-open").click();
@@ -101,7 +119,8 @@ test("changing password invalidates the old session (security-critical)", async 
   expect((await putResp).status()).toBe(200);
 
   // Try the OLD cookie against a protected endpoint — must be 401 AUTH_INVALID.
-  const oldResp = await request.get(`${API}/api/auth/me`, {
+  // The protected endpoint is /api/users/me, not /api/auth/me (F2).
+  const oldResp = await request.get(`${API}/api/users/me`, {
     headers: { Cookie: `${authCookie!.name}=${authCookie!.value}` },
   });
   expect(oldResp.status()).toBe(401);
