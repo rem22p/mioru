@@ -5,7 +5,7 @@ import { useFavoritesStore } from "@/stores/favoritesStore";
 import { useCurrencyStore } from "@/stores/currencyStore";
 import { formatPrice } from "@/lib/currency";
 import { useTranslation } from "react-i18next";
-import { Helmet } from "react-helmet-async";
+import { Helmet } from "@dr.pogodin/react-helmet";
 
 export default function FavoritesPage() {
   const { t } = useTranslation();

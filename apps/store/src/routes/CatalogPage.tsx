@@ -9,7 +9,7 @@ import { getThumbUrl, getImageUrl } from "@/lib/api";
 import { ShoppingBag, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import CatalogStatusToggle from "@/components/catalog/CatalogStatusToggle";
-import { Helmet } from "react-helmet-async";
+import { Helmet } from "@dr.pogodin/react-helmet";
 
 const PER_PAGE = 20;
 

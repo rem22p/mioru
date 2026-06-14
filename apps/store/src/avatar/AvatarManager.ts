@@ -244,7 +244,7 @@ class AvatarManagerClass {
         child instanceof THREE.Mesh &&
         child.geometry.type === "BufferGeometry"
       ) {
-        const name = (child as any).name || "";
+        const name = child.name || "";
         if (name.includes("torso") || name.includes("body")) {
           child.scale.x = bw;
           child.scale.z = bw;
