@@ -23,9 +23,11 @@ export default defineConfig({
   // Pick up any e2e/*.spec.ts by default; the auth flows are excluded here
   // and routed to their own projects below. New authenticated specs
   // (orders, profile, settings, …) get picked up automatically — no
-  // per-file edit needed.
+  // per-file edit needed. security.spec.ts is excluded here because it
+  // mutates the shared admin password and runs in its own dedicated project
+  // (see `security` below).
   testMatch: /.*\.spec\.ts$/,
-  testIgnore: /auth\.(spec|setup)\.ts/,
+  testIgnore: /auth\.(spec|setup)\.ts|security\.spec\.ts/,
   projects: [
     // Logs in once and saves the session.
     {
@@ -43,6 +45,19 @@ export default defineConfig({
     {
       name: "authenticated",
       dependencies: ["setup"],
+      use: { storageState: AUTH_FILE },
+    },
+    // Security-critical specs: isolated because they MUTATE the shared
+    // admin password, which corrupts the iat < password_changed_at check
+    // for any subsequent login() in the same DB. Runs against the same
+    // /api/_test/reset-admin endpoint (dev-mode only) to drop the admin
+    // back to a known bcrypt hash before each test. Excluded from
+    // `authenticated` via the top-level testIgnore; this project enables
+    // it explicitly.
+    {
+      name: "security",
+      testMatch: /security\.spec\.ts/,
+      testIgnore: [],
       use: { storageState: AUTH_FILE },
     },
   ],
