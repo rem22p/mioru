@@ -1,0 +1,262 @@
+name: frontend-ci
+
+# Lint + build + unit tests for both SPAs, plus full Playwright E2E for each.
+# Path-filtered to frontend changes so backend-only PRs don't pay for a Node
+# toolchain run. Mirrors backend-ci.yml's trigger/concurrency shape.
+on:
+  push:
+    paths:
+      - 'apps/**'
+      - 'scripts/seed-e2e.sql'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'scripts/seed-e2e.sql'
+      - '.github/workflows/frontend-ci.yml'
+
+# A newer push to the same ref cancels an in-flight run for it.
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: ${{ matrix.app }} · lint + build + test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # store pulls react-helmet-async@2 (peer-deps react ^16/17/18) vs
+          # React 19; npm ci needs the flag until the helmet swap (#38) merges,
+          # after which the conflict is gone and the flag is a harmless no-op.
+          - app: store
+            install_flags: '--legacy-peer-deps'
+          - app: admin
+            install_flags: ''
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # vitest 4 / vite 7 require Node >= 20.19; 22 LTS is the safe floor.
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
+
+      - name: Install
+        run: npm ci ${{ matrix.install_flags }}
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests (vitest)
+        # `vitest run` is the single non-watch pass; --passWithNoTests keeps the
+        # job green for an app that has no vitest specs yet (admin today).
+        run: npx vitest run --passWithNoTests
+
+  # ───────────────────────── store E2E (visual + flow) ─────────────────────────
+  # Runs inside the SAME Playwright container image the visual baselines were
+  # generated in (apps/store/e2e/*-snapshots/*.png), so toHaveScreenshot diffs
+  # are deterministic — different fonts / GL on a bare ubuntu runner would make
+  # every screenshot fail. The whole store suite runs: no spec is excluded and
+  # there is no --pass-with-no-tests escape hatch.
+  e2e-store:
+    name: store · playwright e2e (visual + flow)
+    runs-on: ubuntu-latest
+    needs: unit
+    container:
+      image: mcr.microsoft.com/playwright:v1.60.0-jammy
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: mioru
+          POSTGRES_PASSWORD: mioru
+          POSTGRES_DB: mioru_test
+        # No host port mapping: the job runs in a container, so it reaches the
+        # service by its name on the job network (host "postgres", port 5432).
+        options: >-
+          --health-cmd "pg_isready -U mioru -d mioru_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      # The service is reachable as host "postgres" from inside the job container.
+      PGHOST: postgres
+      PGPORT: '5432'
+      PGUSER: mioru
+      PGPASSWORD: mioru
+      PGDATABASE: mioru_test
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Playwright image lacks Go and psql; add both. Browsers are already
+      # baked into the image at the matching version, so no `playwright install`.
+      - name: Install psql client
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends postgresql-client
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/api/go.mod
+          cache-dependency-path: backend/api/go.sum
+
+      - name: Build backend
+        working-directory: backend/api
+        # -buildvcs=false: the checkout is owned by a different uid than this
+        # container's root, so git refuses VCS queries ("dubious ownership") and
+        # VCS stamping fails. The E2E binary needs no version stamp.
+        run: go build -buildvcs=false -o /tmp/mioru-server ./cmd/server
+
+      - name: Start backend
+        env:
+          APP_ENV: development
+          PORT: '8000'
+          DATABASE_URL: postgres://mioru:mioru@postgres:5432/mioru_test?sslmode=disable
+          # CI-only throwaway secret (>=32 chars); never a real key.
+          SECRET_KEY: ci-e2e-frontend-secret-key-0123456789abcdef
+          UPLOAD_DIR: /tmp/mioru-uploads
+          BOOTSTRAP_ADMIN_USERNAME: admin
+          BOOTSTRAP_ADMIN_EMAIL: admin@mioru.store
+          BOOTSTRAP_ADMIN_PASSWORD: Admin12345!
+        run: |
+          mkdir -p /tmp/mioru-uploads
+          nohup /tmp/mioru-server > /tmp/mioru-server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/api/categories >/dev/null 2>&1; then
+              echo "backend up after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "backend failed to become healthy"; exit 1
+
+      # Deterministic catalog fixture — the visual baselines were shot against
+      # exactly this data (fixed slugs/prices/timestamps), and the order journey
+      # needs an in-stock sized product. scripts/seed-300.sh is random and would
+      # break the pixel diffs, so it is NOT used here.
+      - name: Seed deterministic catalog
+        run: psql -v ON_ERROR_STOP=1 -q -f scripts/seed-e2e.sql
+
+      - name: Install deps
+        working-directory: apps/store
+        run: npm ci --legacy-peer-deps
+
+      - name: Run Playwright (full suite)
+        working-directory: apps/store
+        env:
+          CI: 'true'
+        run: npx playwright test
+
+      - name: Backend log (on failure)
+        if: failure()
+        run: cat /tmp/mioru-server.log || true
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-store
+          path: apps/store/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ───────────────────────────── admin E2E (CRUD) ─────────────────────────────
+  # No screenshots, so a bare ubuntu runner with the bundled Chromium is enough —
+  # the mcr container is only needed for pixel-stable visual diffs (store). Admin
+  # specs create their own products/users via the API, so no catalog seed is
+  # needed; only the bootstrap super-admin the auth setup logs in as.
+  e2e-admin:
+    name: admin · playwright e2e (crud)
+    runs-on: ubuntu-latest
+    needs: unit
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: mioru
+          POSTGRES_PASSWORD: mioru
+          POSTGRES_DB: mioru_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mioru -d mioru_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/api/go.mod
+          cache-dependency-path: backend/api/go.sum
+
+      - name: Build backend
+        working-directory: backend/api
+        run: go build -o /tmp/mioru-server ./cmd/server
+
+      - name: Start backend
+        env:
+          APP_ENV: development
+          PORT: '8000'
+          DATABASE_URL: postgres://mioru:mioru@localhost:5432/mioru_test?sslmode=disable
+          SECRET_KEY: ci-e2e-frontend-secret-key-0123456789abcdef
+          UPLOAD_DIR: /tmp/mioru-uploads
+          BOOTSTRAP_ADMIN_USERNAME: admin
+          BOOTSTRAP_ADMIN_EMAIL: admin@mioru.store
+          BOOTSTRAP_ADMIN_PASSWORD: Admin12345!
+        run: |
+          mkdir -p /tmp/mioru-uploads
+          nohup /tmp/mioru-server > /tmp/mioru-server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/api/categories >/dev/null 2>&1; then
+              echo "backend up after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "backend failed to become healthy"; exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/admin/package-lock.json
+
+      - name: Install deps
+        working-directory: apps/admin
+        run: npm ci
+
+      - name: Install Playwright browser
+        working-directory: apps/admin
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright (full suite)
+        working-directory: apps/admin
+        env:
+          CI: 'true'
+        run: npx playwright test
+
+      - name: Backend log (on failure)
+        if: failure()
+        run: cat /tmp/mioru-server.log || true
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-admin
+          path: apps/admin/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
