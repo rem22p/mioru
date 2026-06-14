@@ -42,6 +42,16 @@ func registerTestRoutes(
 	testAdminH := handler.NewTestResetAdminHandler(pgStore)
 	mux.HandleFunc("POST /api/_test/reset-admin", testAdminH.ServeHTTP)
 
+	// POST /api/_test/create-reset-token — used by
+	// apps/admin/e2e/password-reset.spec.ts. Issues a fresh raw
+	// password-reset token for a given username via the production
+	// CreateResetToken path (so only the SHA-256 hash lands in the
+	// DB; the raw is returned in the response body for the spec to
+	// drive /reset/:token). Same X-E2E-Reset-Key auth gate as the
+	// admin reset above.
+	testResetTokenH := handler.NewTestCreateResetTokenHandler(pgStore)
+	mux.HandleFunc("POST /api/_test/create-reset-token", testResetTokenH.ServeHTTP)
+
 	// Reference os so this file is not flagged as unused when the
 	// registration block above is conditionally skipped.
 	_ = os.Getenv

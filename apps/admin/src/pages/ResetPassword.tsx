@@ -55,7 +55,7 @@ export default function ResetPassword() {
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className="w-full max-w-md"
         >
-          <div className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-8 text-center">
+          <div data-testid="reset-success" className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-8 text-center">
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
@@ -132,21 +132,24 @@ export default function ResetPassword() {
               value={password}
               onChange={setPassword}
               autoComplete="new-password"
+              testId="reset-password"
             />
             <PasswordInput
               placeholder="Повторите пароль"
               value={confirm}
               onChange={setConfirm}
               autoComplete="new-password"
+              testId="reset-password-confirm"
             />
 
             {error && (
-              <p className="text-sm text-red-500 px-1">{error}</p>
+              <p data-testid="reset-error" className="text-sm text-red-500 px-1">{error}</p>
             )}
 
             <button
               type="submit"
               disabled={loading}
+              data-testid="reset-submit"
               className="flex items-center justify-center gap-2 w-full rounded-xl bg-[#44944A] px-4 py-2.5 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(68,148,74,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <KeyRound className="h-4 w-4" />
