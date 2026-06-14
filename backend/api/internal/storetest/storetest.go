@@ -7,34 +7,40 @@ package storetest
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"mioru/internal/store"
+	"mioru/internal/testdb"
 )
 
-// Fresh connects to TEST_DATABASE_URL, runs migrations (schema + seeded
+// Fresh connects to a database dedicated to this test process (derived from
+// TEST_DATABASE_URL by testdb, so packages running concurrently under
+// `go test ./...` do not share tables), runs migrations (schema + seeded
 // category tree), truncates all data tables, and returns a clean store.
 // It calls t.Skip when TEST_DATABASE_URL is unset, so suites are a no-op
 // without a dedicated test database.
 //
 // TEST_DATABASE_URL must point at a disposable database — never production:
-// Fresh truncates user data on every call.
+// testdb creates/drops sibling databases and Fresh truncates user data.
 func Fresh(t testing.TB) *store.PostgresStore {
 	t.Helper()
 
-	url := os.Getenv("TEST_DATABASE_URL")
+	ctx := context.Background()
+	url, err := testdb.URL(ctx)
+	if err != nil {
+		t.Fatalf("provision test db: %v", err)
+	}
 	if url == "" {
 		t.Skip("TEST_DATABASE_URL not set — skipping PostgreSQL integration tests")
 	}
 
-	s, err := store.NewPostgresStore(context.Background(), url)
+	s, err := store.NewPostgresStore(ctx, url)
 	if err != nil {
 		t.Fatalf("connect test store: %v", err)
 	}
 	t.Cleanup(s.Close)
 
-	if err := s.ResetTestData(context.Background()); err != nil {
+	if err := s.ResetTestData(ctx); err != nil {
 		t.Fatalf("reset test data: %v", err)
 	}
 	return s
