@@ -1,0 +1,15 @@
+/*
+ * Applied by Playwright before every toHaveScreenshot comparison
+ * (playwright.config.ts → expect.toHaveScreenshot.stylePath).
+ *
+ * The storefront paints two non-deterministic <canvas> surfaces that would make
+ * pixel baselines impossible:
+ *   - WaveBackground: a Math.random()-seeded animated 2D particle field mounted
+ *     globally in App.tsx, so it sits behind every page.
+ *   - the 3D avatar (three.js / WebGL) on /avatar.
+ * Hiding all canvases keeps page layout intact (visibility, not display) while
+ * removing the only animated/GPU-dependent pixels, so screenshots are stable.
+ */
+canvas {
+  visibility: hidden !important;
+}

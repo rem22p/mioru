@@ -51,6 +51,14 @@ next-app/
 /photos/
 /Бурмалда.md
 
+# Playwright visual-regression baselines ARE version-controlled: toHaveScreenshot
+# needs a committed reference to diff against, and they're generated in the exact
+# CI container image (apps/store/playwright.config.ts → mcr…playwright:jammy) so
+# they match. Re-include them despite the broad *.png ignores above. (Parent dirs
+# aren't ignored — only the *.png files — so negation is allowed here.)
+!apps/store/e2e/**/*-snapshots/
+!apps/store/e2e/**/*-snapshots/**
+
 # Local tooling artifacts
 .claude/
 .tldr/
