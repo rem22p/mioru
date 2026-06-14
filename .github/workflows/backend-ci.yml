@@ -1,8 +1,14 @@
 name: backend-ci
 
-# Auto-run the Go backend suite on every branch push and on pull requests.
-# The DB-backed integration tests need a real PostgreSQL, provided here as a
-# service container exposed on localhost:5432 (mirrors docker-compose.test.yml).
+# Go backend suite (build + vet + race tests against a real PostgreSQL).
+#
+# Runs on every push and pull request, but the heavy `test` job is GATED on a
+# cheap path detector: on a change that doesn't touch backend/** it is skipped.
+# We deliberately do NOT path-filter the `on:` trigger — a workflow filtered out
+# by `on.paths` never produces its check, which leaves a *required* status check
+# stuck "pending" and blocks the PR forever. A job skipped via `if:` instead
+# reports "skipped", which branch protection counts as success. So a backend-ci
+# required check stays green on a frontend-only PR without running Go at all.
 on:
   push:
   pull_request:
@@ -12,9 +18,33 @@ concurrency:
   group: backend-ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  # dorny/paths-filter reads the PR's changed files via the API on pull_request.
+  pull-requests: read
+
 jobs:
+  # Cheap (~seconds) detector. Its output gates the expensive job below.
+  changes:
+    name: detect backend changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/backend-ci.yml'
+
   test:
     name: build + vet + test (race)
+    needs: changes
+    # Skipped (→ counts as a passing required check) when no backend file changed.
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:

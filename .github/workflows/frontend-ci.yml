@@ -1,19 +1,17 @@
 name: frontend-ci
 
 # Lint + build + unit tests for both SPAs, plus full Playwright E2E for each.
-# Path-filtered to frontend changes so backend-only PRs don't pay for a Node
-# toolchain run. Mirrors backend-ci.yml's trigger/concurrency shape.
+#
+# Runs on every push and PR, but every job is GATED on a cheap path detector:
+# a change that doesn't touch the frontend skips them all. We deliberately do
+# NOT path-filter the `on:` trigger — a workflow filtered out by `on.paths`
+# never produces its check, leaving a *required* status check stuck "pending"
+# and blocking the PR. A job skipped via `if:` instead reports "skipped", which
+# branch protection counts as success. So these checks stay green on a
+# backend-only PR without spinning up a Node toolchain. Mirrors backend-ci.yml.
 on:
   push:
-    paths:
-      - 'apps/**'
-      - 'scripts/seed-e2e.sql'
-      - '.github/workflows/frontend-ci.yml'
   pull_request:
-    paths:
-      - 'apps/**'
-      - 'scripts/seed-e2e.sql'
-      - '.github/workflows/frontend-ci.yml'
 
 # A newer push to the same ref cancels an in-flight run for it.
 concurrency:
@@ -22,10 +20,34 @@ concurrency:
 
 permissions:
   contents: read
+  # dorny/paths-filter reads the PR's changed files via the API on pull_request.
+  pull-requests: read
 
 jobs:
+  # Cheap (~seconds) detector. Its output gates every job below; the e2e jobs
+  # inherit the skip transitively via `needs: unit`.
+  changes:
+    name: detect frontend changes
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'apps/**'
+              - 'scripts/seed-e2e.sql'
+              - '.github/workflows/frontend-ci.yml'
+
   unit:
     name: ${{ matrix.app }} · lint + build + test
+    needs: changes
+    # Skipped (→ counts as a passing required check) when no frontend file
+    # changed; e2e-store / e2e-admin then skip too via `needs: unit`.
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
