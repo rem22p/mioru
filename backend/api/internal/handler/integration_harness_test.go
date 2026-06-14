@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/golang-jwt/jwt/v5"
+
 	"mioru/internal/auth"
 	"mioru/internal/cookieauth"
 	"mioru/internal/email"
@@ -86,6 +88,23 @@ func (e *env) wrapSuperAdmin(h http.HandlerFunc) http.Handler {
 	return mw(middleware.RequireSuperAdmin(e.getRole)(csrf(h)))
 }
 
+// wrapUserAuth wraps a handler with AuthMW only — no RequireAdmin, no CSRF.
+// Mirrors main.go's `GET /api/users/me` (authMW(authH.Me)): the admin profile
+// read needs a valid session but is neither role-gated nor a mutation.
+func (e *env) wrapUserAuth(h http.HandlerFunc) http.Handler {
+	return middleware.AuthMW(testSecret, e.st.UserPasswordChangedAt)(h)
+}
+
+// wrapUserCSRF wraps a handler with AuthMW + CSRF (admin CSRF cookie) but NO
+// RequireAdmin. Mirrors main.go's `PUT /api/users/me/profile` and
+// `PUT /api/users/me/password` (authMW(adminCSRF(handler))) and the admin
+// logout — auth + CSRF, not role-gated.
+func (e *env) wrapUserCSRF(h http.HandlerFunc) http.Handler {
+	mw := middleware.AuthMW(testSecret, e.st.UserPasswordChangedAt)
+	csrf := middleware.CSRF(cookieauth.AdminCSRFCookie)
+	return mw(csrf(h))
+}
+
 // --- session fixtures ---
 
 type session struct {
@@ -128,6 +147,91 @@ func (e *env) userSession(t *testing.T, username, role string) *session {
 	return &session{
 		authCookie: &http.Cookie{Name: cookieauth.AdminAuthCookie, Value: tok},
 		csrfValue:  "csrf-admin-token",
+	}
+}
+
+// adminUserWithPassword inserts an admin/staff user whose stored password is
+// goodPassword (a real bcrypt hash, unlike userSession's unusable "x"), and
+// mints a valid session for it. Use for endpoints that verify the password
+// (login, change-password).
+func (e *env) adminUserWithPassword(t *testing.T, username, role string) *session {
+	t.Helper()
+	ctx := context.Background()
+	hash, err := auth.HashPassword(goodPassword)
+	if err != nil {
+		t.Fatalf("HashPassword: %v", err)
+	}
+	if err := e.st.CreateUser(ctx, model.User{Username: username, Email: username + "@ex.com", HashedPW: hash, FirstName: "A", Role: role}); err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	tok, err := auth.CreateToken(username, auth.TokenTypeUser, testSecret, tokenExpiryMin)
+	if err != nil {
+		t.Fatalf("CreateToken: %v", err)
+	}
+	return &session{authCookie: &http.Cookie{Name: cookieauth.AdminAuthCookie, Value: tok}, csrfValue: "csrf-admin-token"}
+}
+
+// userSessionWithIat mints a user session whose JWT carries an explicit iat
+// (Unix seconds), so a test can place the token deterministically before or
+// after an account's password_changed_at epoch. The user-token subject is the
+// username (auth.CreateToken in handler.Login passes req.Username; AuthMW reads
+// it back via middleware.Username), so sub is the username string here too.
+func (e *env) userSessionWithIat(t *testing.T, username string, iat int64) *session {
+	t.Helper()
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub": username,
+		"typ": auth.TokenTypeUser,
+		"iat": iat,
+		"exp": iat + 86400,
+	})
+	s, err := tok.SignedString([]byte(testSecret))
+	if err != nil {
+		t.Fatalf("sign token: %v", err)
+	}
+	return &session{authCookie: &http.Cookie{Name: cookieauth.AdminAuthCookie, Value: s}, csrfValue: "csrf-admin-token"}
+}
+
+// sessionFromResponse builds a session from the Set-Cookie headers a bootstrap
+// endpoint (register/login) wrote, so a test can reuse the real minted cookies
+// on subsequent authenticated calls.
+func sessionFromResponse(t *testing.T, rr *httptest.ResponseRecorder, authCookieName, csrfCookieName string) *session {
+	t.Helper()
+	var authCookie *http.Cookie
+	var csrf string
+	for _, c := range rr.Result().Cookies() {
+		switch c.Name {
+		case authCookieName:
+			authCookie = c
+		case csrfCookieName:
+			csrf = c.Value
+		}
+	}
+	if authCookie == nil {
+		t.Fatalf("response set no %q cookie; cookies=%v", authCookieName, rr.Result().Cookies())
+	}
+	return &session{authCookie: authCookie, csrfValue: csrf}
+}
+
+// customerSessionWithIat builds a customer session whose JWT carries an explicit
+// iat (Unix seconds), so a test can place the token deterministically before or
+// after an account's password_changed_at epoch without depending on wall-clock
+// second boundaries. exp is set far in the future so only the iat/epoch check
+// matters. Built with the same jwt library + claim shape as auth.CreateToken.
+func customerSessionWithIat(t *testing.T, customerID, iat int64) *session {
+	t.Helper()
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub": strconv.FormatInt(customerID, 10),
+		"typ": auth.TokenTypeCustomer,
+		"iat": iat,
+		"exp": iat + 86400,
+	})
+	s, err := tok.SignedString([]byte(testSecret))
+	if err != nil {
+		t.Fatalf("sign token: %v", err)
+	}
+	return &session{
+		authCookie: &http.Cookie{Name: cookieauth.StoreAuthCookie, Value: s},
+		csrfValue:  "csrf-customer-token",
 	}
 }
 
