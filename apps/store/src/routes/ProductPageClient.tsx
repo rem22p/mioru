@@ -191,6 +191,8 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   {product.sizes.map((size) => (
                     <button
                       key={size}
+                      data-testid="product-size"
+                      data-size={size}
                       onClick={() => setSelectedSize(size)}
                       className={`relative rounded-xl border px-5 py-3 text-sm font-medium transition-all min-h-[44px] ${
                         selectedSize === size
@@ -214,6 +216,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                 {cartQty > 0 ? (
                   <Link
                     to="/cart"
+                    data-testid="product-go-to-cart"
                     className="flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-4 text-sm font-semibold bg-[#44944A] text-black hover:shadow-[0_0_30px_rgba(192,254,57,0.3)] transition-all min-h-[44px]"
                   >
                     <ShoppingBag className="h-4 w-4" />
@@ -221,6 +224,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   </Link>
                 ) : (
                   <button
+                    data-testid="product-add-to-cart"
                     onClick={handleIncrement}
                     disabled={!selectedSize || soldOut}
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-4 text-sm font-semibold transition-all min-h-[44px] ${

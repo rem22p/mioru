@@ -84,6 +84,7 @@ export default function AuthSection() {
       {/* Tabs */}
       <div className="flex rounded-xl bg-[var(--color-bg-primary)] p-1 mb-6">
         <button
+          data-testid="auth-tab-login"
           onClick={() => { setTab("login"); setError(""); setShowPw(false); }}
           className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
             tab === "login"
@@ -94,6 +95,7 @@ export default function AuthSection() {
           Вход
         </button>
         <button
+          data-testid="auth-tab-register"
           onClick={() => { setTab("register"); setError(""); }}
           className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
             tab === "register"
@@ -107,7 +109,7 @@ export default function AuthSection() {
 
       {/* Error */}
       {error && (
-        <p className="text-sm text-red-500 mb-4 text-center">{error}</p>
+        <p data-testid="auth-error" className="text-sm text-red-500 mb-4 text-center">{error}</p>
       )}
 
       {/* Login form */}
@@ -116,6 +118,7 @@ export default function AuthSection() {
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)]" />
             <input
+              data-testid="auth-login-email"
               type="email"
               value={loginEmail}
               onChange={(e) => setLoginEmail(e.target.value)}
@@ -126,6 +129,7 @@ export default function AuthSection() {
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)]" />
             <input
+              data-testid="auth-login-password"
               type={showPw ? "text" : "password"}
               value={loginPassword}
               onChange={(e) => setLoginPassword(e.target.value)}
@@ -142,6 +146,7 @@ export default function AuthSection() {
             </button>
           </div>
           <button
+            data-testid="auth-login-submit"
             type="submit"
             disabled={submitting}
             className="w-full py-3 rounded-xl bg-[#44944A] text-white text-sm font-medium hover:bg-[#44944A]/90 disabled:opacity-50 transition-colors"
@@ -157,6 +162,7 @@ export default function AuthSection() {
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)]" />
             <input
+              data-testid="auth-reg-first-name"
               type="text"
               value={regFirstName}
               onChange={(e) => setRegFirstName(e.target.value)}
@@ -177,6 +183,7 @@ export default function AuthSection() {
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)]" />
             <input
+              data-testid="auth-reg-email"
               type="email"
               value={regEmail}
               onChange={(e) => setRegEmail(e.target.value)}
@@ -187,6 +194,7 @@ export default function AuthSection() {
           <div className="relative">
             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)]" />
             <input
+              data-testid="auth-reg-phone"
               type="tel"
               value={regPhone}
               onChange={(e) => setRegPhone(e.target.value)}
@@ -197,6 +205,7 @@ export default function AuthSection() {
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)]" />
             <input
+              data-testid="auth-reg-password"
               type={showPw ? "text" : "password"}
               value={regPassword}
               onChange={(e) => setRegPassword(e.target.value)}
@@ -213,6 +222,7 @@ export default function AuthSection() {
             </button>
           </div>
           <button
+            data-testid="auth-reg-submit"
             type="submit"
             disabled={submitting}
             className="w-full py-3 rounded-xl bg-[#44944A] text-white text-sm font-medium hover:bg-[#44944A]/90 disabled:opacity-50 transition-colors"
