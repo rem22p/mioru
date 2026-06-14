@@ -394,6 +394,7 @@ export default function ProductForm({
                   value={name}
                   onChange={(e) => handleNameChange(e.target.value)}
                   placeholder="Название товара"
+                  data-testid="pf-name"
                   className={TEXT_FIELD_STYLE}
                   autoFocus
                 />
@@ -408,6 +409,7 @@ export default function ProductForm({
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
                   placeholder="nazvanie-tovara"
+                  data-testid="pf-slug"
                   className={`${TEXT_FIELD_STYLE} font-mono text-xs`}
                 />
               </div>
@@ -438,6 +440,7 @@ export default function ProductForm({
                     )
                   }
                   disabled={categoriesUnavailable}
+                  data-testid="pf-category"
                   className={TEXT_FIELD_STYLE}
                 >
                   <option value="">Выберите категорию</option>
@@ -554,6 +557,7 @@ export default function ProductForm({
                     onChange={(e) => setPrice(e.target.value)}
                     placeholder="0"
                     min="0"
+                    data-testid="pf-price"
                     className={`${TEXT_FIELD_STYLE} font-mono`}
                   />
                 </div>
@@ -810,6 +814,7 @@ export default function ProductForm({
                   type="file"
                   accept="image/png"
                   multiple
+                  data-testid="pf-image-input"
                   className="hidden"
                   onChange={(e) => handleImageUpload(e.target.files)}
                 />
@@ -893,7 +898,10 @@ export default function ProductForm({
 
             {/* Error */}
             {error && (
-              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-500">
+              <div
+                data-testid="pf-error"
+                className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-500"
+              >
                 {error}
               </div>
             )}
@@ -910,6 +918,7 @@ export default function ProductForm({
               <button
                 type="submit"
                 disabled={saving}
+                data-testid="pf-submit"
                 className="flex items-center gap-2 rounded-xl bg-[#44944A] px-5 py-2.5 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(68,148,74,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="h-4 w-4" />

@@ -8,9 +8,10 @@ interface PasswordInputProps {
   autoComplete?: string;
   name?: string;
   className?: string;
+  testId?: string;
 }
 
-export default function PasswordInput({ value, onChange, placeholder, autoComplete, name, className }: PasswordInputProps) {
+export default function PasswordInput({ value, onChange, placeholder, autoComplete, name, className, testId }: PasswordInputProps) {
   const [visible, setVisible] = useState(false);
 
   return (
@@ -18,6 +19,7 @@ export default function PasswordInput({ value, onChange, placeholder, autoComple
       <input
         type={visible ? 'text' : 'password'}
         name={name}
+        data-testid={testId}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
