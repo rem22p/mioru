@@ -115,7 +115,10 @@ jobs:
 
       - name: Build backend
         working-directory: backend/api
-        run: go build -o /tmp/mioru-server ./cmd/server
+        # -buildvcs=false: the checkout is owned by a different uid than this
+        # container's root, so git refuses VCS queries ("dubious ownership") and
+        # VCS stamping fails. The E2E binary needs no version stamp.
+        run: go build -buildvcs=false -o /tmp/mioru-server ./cmd/server
 
       - name: Start backend
         env:
