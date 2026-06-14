@@ -122,6 +122,8 @@ func main() {
 	mux.Handle("PUT /api/users/me/profile", authMW(adminCSRF(http.HandlerFunc(authH.UpdateProfile))))
 	mux.Handle("PUT /api/users/me/password", authMW(adminCSRF(http.HandlerFunc(authH.ChangePassword))))
 
+	registerTestRoutes(mux, pgStore, cfg, os.Getenv)
+
 	// Store: Customer auth & profile (separate namespace, separate JWT)
 	mux.HandleFunc("POST /api/store/auth/register", cors(rl("cust-register", 5)(customerH.Register)))
 	mux.HandleFunc("POST /api/store/auth/login", cors(rl("cust-login", 10)(customerH.Login)))

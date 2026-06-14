@@ -85,7 +85,12 @@ export default function Profile() {
       <div className="space-y-4">
         <div className="space-y-2">
           <Label>Отображаемое имя</Label>
-          <Input value={dn} onChange={e => setDn(e.target.value)} placeholder="Как вас зовут?" />
+          <Input
+            value={dn}
+            onChange={e => setDn(e.target.value)}
+            placeholder="Как вас зовут?"
+            data-testid="profile-display-name"
+          />
         </div>
 
         <div className="space-y-2">
@@ -94,6 +99,7 @@ export default function Profile() {
             {AVATAR_COLORS.map(c => (
               <button
                 key={c}
+                data-testid={`profile-avatar-color-${c.replace('#', '')}`}
                 className={`w-8 h-8 rounded-full border-2 transition-all ${c === ac ? 'border-white scale-110' : 'border-transparent'}`}
                 style={{ backgroundColor: c }}
                 onClick={() => setAc(c)}
@@ -102,7 +108,7 @@ export default function Profile() {
           </div>
         </div>
 
-        <Button onClick={saveProfile}>
+        <Button onClick={saveProfile} data-testid="profile-save">
           <User className="h-4 w-4 mr-2" />
           Сохранить профиль
         </Button>
@@ -111,7 +117,11 @@ export default function Profile() {
       <div className="space-y-4">
         <Label>Смена пароля</Label>
         {!pwMode ? (
-          <Button variant="outline" onClick={() => { setPwMode(true); setAlerts([]); }}>
+          <Button
+            variant="outline"
+            onClick={() => { setPwMode(true); setAlerts([]); }}
+            data-testid="profile-change-password-open"
+          >
             <Shield className="h-4 w-4 mr-2" />
             Изменить пароль
           </Button>
@@ -123,6 +133,7 @@ export default function Profile() {
               value={pwCur}
               onChange={setPwCur}
               autoComplete="current-password"
+              testId="profile-password-current"
             />
             <PasswordInput
               name="new_password"
@@ -130,6 +141,7 @@ export default function Profile() {
               value={pwNew}
               onChange={setPwNew}
               autoComplete="new-password"
+              testId="profile-password-new"
             />
             <PasswordInput
               name="confirm_password"
@@ -137,10 +149,20 @@ export default function Profile() {
               value={pwConfirm}
               onChange={setPwConfirm}
               autoComplete="new-password"
+              testId="profile-password-confirm"
             />
             <div className="flex gap-2">
-              <Button onClick={changePassword}>Сменить пароль</Button>
-              <Button variant="ghost" onClick={() => { setPwMode(false); setPwCur(''); setPwNew(''); setPwConfirm(''); }}>
+              <Button
+                onClick={changePassword}
+                data-testid="profile-password-submit"
+              >
+                Сменить пароль
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => { setPwMode(false); setPwCur(''); setPwNew(''); setPwConfirm(''); }}
+                data-testid="profile-password-cancel"
+              >
                 Отмена
               </Button>
             </div>
@@ -149,10 +171,11 @@ export default function Profile() {
       </div>
 
       {alerts.length > 0 && (
-        <div className="space-y-2">
+        <div data-testid="profile-alerts" className="space-y-2">
           {alerts.map((a, i) => (
             <div
               key={i}
+              data-testid={a.type === 'ok' ? 'profile-alert-success' : a.type === 'err' ? 'profile-alert-error' : 'profile-alert-warn'}
               className={`flex items-center gap-2 p-3 rounded-md text-sm ${
                 a.type === 'ok' ? 'bg-green-500/10 text-green-500' :
                 a.type === 'err' ? 'bg-red-500/10 text-red-500' :
