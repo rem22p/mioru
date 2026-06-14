@@ -20,16 +20,28 @@ export default defineConfig({
     baseURL: "http://localhost:5174",
     trace: "on-first-retry",
   },
+  // Pick up any e2e/*.spec.ts by default; the auth flows are excluded here
+  // and routed to their own projects below. New authenticated specs
+  // (orders, profile, settings, …) get picked up automatically — no
+  // per-file edit needed.
+  testMatch: /.*\.spec\.ts$/,
+  testIgnore: /auth\.(spec|setup)\.ts/,
   projects: [
     // Logs in once and saves the session.
-    { name: "setup", testMatch: /auth\.setup\.ts/ },
+    {
+      name: "setup",
+      testMatch: /auth\.setup\.ts/,
+      // The top-level testIgnore would otherwise drop auth.setup.ts.
+      testIgnore: [],
+    },
     // Auth flows need a clean, logged-out context — they test login itself.
-    { name: "logged-out", testMatch: /auth\.spec\.ts/ },
+    { name: "logged-out", testMatch: /auth\.spec\.ts/, testIgnore: [] },
     // Everything else reuses the shared session (no per-spec login → no
-    // auth rate-limit pressure).
+    // auth rate-limit pressure). Inherits testMatch + testIgnore from the
+    // top level, so any e2e/*.spec.ts outside auth is automatically picked
+    // up.
     {
       name: "authenticated",
-      testMatch: /(products|products-upload|users)\.spec\.ts/,
       dependencies: ["setup"],
       use: { storageState: AUTH_FILE },
     },
