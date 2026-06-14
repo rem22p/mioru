@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useCurrencyStore } from "@/stores/currencyStore";
 import { formatPrice } from "@/lib/currency";
-import { Helmet } from "react-helmet-async";
+import { Helmet } from "@dr.pogodin/react-helmet";
 
 // Lazy-load below-the-fold components
 const ProductGallery = lazy(
