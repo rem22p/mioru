@@ -626,7 +626,11 @@ export default function CatalogPage() {
                   transition={{ duration: 0.4, delay: index * 0.05 }}
                   className="group"
                 >
-                  <Link to={`/product/${product.slug}`}>
+                  <Link
+                    to={`/product/${product.slug}`}
+                    data-testid="catalog-product-card"
+                    data-slug={product.slug}
+                  >
                     <div className="card-hover overflow-hidden rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)]">
                       <div className="relative aspect-[4/5] overflow-hidden">
                         {product.images?.[0]?.url ? (

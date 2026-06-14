@@ -26,6 +26,7 @@ interface CityAutocompleteProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  testId?: string;
 }
 
 export default function CityAutocomplete({
@@ -33,6 +34,7 @@ export default function CityAutocomplete({
   onChange,
   placeholder = "Город",
   className = "",
+  testId,
 }: CityAutocompleteProps) {
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
@@ -94,6 +96,7 @@ export default function CityAutocomplete({
     <div ref={wrapperRef} className="relative">
       <input
         ref={inputRef}
+        data-testid={testId}
         type="text"
         value={value}
         onChange={(e) => {
