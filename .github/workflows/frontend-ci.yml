@@ -1,0 +1,192 @@
+name: frontend-ci
+
+# Lint + build + unit tests for both SPAs, plus a forward-compatible Playwright
+# E2E job. Path-filtered to frontend changes so backend-only PRs don't pay for
+# a Node toolchain run. Mirrors backend-ci.yml's trigger/concurrency shape.
+on:
+  push:
+    paths:
+      - 'apps/**'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    paths:
+      - 'apps/**'
+      - '.github/workflows/frontend-ci.yml'
+
+# A newer push to the same ref cancels an in-flight run for it.
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: ${{ matrix.app }} · lint + build + test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # store pulls react-helmet-async@2 (peer-deps react ^16/17/18) vs
+          # React 19; npm ci needs the flag until the helmet swap (#38) merges,
+          # after which the conflict is gone and the flag is a harmless no-op.
+          # (#38 also fixes the one store lint error, greening this app's gate.)
+          - app: store
+            install_flags: '--legacy-peer-deps'
+          - app: admin
+            install_flags: ''
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # vitest 4 / vite 7 require Node >= 20.19; 22 LTS is the safe floor.
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
+
+      - name: Install
+        run: npm ci ${{ matrix.install_flags }}
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests (vitest)
+        # `vitest run` is the single non-watch pass; --passWithNoTests keeps the
+        # job green for an app that has no vitest specs yet (admin today).
+        run: npx vitest run --passWithNoTests
+
+  e2e:
+    name: ${{ matrix.app }} · playwright e2e
+    runs-on: ubuntu-latest
+    needs: unit
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: store
+            install_flags: '--legacy-peer-deps'
+          - app: admin
+            install_flags: ''
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: mioru
+          POSTGRES_PASSWORD: mioru
+          POSTGRES_DB: mioru_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mioru -d mioru_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # E2E is forward-compatible scaffolding. It runs only when the app ships a
+      # Playwright config: on main today that's store (visual specs only, which
+      # are excluded below); admin's config lands with its E2E PR (#42), at which
+      # point this job activates for admin automatically — no workflow edit.
+      - name: Detect Playwright config
+        id: detect
+        run: |
+          if [ -f "apps/${{ matrix.app }}/playwright.config.ts" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No apps/${{ matrix.app }}/playwright.config.ts — skipping E2E for ${{ matrix.app }}."
+          fi
+
+      - uses: actions/setup-go@v5
+        if: steps.detect.outputs.present == 'true'
+        with:
+          go-version-file: backend/api/go.mod
+          cache-dependency-path: backend/api/go.sum
+
+      - name: Build backend
+        if: steps.detect.outputs.present == 'true'
+        working-directory: backend/api
+        run: go build -o /tmp/mioru-server ./cmd/server
+
+      - name: Start backend
+        if: steps.detect.outputs.present == 'true'
+        env:
+          APP_ENV: development
+          PORT: '8000'
+          DATABASE_URL: postgres://mioru:mioru@localhost:5432/mioru_test?sslmode=disable
+          # CI-only throwaway secret (>=32 chars); never a real key.
+          SECRET_KEY: ci-e2e-frontend-secret-key-0123456789abcdef
+          UPLOAD_DIR: /tmp/mioru-uploads
+          # Seeds the super-admin the admin E2E specs log in as.
+          BOOTSTRAP_ADMIN_USERNAME: admin
+          BOOTSTRAP_ADMIN_EMAIL: admin@mioru.store
+          BOOTSTRAP_ADMIN_PASSWORD: Admin12345!
+        run: |
+          mkdir -p /tmp/mioru-uploads
+          nohup /tmp/mioru-server > /tmp/mioru-server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/api/categories >/dev/null 2>&1; then
+              echo "backend up after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "backend failed to become healthy"; exit 1
+
+      - uses: actions/setup-node@v4
+        if: steps.detect.outputs.present == 'true'
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
+
+      - name: Install deps
+        if: steps.detect.outputs.present == 'true'
+        working-directory: apps/${{ matrix.app }}
+        run: npm ci ${{ matrix.install_flags }}
+
+      - name: Install Playwright browser
+        if: steps.detect.outputs.present == 'true'
+        working-directory: apps/${{ matrix.app }}
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright
+        if: steps.detect.outputs.present == 'true'
+        working-directory: apps/${{ matrix.app }}
+        env:
+          CI: 'true'
+        run: |
+          if [ "${{ matrix.app }}" = "store" ]; then
+            # store's only E2E on main is visual.spec.ts — screenshot baselines
+            # can't be committed (root .gitignore blocks *.png) and cross-OS
+            # visual diffing is fragile, so its specs are excluded from CI.
+            # --passWithNoTests keeps the job green until functional store E2E
+            # (lands with #37, ordinary titles) gives this something to run.
+            npx playwright test \
+              --grep-invert 'Visual Regression|visual states|Accessibility & UX|Theme & i18n' \
+              --pass-with-no-tests
+          else
+            npx playwright test
+          fi
+
+      - name: Backend log (on failure)
+        if: failure() && steps.detect.outputs.present == 'true'
+        run: cat /tmp/mioru-server.log || true
+
+      - name: Upload Playwright report
+        if: always() && steps.detect.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.app }}
+          path: apps/${{ matrix.app }}/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
