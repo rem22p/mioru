@@ -157,6 +157,11 @@ type OrderItem struct {
 	OrderID     int64  `json:"order_id"`
 	ProductID   int64  `json:"product_id"`
 	ProductName string `json:"product_name,omitempty"`
+	// ProductSlug + ImageURL are populated by the store via JOIN against
+	// `products` / `product_images` so the storefront can render a small
+	// thumbnail in the order history without a second round-trip.
+	ProductSlug string `json:"product_slug,omitempty"`
+	ImageURL    string `json:"image_url,omitempty"`
 	SizeLabel   string `json:"size_label"`
 	Quantity    int    `json:"quantity"`
 	PriceMinor  int64  `json:"price_minor"`

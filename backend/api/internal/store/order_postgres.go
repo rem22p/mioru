@@ -451,10 +451,17 @@ func (s *PostgresStore) ListAllOrders(ctx context.Context, page, perPage int, st
 	return orders, total, nil
 }
 
-// loadOrderItems fetches items for given order IDs with product names.
+// loadOrderItems fetches items for given order IDs with product names,
+// slugs, and a single representative image. We do TWO batched queries
+// instead of N+1 / correlated subqueries per row:
+//   1) order_items JOIN products (name, slug)
+//   2) product_images for the involved product IDs (one image per
+//      product, the lowest sort_order), then join in Go
 func (s *PostgresStore) loadOrderItems(ctx context.Context, orderIDs []int64) (map[int64][]model.OrderItem, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT oi.id, oi.order_id, oi.product_id, COALESCE(p.name, ''), oi.size_label, oi.quantity, oi.price_minor
+		SELECT oi.id, oi.order_id, oi.product_id,
+		       COALESCE(p.name, ''), COALESCE(p.slug, ''),
+		       oi.size_label, oi.quantity, oi.price_minor
 		FROM order_items oi
 		LEFT JOIN products p ON p.id = oi.product_id
 		WHERE oi.order_id = ANY($1)
@@ -465,14 +472,59 @@ func (s *PostgresStore) loadOrderItems(ctx context.Context, orderIDs []int64) (m
 	defer rows.Close()
 
 	m := make(map[int64][]model.OrderItem)
+	productIDs := make(map[int64]struct{})
 	for rows.Next() {
 		var item model.OrderItem
-		if err := rows.Scan(&item.ID, &item.OrderID, &item.ProductID, &item.ProductName, &item.SizeLabel, &item.Quantity, &item.PriceMinor); err != nil {
+		if err := rows.Scan(&item.ID, &item.OrderID, &item.ProductID,
+			&item.ProductName, &item.ProductSlug,
+			&item.SizeLabel, &item.Quantity, &item.PriceMinor); err != nil {
 			return nil, fmt.Errorf("scan order item: %w", err)
 		}
 		m[item.OrderID] = append(m[item.OrderID], item)
+		productIDs[item.ProductID] = struct{}{}
 	}
-	return m, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Batch load one image per product (DISTINCT ON).
+	if len(productIDs) > 0 {
+		ids := make([]int64, 0, len(productIDs))
+		for id := range productIDs {
+			ids = append(ids, id)
+		}
+		imgRows, err := s.pool.Query(ctx, `
+			SELECT DISTINCT ON (product_id) product_id, url
+			FROM product_images
+			WHERE product_id = ANY($1)
+			ORDER BY product_id, sort_order`, ids)
+		if err != nil {
+			return nil, fmt.Errorf("load order item images: %w", err)
+		}
+		defer imgRows.Close()
+		imageByProduct := make(map[int64]string, len(ids))
+		for imgRows.Next() {
+			var pid int64
+			var url string
+			if err := imgRows.Scan(&pid, &url); err != nil {
+				return nil, fmt.Errorf("scan order item image: %w", err)
+			}
+			imageByProduct[pid] = url
+		}
+		if err := imgRows.Err(); err != nil {
+			return nil, err
+		}
+		// Patch images onto items in-place.
+		for orderID, items := range m {
+			for i := range items {
+				if url, ok := imageByProduct[items[i].ProductID]; ok {
+					items[i].ImageURL = url
+				}
+			}
+			m[orderID] = items
+		}
+	}
+	return m, nil
 }
 
 // UpdateOrderStatus changes the status of an order. Only valid statuses

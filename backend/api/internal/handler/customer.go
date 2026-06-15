@@ -1086,6 +1086,14 @@ func (h *CustomerHandler) UploadOrderPhoto(w http.ResponseWriter, r *http.Reques
 
 // ListOrders returns the authenticated customer's order history, newest first.
 // Query params: page (1-based, default 1), per_page (1-100, default 20).
+//
+// The store fills model.Order with ALL order fields (type, city, delivery /
+// payment method, address, photos, height, weight, etc.) plus a fully
+// populated Items[] (with product slug, name and a single representative
+// image) via batched queries. We hand model.Order back to the client
+// directly — its json tags already match the wire schema — so adding
+// new fields later only requires changing the model + store, not the
+// handler.
 func (h *CustomerHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 	id := middleware.CustomerID(r)
 
@@ -1108,24 +1116,19 @@ func (h *CustomerHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type orderResp struct {
-		ID         int64     `json:"id"`
-		TotalMinor int64     `json:"total_minor"`
-		Status     string    `json:"status"`
-		CreatedAt  time.Time `json:"created_at"`
+	// Scrub admin-only fields before sending. CustomerID leaks the account
+	// id; CustomerEmail / CustomerFirstName are populated by the admin
+	// list path, not the customer self-list path, but strip them anyway
+	// so they never appear in this response.
+	for i := range orders {
+		orders[i].CustomerID = 0
+		orders[i].CustomerEmail = ""
+		orders[i].CustomerFirstName = ""
 	}
-	out := make([]orderResp, 0, len(orders))
-	for _, o := range orders {
-		out = append(out, orderResp{
-			ID:         o.ID,
-			TotalMinor: o.TotalMinor,
-			Status:     o.Status,
-			CreatedAt:  o.CreatedAt,
-		})
-	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"orders":   out,
+		"orders":   orders,
 		"total":    total,
 		"page":     page,
 		"per_page": perPage,
