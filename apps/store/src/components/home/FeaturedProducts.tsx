@@ -5,15 +5,16 @@ import { useCurrencyStore } from "@/stores/currencyStore";
 import { formatPrice } from "@/lib/currency";
 import { useTranslation } from "react-i18next";
 import { useCatalogStore } from "@/stores/catalogStore";
-import { useCartStore } from "@/stores/cartStore";
+import { useFavoritesStore } from "@/stores/favoritesStore";
 import { getThumbUrl, getImageUrl } from "@/lib/api";
-import { ShoppingBag } from "lucide-react";
+import { Heart } from "lucide-react";
 
 export default function FeaturedProducts() {
   const { t } = useTranslation();
   const { currency } = useCurrencyStore();
   const { products, fetchProducts } = useCatalogStore();
-  const addItem = useCartStore((state) => state.addItem);
+  const toggleFavorite = useFavoritesStore((state) => state.toggleFavorite);
+  const isFavorite = useFavoritesStore((state) => state.isFavorite);
 
   useEffect(() => {
     if (products.length === 0) {
@@ -102,12 +103,22 @@ export default function FeaturedProducts() {
                         <button
                           onClick={(e) => {
                             e.preventDefault();
-                            addItem(product, product.sizes[0]);
+                            toggleFavorite(product);
                           }}
+                          aria-label={
+                            isFavorite(product.id)
+                              ? t("nav.favorites") + " — remove"
+                              : t("nav.favorites") + " — add"
+                          }
                           className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#44944A] opacity-0 transition-all duration-300 hover:scale-110 group-hover:opacity-100"
-                          aria-label={t("home.featured.addToCart")}
                         >
-                          <ShoppingBag className="h-4 w-4 text-black" />
+                          <Heart
+                            className={
+                              isFavorite(product.id)
+                                ? "h-4 w-4 text-black fill-black"
+                                : "h-4 w-4 text-black"
+                            }
+                          />
                         </button>
                       </div>
 
