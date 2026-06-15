@@ -154,6 +154,12 @@
       "price": "Цена",
       "from": "От",
       "to": "До"
+    },
+    "colorFilter": {
+      "black": "Чёрный",
+      "white": "Белый",
+      "pink": "Розовый",
+      "yellow": "Жёлтый"
     }
   },
   "product": {

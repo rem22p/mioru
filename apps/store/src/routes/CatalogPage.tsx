@@ -6,6 +6,7 @@ import { useCurrencyStore } from "@/stores/currencyStore";
 import { formatPrice } from "@/lib/currency";
 import { useFavoritesStore } from "@/stores/favoritesStore";
 import { getThumbUrl, getImageUrl } from "@/lib/api";
+import { colorHex, contrastTextFor } from "@/lib/colors";
 import { Heart, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import CatalogStatusToggle from "@/components/catalog/CatalogStatusToggle";
@@ -536,21 +537,36 @@ export default function CatalogPage() {
                               </button>
                               {filterSubsectionsOpen.colors && (
                               <div className="flex flex-wrap gap-2">
-                                {availableFilters.colors.map((c) => (
+                                {availableFilters.colors.map((c) => {
+                                  // Each chip keeps the same shape as the
+                                  // size / brand chips (rounded, same
+                                  // padding, same active state) and gets
+                                  // a small colour swatch to the right of
+                                  // the label. Unknown colour names fall
+                                  // back to neutral grey so the swatch
+                                  // always renders something readable.
+                                  const hex = colorHex(c) ?? "#888888";
+                                  return (
                                   <button
                                     key={c}
                                     onClick={() =>
                                       toggleFilter(setSelectedColors, c)
                                     }
-                                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border inline-flex items-center gap-2 ${
                                       selectedColors.has(c)
                                         ? "bg-[#44944A] text-black border-[#44944A]"
                                         : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                                     }`}
                                   >
-                                    {c}
+                                    <span>{t(`catalog.colorFilter.${c}`, c)}</span>
+                                    <span
+                                      aria-hidden="true"
+                                      style={{ background: hex }}
+                                      className="inline-block h-4 w-4 rounded-md border border-black/20 shrink-0"
+                                    />
                                   </button>
-                                ))}
+                                  );
+                                })}
                               </div>
                               )}
                             </div>

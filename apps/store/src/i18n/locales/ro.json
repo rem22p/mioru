@@ -154,6 +154,12 @@
       "price": "Preț",
       "from": "De la",
       "to": "Până la"
+    },
+    "colorFilter": {
+      "black": "Negru",
+      "white": "Alb",
+      "pink": "Roz",
+      "yellow": "Galben"
     }
   },
   "product": {

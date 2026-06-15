@@ -154,6 +154,12 @@
       "price": "Price",
       "from": "From",
       "to": "To"
+    },
+    "colorFilter": {
+      "black": "Black",
+      "white": "White",
+      "pink": "Pink",
+      "yellow": "Yellow"
     }
   },
   "product": {
