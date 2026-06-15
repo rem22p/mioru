@@ -99,8 +99,12 @@ export default function CatalogPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  // Subscribe to `items` so the component re-renders on toggle. Selecting
+  // only `isFavorite` (the function) is a no-op: Zustand sees the same
+  // function reference and skips the update, so the heart never flips.
+  const items = useFavoritesStore((state) => state.items);
   const toggleFavorite = useFavoritesStore((state) => state.toggleFavorite);
-  const isFavorite = useFavoritesStore((state) => state.isFavorite);
+  const isFavorite = (id: number) => items.some((i) => i.id === id);
 
   const handleCategoryChange = (slug: string) => {
     setSelectedCategory(slug);

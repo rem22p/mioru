@@ -13,8 +13,9 @@ export default function FeaturedProducts() {
   const { t } = useTranslation();
   const { currency } = useCurrencyStore();
   const { products, fetchProducts } = useCatalogStore();
+  const items = useFavoritesStore((state) => state.items);
   const toggleFavorite = useFavoritesStore((state) => state.toggleFavorite);
-  const isFavorite = useFavoritesStore((state) => state.isFavorite);
+  const isFavorite = (id: number) => items.some((i) => i.id === id);
 
   useEffect(() => {
     if (products.length === 0) {
