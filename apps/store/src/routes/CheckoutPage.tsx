@@ -40,6 +40,7 @@ export default function CheckoutPage() {
   const currency = useCurrencyStore((s) => s.currency);
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
   const [currentStep, setCurrentStep] = useState(1);
   const items = useCartStore((state) => state.items);
   const totalPrice = useCartStore((state) => state.totalPrice());
@@ -70,6 +71,7 @@ export default function CheckoutPage() {
         {
           type: "cart",
           city: formData.city,
+          phone: formData.phone,
           delivery_method: formData.deliveryMethod,
           payment_method: formData.paymentMethod,
           street: formData.street || undefined,
@@ -90,6 +92,7 @@ export default function CheckoutPage() {
   };
 
   const [formData, setFormData] = useState({
+    phone: "",
     city: "",
     street: "",
     house: "",
@@ -138,7 +141,11 @@ export default function CheckoutPage() {
   const canProceed = () => {
     switch (currentStep) {
       case 1:
-        if (!formData.city || !formData.deliveryMethod) return false;
+        if (!formData.phone || !formData.city || !formData.deliveryMethod) return false;
+        // Phone must look like +<digits> (7-15 digits, optional leading +).
+        // The backend re-validates, but we block submit early so the user
+        // doesn't bounce on the API round-trip.
+        if (!/^\+?\d{7,15}$/.test(formData.phone.trim())) return false;
         if (formData.deliveryMethod === "address") {
           return formData.street !== "" && formData.house !== "";
         }
@@ -158,6 +165,33 @@ export default function CheckoutPage() {
       case 1:
         return (
           <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)]">
+                  {t("checkout.phone")}
+                </label>
+                {isAuthenticated && user?.phone && user.phone !== formData.phone && (
+                  <button
+                    type="button"
+                    onClick={() => updateField("phone", user.phone)}
+                    className="text-xs font-semibold uppercase tracking-wider text-[#44944A] hover:text-[var(--color-text-primary)] transition-colors"
+                    data-testid="checkout-use-my-phone"
+                  >
+                    {t("checkout.useMyPhone")}
+                  </button>
+                )}
+              </div>
+              <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={formData.phone}
+                onChange={(e) => updateField("phone", e.target.value)}
+                placeholder={t("checkout.phonePlaceholder")}
+                data-testid="checkout-phone"
+                className={inputBaseClass}
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                 {t("checkout.fields.city")}

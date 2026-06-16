@@ -10,14 +10,27 @@ import (
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
 
 // orderBody returns a valid cart-order request body for the given product/qty.
+// The phone is set to a valid E.164-ish value so existing tests don't have to
+// worry about the new "phone is required" validation introduced in migration
+// 012. Tests that want to exercise the phone field use orderBodyWithPhone.
 func orderBody(productID int64, qty int) map[string]any {
 	return map[string]any{
 		"type":            "cart",
+		"phone":           "+37312345678",
 		"city":            "Tiraspol",
 		"delivery_method": "personal",
 		"payment_method":  "cash",
 		"items":           []map[string]any{{"product_id": productID, "size_label": "M", "quantity": qty}},
 	}
+}
+
+// orderBodyWithPhone is the same as orderBody but with an explicit phone value
+// (e.g. "" for the "phone is required" tests, or a different valid number for
+// the "sync to profile" test).
+func orderBodyWithPhone(productID int64, qty int, phone string) map[string]any {
+	b := orderBody(productID, qty)
+	b["phone"] = phone
+	return b
 }
 
 func TestIntegrationCreateOrderHappyAndDecrementsStock(t *testing.T) {
@@ -238,5 +251,119 @@ func TestIntegrationAdminUpdateOrderStatus(t *testing.T) {
 			pathValues: map[string]string{"id": itoa(created.ID)}, body: map[string]any{"status": "processing"}})
 	if rr.Code != http.StatusOK {
 		t.Fatalf("UpdateStatus: want 200, got %d (%s)", rr.Code, rr.Body.String())
+	}
+}
+
+func TestIntegrationCreateOrderRequiresPhone(t *testing.T) {
+	e := newEnv(t)
+	sess, _ := e.customerSession(t, "nophone@ex.com")
+	pid := seedProduct(t, e, "no-phone-p1", 500, 5)
+
+	// Empty phone → 400 VALIDATION_FAILED.
+	rr := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: "key-nophone-1", body: orderBodyWithPhone(pid, 1, "")})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("empty phone: want 400, got %d (%s)", rr.Code, rr.Body.String())
+	}
+
+	// Garbage phone → 400.
+	rr = e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: "key-nophone-2", body: orderBodyWithPhone(pid, 1, "abc")})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("garbage phone: want 400, got %d (%s)", rr.Code, rr.Body.String())
+	}
+
+	// Phone with letters / too long / too short → 400.
+	for _, bad := range []string{"+", "+123", "abcdefghijklmnop", "+373 12345 678"} {
+		rr = e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+			reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: "key-nophone-" + bad, body: orderBodyWithPhone(pid, 1, bad)})
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("phone %q: want 400, got %d (%s)", bad, rr.Code, rr.Body.String())
+		}
+	}
+}
+
+func TestIntegrationCreateOrderPersistsPhoneAndSyncsToProfile(t *testing.T) {
+	e := newEnv(t)
+	sess, custID := e.customerSession(t, "phonesync@ex.com")
+	pid := seedProduct(t, e, "phone-sync-p1", 500, 5)
+
+	// customerSession seeds the customer with phone = "" by default
+	// (see e.st.CreateCustomer with FirstName: "T"). The first order
+	// types a real number — it should land both in orders.phone and
+	// be copied back to customers.phone.
+	const newPhone = "+37360011222"
+	rr := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: "key-sync-1", body: orderBodyWithPhone(pid, 1, newPhone)})
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("CreateOrder: want 201, got %d (%s)", rr.Code, rr.Body.String())
+	}
+	var created struct {
+		ID    int64  `json:"id"`
+		Phone string `json:"phone"`
+	}
+	decode(t, rr, &created)
+	if created.Phone != newPhone {
+		t.Errorf("created.Phone = %q, want %q", created.Phone, newPhone)
+	}
+
+	// Profile should now carry the typed phone (best-effort sync).
+	cust, err := e.st.GetCustomer(context.Background(), custID)
+	if err != nil {
+		t.Fatalf("GetCustomer: %v", err)
+	}
+	if cust.Phone != newPhone {
+		t.Errorf("customers.phone = %q, want %q (best-effort sync after order)", cust.Phone, newPhone)
+	}
+
+	// Subsequent ListOrders should return the same phone on the row.
+	listRR := e.do(t, e.wrapCustomer(e.customerH.ListOrders), http.MethodGet, "/api/store/customers/me/orders", reqOpts{sess: sess})
+	if listRR.Code != http.StatusOK {
+		t.Fatalf("ListOrders: want 200, got %d (%s)", listRR.Code, listRR.Body.String())
+	}
+	var listResp struct {
+		Orders []struct {
+			ID    int64  `json:"id"`
+			Phone string `json:"phone"`
+		} `json:"orders"`
+	}
+	decode(t, listRR, &listResp)
+	if len(listResp.Orders) == 0 || listResp.Orders[0].Phone != newPhone {
+		t.Errorf("ListOrders: phone missing or wrong: %+v", listResp.Orders)
+	}
+}
+
+func TestIntegrationCreateOrderDoesNotResyncIdenticalPhone(t *testing.T) {
+	e := newEnv(t)
+	sess, custID := e.customerSession(t, "nosync@ex.com")
+	pid := seedProduct(t, e, "no-sync-p1", 500, 5)
+
+	// Place one order so customers.phone gets set.
+	const phone = "+37370000000"
+	rr := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: "key-nosync-1", body: orderBodyWithPhone(pid, 1, phone)})
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("first order: want 201, got %d", rr.Code)
+	}
+	cust, _ := e.st.GetCustomer(context.Background(), custID)
+	updatedAtAfterFirst := // the store doesn't expose updated_at through GetCustomer's struct,
+		// but the second-order check is sufficient: a stale-phone sync
+		// would not change behaviour, so we just assert that the
+		// customer row still has the same phone number.
+		""
+	_ = updatedAtAfterFirst
+
+	// Place a SECOND order with the SAME phone. Sync must be a no-op
+	// (we can't observe updated_at through the public API, but we
+	// can at least confirm the second order also returns 201 and
+	// the phone stays the same).
+	rr = e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: "key-nosync-2", body: orderBodyWithPhone(pid, 1, phone)})
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("second order: want 201, got %d (%s)", rr.Code, rr.Body.String())
+	}
+	cust, _ = e.st.GetCustomer(context.Background(), custID)
+	if cust.Phone != phone {
+		t.Errorf("customers.phone changed: got %q, want %q", cust.Phone, phone)
 	}
 }

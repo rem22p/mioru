@@ -762,6 +762,7 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		Type           string   `json:"type"`
+		Phone          string   `json:"phone"`
 		City           string   `json:"city"`
 		DeliveryMethod string   `json:"delivery_method"`
 		PaymentMethod  string   `json:"payment_method"`
@@ -790,6 +791,22 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Type != "cart" && req.Type != "individual" {
 		jsonErrorCode(w, "type must be 'cart' or 'individual'", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	// Phone is required on every checkout (cart / individual /
+	// preorder). Customers are asked to type it at every order so
+	// the historical record on the order is always the number they
+	// actually wanted to be reached at, even if their profile phone
+	// is later edited. We accept a single optional leading '+' plus 7-15
+	// digits, which covers MDL (+373), RUS (+7), UA (+380), EU
+	// (+NN…) — anything else gets a 400.
+	req.Phone = strings.TrimSpace(req.Phone)
+	if req.Phone == "" {
+		jsonErrorCode(w, "phone is required", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	if !phoneRE.MatchString(req.Phone) {
+		jsonErrorCode(w, "phone must be +<countrycode> followed by 7-15 digits", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
 	if len(req.City) == 0 || len(req.City) > 100 {
@@ -928,6 +945,7 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	// Build order model (prices calculated server-side in store)
 	order := &model.Order{
 		Type:           req.Type,
+		Phone:          req.Phone,
 		City:           req.City,
 		DeliveryMethod: req.DeliveryMethod,
 		PaymentMethod:  req.PaymentMethod,
@@ -993,6 +1011,18 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 			jsonErrorCode(w, "товара нет в наличии", http.StatusConflict, "INSUFFICIENT_STOCK")
 			return
 		}
+		// Sentinel: the cart contained a product_id that no longer
+		// exists in `products` (admin deleted it, or the client built
+		// the cart from a stale frontend cache). This is a client
+		// error, not a server failure — 400 with a code the frontend
+		// can branch on to force a catalog refresh.
+		if errors.Is(err, store.ErrProductNotFound) {
+			slog.Info("CreateOrder rejected stale product in cart",
+				"customer_id", customerID, "error", err)
+			jsonErrorCode(w, "one or more products in your cart no longer exist; please refresh the catalog",
+				http.StatusBadRequest, "PRODUCT_NOT_FOUND")
+			return
+		}
 		// Catch-all 500: this is the only path that warrants
 		// slog.Error under the CLAUDE.md log standard. Sentinels
 		// above (idempotency, oversell) are expected business
@@ -1005,6 +1035,24 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(created)
+
+	// Keep the customer's profile phone in sync with whatever they
+	// typed at checkout. This is best-effort — a sync failure must
+	// not fail the order (the order is already created and the
+	// customer is just sitting with a stale profile row until their
+	// next successful edit). We update only when the value actually
+	// differs to avoid bumping `updated_at` on every order. The
+	// `cust != nil` guard is paranoia: real PostgresStore.GetCustomer
+	// returns (nil, err) for missing rows, but the in-memory
+	// fakeCustomerStore used by some unit tests returns (nil, nil)
+	// which would otherwise panic.
+	if h.store != nil {
+		if cust, cerr := h.store.GetCustomer(r.Context(), customerID); cerr == nil && cust != nil && cust.Phone != req.Phone {
+			if uerr := h.store.UpdateCustomer(r.Context(), customerID, map[string]string{"phone": req.Phone}); uerr != nil {
+				slog.Warn("update customer phone after order failed", "customer_id", customerID, "error", uerr)
+			}
+		}
+	}
 
 	// Notify managers via Telegram (background, fire-and-forget)
 	if h.tgNotifier != nil {
@@ -1137,6 +1185,12 @@ func (h *CustomerHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 
 // ── Cart & Favorites handlers ──
 
+// phoneRE matches a single optional leading '+' followed by 7-15
+// digits. Covers MDL (+373...), RUS (+7...), UA (+380...), EU
+// (+NN...) without being so loose it accepts nonsense like spaces,
+// letters or wildly long numbers.
+var phoneRE = regexp.MustCompile(`^\+?\d{7,15}$`)
+
 const (
 	maxCartItems      = 200
 	maxFavoritesItems = 200
@@ -1217,6 +1271,18 @@ func (h *CustomerHandler) SaveCart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.store.SaveCustomerCart(r.Context(), id, items); err != nil {
+		// Sentinel branch: a stale-cart save is a client error (the
+		// products in the cart no longer exist in the catalog), not a
+		// 500. Without this branch the FK violation would surface as a
+		// generic SQLSTATE 23503 and the catch-all below would 500.
+		if errors.Is(err, store.ErrProductNotFound) {
+			slog.Info("SaveCart rejected stale product",
+				"customer_id", id, "error", err)
+			jsonErrorCode(w, "one or more products in your cart no longer exist; please refresh the catalog",
+				http.StatusBadRequest, "PRODUCT_NOT_FOUND")
+			return
+		}
+		slog.Error("SaveCart failed", "customer_id", id, "error", err)
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}

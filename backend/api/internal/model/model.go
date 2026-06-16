@@ -132,6 +132,12 @@ type Order struct {
 	Type           string `json:"type"`
 	TotalMinor     int64  `json:"total_minor"`
 	Status         string `json:"status"`
+	// Phone is the contact number the customer typed in at
+	// checkout. It is captured on every order (cart / individual
+	// / preorder), independent of `customers.phone`, so the
+	// historical record stays accurate even if the customer
+	// later edits their profile.
+	Phone          string `json:"phone"`
 	City           string `json:"city"`
 	DeliveryMethod string `json:"delivery_method"`
 	PaymentMethod  string `json:"payment_method"`

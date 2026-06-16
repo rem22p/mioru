@@ -178,3 +178,103 @@ func TestIntegrationSaveCartCSRFGate(t *testing.T) {
 		t.Errorf("bad CSRF: want 403, got %d (%s)", rr.Code, rr.Body.String())
 	}
 }
+
+// TestIntegrationSaveCartRejectsUnknownProduct guards a regression that
+// turned a "save cart with a stale product_id" scenario into a 500 ISE.
+// Before the defence-in-depth pre-check in store.SaveCustomerCart, a
+// missing product_id would surface as a generic SQLSTATE 23503 FK
+// violation, which the handler treated as a catch-all error → 500.
+// With the sentinel branch in customer.go::SaveCart the same input
+// now returns 400 PRODUCT_NOT_FOUND, signalling to the frontend that
+// the cart is stale and the user has to refresh.
+func TestIntegrationSaveCartRejectsUnknownProduct(t *testing.T) {
+	e := newEnv(t)
+	sess, _ := e.customerSession(t, "stale-cart@ex.com")
+
+	body := map[string]any{
+		"items": []map[string]any{
+			{"product_id": 999999, "size_label": "M", "quantity": 1},
+		},
+	}
+	rr := e.do(t, e.wrapCustomer(e.customerH.SaveCart), http.MethodPut,
+		"/api/store/customers/me/cart",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", body: body})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("SaveCart with unknown product: want 400, got %d (%s)", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Code  string `json:"code"`
+		Error string `json:"error"`
+	}
+	decode(t, rr, &resp)
+	if resp.Code != "PRODUCT_NOT_FOUND" {
+		t.Errorf("response code = %q, want PRODUCT_NOT_FOUND (full: %s)", resp.Code, rr.Body.String())
+	}
+
+	// A second PUT with a MIX of valid + invalid product ids should
+	// also fail-fast on the first invalid one — we don't want to
+	// silently drop the unknown line and keep the rest.
+	pid := seedProduct(t, e, "stale-cart-mix", 500, 5)
+	body2 := map[string]any{
+		"items": []map[string]any{
+			{"product_id": pid, "size_label": "M", "quantity": 1},
+			{"product_id": 999998, "size_label": "L", "quantity": 1},
+		},
+	}
+	rr2 := e.do(t, e.wrapCustomer(e.customerH.SaveCart), http.MethodPut,
+		"/api/store/customers/me/cart",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", body: body2})
+	if rr2.Code != http.StatusBadRequest {
+		t.Fatalf("SaveCart with mix valid+invalid: want 400, got %d (%s)", rr2.Code, rr2.Body.String())
+	}
+
+	// Sanity: a fully-valid cart still saves OK on the same session.
+	body3 := map[string]any{
+		"items": []map[string]any{
+			{"product_id": pid, "size_label": "M", "quantity": 1},
+		},
+	}
+	rr3 := e.do(t, e.wrapCustomer(e.customerH.SaveCart), http.MethodPut,
+		"/api/store/customers/me/cart",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", body: body3})
+	if rr3.Code != http.StatusOK {
+		t.Fatalf("SaveCart fully valid: want 200, got %d (%s)", rr3.Code, rr3.Body.String())
+	}
+}
+
+// TestIntegrationCreateOrderRejectsUnknownProduct is the CreateOrder
+// counterpart: even with a clean cart at save time, a product can
+// vanish between save and checkout (admin deletes, migration, etc).
+// The order must come back 400 PRODUCT_NOT_FOUND, not 500 ISE.
+func TestIntegrationCreateOrderRejectsUnknownProduct(t *testing.T) {
+	e := newEnv(t)
+	sess, _ := e.customerSession(t, "stale-order@ex.com")
+	pid := seedProduct(t, e, "stale-order-p", 500, 5)
+
+	body := map[string]any{
+		"type":            "cart",
+		"phone":           "+373777908542",
+		"city":            "Tiraspol",
+		"delivery_method": "personal",
+		"payment_method":  "cash",
+		"items": []map[string]any{
+			{"product_id": pid, "size_label": "M", "quantity": 1},
+			{"product_id": 999999, "size_label": "L", "quantity": 1},
+		},
+	}
+	rr := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost,
+		"/api/store/orders",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf",
+			idempotencyKey: "key-stale-order-1", body: body})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("CreateOrder with unknown product: want 400, got %d (%s)", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Code  string `json:"code"`
+		Error string `json:"error"`
+	}
+	decode(t, rr, &resp)
+	if resp.Code != "PRODUCT_NOT_FOUND" {
+		t.Errorf("response code = %q, want PRODUCT_NOT_FOUND (full: %s)", resp.Code, rr.Body.String())
+	}
+}

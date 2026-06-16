@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { fetchAdminOrders, updateOrderStatus, getImageUrl, type AdminOrder } from "@/lib/api";
-import { Package, RefreshCw, X, MapPin, Truck, CreditCard, User, Clock, ShoppingBag } from "lucide-react";
+import { Package, RefreshCw, X, MapPin, Truck, CreditCard, User, Clock, ShoppingBag, Phone, Copy, Check } from "lucide-react";
 
 const STATUS_OPTIONS = ["pending", "processing", "shipped", "delivered"];
 const STATUS_LABELS: Record<string, string> = {
@@ -44,6 +44,9 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lightbox, setLightbox] = useState<string | null>(null);
+  // Tracks the order id whose phone was just copied to the clipboard,
+  // used to flip the icon to a green check for ~1.5s after click.
+  const [copiedOrderID, setCopiedOrderID] = useState<number | null>(null);
   const perPage = 12;
 
   const loadOrders = async () => {
@@ -79,6 +82,56 @@ export default function Orders() {
       const msg = e instanceof Error ? e.message : "Ошибка обновления";
       console.error("Status change failed:", msg, e);
       setError(msg);
+    }
+  };
+
+  // copyPhoneToClipboard writes the order's phone to the system clipboard
+  // and gives a 1.5s visual confirmation by flipping the per-order icon
+  // to a green check. We deliberately fall back to a hidden <textarea>
+  // + document.execCommand when navigator.clipboard is unavailable
+  // (insecure context, old browser, or when the page is rendered inside
+  // an iframe without clipboard permission) — managers running the
+  // admin panel over plain http://dev-hostname on some browsers hit this
+  // path. Better to copy via the legacy method than silently fail.
+  const copyPhoneToClipboard = async (orderId: number, phone: string) => {
+    let ok = false;
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(phone);
+        ok = true;
+      } catch {
+        ok = false;
+      }
+    }
+    if (!ok) {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = phone;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        ta.setAttribute("readonly", "");
+        document.body.appendChild(ta);
+        ta.select();
+        ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch {
+        ok = false;
+      }
+    }
+    if (ok) {
+      setCopiedOrderID(orderId);
+      window.setTimeout(() => {
+        setCopiedOrderID((prev) => (prev === orderId ? null : prev));
+      }, 1500);
+    } else {
+      // Last-resort UX: still set the state so the manager at least
+      // gets a visible reaction to the click, and surface the phone in
+      // a prompt they can manually Ctrl+C from.
+      setCopiedOrderID(orderId);
+      window.prompt("Скопируйте номер вручную:", phone);
+      window.setTimeout(() => {
+        setCopiedOrderID((prev) => (prev === orderId ? null : prev));
+      }, 1500);
     }
   };
 
@@ -168,6 +221,8 @@ export default function Orders() {
                 order={o}
                 onStatusChange={handleStatusChange}
                 onPhotoClick={setLightbox}
+                onPhoneCopy={copyPhoneToClipboard}
+                copiedPhoneID={copiedOrderID}
               />
             ))}
           </div>
@@ -229,10 +284,14 @@ function OrderCard({
   order: o,
   onStatusChange,
   onPhotoClick,
+  onPhoneCopy,
+  copiedPhoneID,
 }: {
   order: AdminOrder;
   onStatusChange: (id: number, status: string) => void;
   onPhotoClick: (url: string) => void;
+  onPhoneCopy: (id: number, phone: string) => void;
+  copiedPhoneID: number | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   const totalLei = (o.total_minor / 100).toFixed(2);
@@ -280,6 +339,42 @@ function OrderCard({
                 ({o.customer_email})
               </span>
             )}
+          </div>
+
+          {/* Phone — manager's primary action: click to copy for outbound
+              call. Always rendered so the layout doesn't shift between
+              orders. The button is keyboard-accessible (Enter/Space) and
+              carries aria-live so screen readers announce the copy
+              confirmation. */}
+          <div className="flex items-center gap-2 mt-1">
+            <button
+              type="button"
+              onClick={() => onPhoneCopy(o.id, o.phone)}
+              data-testid={`order-phone-${o.id}`}
+              aria-label={`Скопировать телефон ${o.phone} для связи с клиентом`}
+              title="Кликните, чтобы скопировать"
+              className="group inline-flex items-center gap-2 rounded-lg border border-[#44944A]/30 bg-[#44944A]/10 px-3 py-1.5 text-sm font-mono font-semibold text-[#44944A] hover:bg-[#44944A]/20 hover:border-[#44944A]/60 transition-colors focus:outline-none focus:ring-2 focus:ring-[#44944A]/40"
+            >
+              {copiedPhoneID === o.id ? (
+                <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              ) : (
+                <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              )}
+              <span className="select-all">{o.phone || "—"}</span>
+              {copiedPhoneID === o.id ? (
+                <span
+                  className="text-[10px] uppercase tracking-wider font-sans font-bold text-[#44944A] opacity-80"
+                  aria-live="polite"
+                >
+                  скопировано
+                </span>
+              ) : (
+                <Copy
+                  className="h-3 w-3 shrink-0 opacity-40 group-hover:opacity-80 transition-opacity"
+                  aria-hidden="true"
+                />
+              )}
+            </button>
           </div>
 
           {/* Quick info line */}

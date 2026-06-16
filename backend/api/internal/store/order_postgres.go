@@ -13,19 +13,6 @@ import (
 	"mioru/internal/model"
 )
 
-// ErrIdempotencyHashMismatch is returned when an idempotency key is reused
-// with a different request body — a probable client bug or replay attack.
-var ErrIdempotencyHashMismatch = errors.New("idempotency key reused with different request hash")
-
-// ErrIdempotencyRace is returned when a concurrent first submit with the
-// same Idempotency-Key won the INSERT on order_idempotency_pkey. The
-// handler re-fetches the winner's stored record and returns 201 with the
-// winner's body when the request hash matches (true idempotent replay),
-// or 409 IDEMPOTENCY_REPLAY only when the hash differs (a real conflict,
-// not a benign double-click). Money and stock are safe regardless — the
-// unique constraint guarantees exactly one order per key.
-var ErrIdempotencyRace = errors.New("idempotency race: winner already inserted")
-
 // IdempotencyRecord is the row stored in order_idempotency. The handler
 // fetches it on the race-loser path to return the winner's response
 // when the request hash matches. Status is the HTTP status (typically
@@ -38,12 +25,6 @@ type IdempotencyRecord struct {
 	Status       int
 	ResponseBody string
 }
-
-// ErrInsufficientStock is returned when an order requests more units of a
-// product than the available stock. Wrapped with %w so the handler can
-// branch via errors.Is instead of substring-matching the error text —
-// per CLAUDE.md, finance-critical paths use sentinels.
-var ErrInsufficientStock = errors.New("insufficient stock")
 
 // validOrderStatuses is the set of allowed order status values.
 var validOrderStatuses = map[string]bool{
@@ -81,6 +62,7 @@ func (s *PostgresStore) ListCustomerOrders(ctx context.Context, customerID int64
 	offset := (page - 1) * perPage
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, customer_id, type, total_minor, status,
+		       phone,
 		       city, delivery_method, payment_method,
 		       street, house, apartment, comment,
 		       height, weight, delivery_time, photos,
@@ -99,6 +81,7 @@ func (s *PostgresStore) ListCustomerOrders(ctx context.Context, customerID int64
 	for rows.Next() {
 		var o model.Order
 		if err := rows.Scan(&o.ID, &o.CustomerID, &o.Type, &o.TotalMinor, &o.Status,
+			&o.Phone,
 			&o.City, &o.DeliveryMethod, &o.PaymentMethod,
 			&o.Street, &o.House, &o.Apartment, &o.Comment,
 			&o.Height, &o.Weight, &o.DeliveryTime, &o.Photos,
@@ -209,7 +192,7 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 	for i := range items {
 		dbPrice, ok := prices[items[i].ProductID]
 		if !ok {
-			return nil, fmt.Errorf("product %d not found", items[i].ProductID)
+			return nil, fmt.Errorf("product %d: %w", items[i].ProductID, ErrProductNotFound)
 		}
 		items[i].PriceMinor = dbPrice
 		totalMinor += dbPrice * int64(items[i].Quantity)
@@ -237,15 +220,18 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 	// Insert order
 	err = tx.QueryRow(ctx, `
 		INSERT INTO orders (customer_id, type, total_minor, status,
+		                    phone,
 		                    city, delivery_method, payment_method,
 		                    street, house, apartment, comment,
 		                    height, weight, delivery_time, photos)
 		VALUES ($1, $2, $3, 'pending',
-		        $4, $5, $6,
-		        $7, $8, $9, $10,
-		        $11, $12, $13, $14)
+		        $4,
+		        $5, $6, $7,
+		        $8, $9, $10, $11,
+		        $12, $13, $14, $15)
 		RETURNING id, created_at`,
 		customerID, o.Type, o.TotalMinor,
+		o.Phone,
 		o.City, o.DeliveryMethod, o.PaymentMethod,
 		o.Street, o.House, o.Apartment, o.Comment,
 		o.Height, o.Weight, o.DeliveryTime, o.Photos,
@@ -397,6 +383,7 @@ func (s *PostgresStore) ListAllOrders(ctx context.Context, page, perPage int, st
 
 	query := fmt.Sprintf(`
 		SELECT o.id, o.customer_id, o.type, o.total_minor, o.status,
+		       o.phone,
 		       o.city, o.delivery_method, o.payment_method,
 		       o.street, o.house, o.apartment, o.comment,
 		       o.height, o.weight, o.delivery_time, o.photos,
@@ -420,6 +407,7 @@ func (s *PostgresStore) ListAllOrders(ctx context.Context, page, perPage int, st
 	for rows.Next() {
 		var o model.Order
 		if err := rows.Scan(&o.ID, &o.CustomerID, &o.Type, &o.TotalMinor, &o.Status,
+			&o.Phone,
 			&o.City, &o.DeliveryMethod, &o.PaymentMethod,
 			&o.Street, &o.House, &o.Apartment, &o.Comment,
 			&o.Height, &o.Weight, &o.DeliveryTime, &o.Photos,

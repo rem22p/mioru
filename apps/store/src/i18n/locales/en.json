@@ -265,7 +265,11 @@
     "next": "Next",
     "confirm": "Confirm order",
     "orderSummary": "Order summary",
-    "total": "Total"
+    "total": "Total",
+    "phone": "Phone",
+    "phonePlaceholder": "+373 ...",
+    "phoneRequired": "Enter your phone number",
+    "useMyPhone": "Use my number"
   },
   "profile": {
     "title": "My account",

@@ -38,6 +38,7 @@ export default function CustomOrderPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -49,6 +50,7 @@ export default function CustomOrderPage() {
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
+  const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
   const [deliveryTime, setDeliveryTime] = useState<string[]>([]);
   const [deliveryMethod, setDeliveryMethod] = useState("");
@@ -94,6 +96,9 @@ export default function CustomOrderPage() {
     if (weight && Number(weight) > 200)
       errs.body = "Вес не может быть больше 200 кг";
     if (!city.trim()) errs.city = "Укажите город";
+    if (!phone.trim()) errs.phone = "Введите номер телефона";
+    else if (!/^\+?\d{7,15}$/.test(phone.trim()))
+      errs.phone = "Формат: +<код страны> и 7-15 цифр";
     if (!deliveryMethod) errs.deliveryMethod = "Выберите способ доставки";
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -101,7 +106,7 @@ export default function CustomOrderPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setTouched({ photos: true, body: true, city: true, deliveryMethod: true });
+    setTouched({ photos: true, body: true, phone: true, city: true, deliveryMethod: true });
     if (!validate()) return;
 
     setSubmitting(true);
@@ -118,6 +123,7 @@ export default function CustomOrderPage() {
       await createOrder(
         {
           type: "individual",
+          phone: phone.trim(),
           city,
           delivery_method: deliveryMethod,
           payment_method: "cod",
@@ -327,6 +333,43 @@ export default function CustomOrderPage() {
               </div>
               {touched.body && errors.body && (
                 <p className="text-xs text-red-400 mt-1">{errors.body}</p>
+              )}
+            </div>
+
+            {/* Phone */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)]">
+                  {t("checkout.phone")}
+                </label>
+                {user?.phone && user.phone !== phone && (
+                  <button
+                    type="button"
+                    onClick={() => setPhone(user.phone)}
+                    className="text-xs font-semibold uppercase tracking-wider text-[#44944A] hover:text-[var(--color-text-primary)] transition-colors"
+                    data-testid="custom-order-use-my-phone"
+                  >
+                    {t("checkout.useMyPhone")}
+                  </button>
+                )}
+              </div>
+              <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  if (touched.phone && errors.phone) {
+                    setErrors((prev) => ({ ...prev, phone: "" }));
+                  }
+                }}
+                placeholder={t("checkout.phonePlaceholder")}
+                data-testid="custom-order-phone"
+                className={`${inputClass} ${touched.phone && errors.phone ? "!border-red-500" : ""}`}
+              />
+              {touched.phone && errors.phone && (
+                <p className="text-xs text-red-400 mt-1">{errors.phone}</p>
               )}
             </div>
 

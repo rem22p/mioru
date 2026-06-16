@@ -47,10 +47,10 @@ commands.
 | POST /api/store/customers/me/set-password | ✓ | ✓ | — | 200 `{ok}` | 400/401/403, 409 CONFLICT | `TestIntegrationCustomerSetPasswordRejectsPasswordedCustomer` |
 | POST /api/store/customers/me/oauth | ✓ | ✓ | — | 200 `{ok}` | 401 AUTH_INVALID, 403 | `TestIntegrationLinkOAuthTelegramRejectsUnsigned` (hijack guard), `...NonTelegramHappy` |
 | GET /api/store/customers/me/orders | ✓ | — | — | 200 `{orders,total,page,per_page}` | 401 | `TestIntegrationListOrdersIsolation` (paginate + cross-customer isolation), `TestIntegrationCustomerListOrdersIncludesFullDetails` (full-field contract) |
-| POST /api/store/orders | ✓ | ✓ | — | 201 order | 400 VALIDATION_FAILED, 409 IDEMPOTENCY_REPLAY, 409 INSUFFICIENT_STOCK | `TestIntegrationCreateOrder*` (happy/stock/replay/conflict/oversell/missing-key) |
+| POST /api/store/orders | ✓ | ✓ | — | 201 order | 400 VALIDATION_FAILED (incl. missing/invalid `phone`, stale product_id → `PRODUCT_NOT_FOUND`), 409 IDEMPOTENCY_REPLAY, 409 INSUFFICIENT_STOCK | `TestIntegrationCreateOrder*` (happy/stock/replay/conflict/oversell/missing-key), `TestIntegrationCreateOrderRequiresPhone`, `TestIntegrationCreateOrderPersistsPhoneAndSyncsToProfile`, `TestIntegrationCreateOrderDoesNotResyncIdenticalPhone`, `TestIntegrationCreateOrderRejectsUnknownProduct` |
 | POST /api/store/orders/upload-photo | ✓ | ✓ | — | 200 `{url}` | 400, 403 | `TestIntegrationUploadOrderPhotoPNG`, `...RejectsNonPNG`, `...RequiresFile`, `...CSRFGate` |
 | GET /api/store/customers/me/cart | ✓ | — | — | 200 cart | 401 | `TestIntegrationCartRoundTrip` |
-| PUT /api/store/customers/me/cart | ✓ | ✓ | — | 200 | 401/403 | `TestIntegrationCartRoundTrip`, `TestIntegrationSaveCartCSRFGate` |
+| PUT /api/store/customers/me/cart | ✓ | ✓ | — | 200 | 400 PRODUCT_NOT_FOUND (stale product_id), 401/403 | `TestIntegrationCartRoundTrip`, `TestIntegrationSaveCartCSRFGate`, `TestIntegrationSaveCartRejectsUnknownProduct` |
 | GET /api/store/customers/me/favorites | ✓ | — | — | 200 | 401 | `TestIntegrationCustomerFavoritesRoundTrip` |
 | PUT /api/store/customers/me/favorites | ✓ | ✓ | — | 200 | 400, 401/403 | `TestIntegrationCustomerFavoritesRoundTrip`, `...SaveFavoritesValidation` |
 

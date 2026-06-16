@@ -50,6 +50,7 @@ func TestCreateOrderIndividualAcceptsEmptyItems(t *testing.T) {
 	// no `items` field, free-form fields (height/weight/photos).
 	body := `{
 		"type": "individual",
+		"phone": "+37360000000",
 		"city": "Тирасполь",
 		"delivery_method": "personal",
 		"payment_method": "card",
@@ -97,6 +98,7 @@ func TestCreateOrderCartStillRejectsEmptyItems(t *testing.T) {
 
 	body := `{
 		"type": "cart",
+		"phone": "+37360000000",
 		"city": "Тирасполь",
 		"delivery_method": "personal",
 		"payment_method": "card",

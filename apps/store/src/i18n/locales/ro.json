@@ -265,7 +265,11 @@
     "next": "Continuă",
     "confirm": "Confirmă comanda",
     "orderSummary": "Comanda",
-    "total": "Total"
+    "total": "Total",
+    "phone": "Telefon",
+    "phonePlaceholder": "+373 ...",
+    "phoneRequired": "Introduceți numărul de telefon",
+    "useMyPhone": "Folosește numărul meu"
   },
   "profile": {
     "title": "Contul meu",

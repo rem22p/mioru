@@ -383,3 +383,59 @@ func TestIntegrationAdminUploadRejectsNonPNG(t *testing.T) {
 		t.Fatalf("Upload non-png: want 400, got %d (%s)", rr.Code, rr.Body.String())
 	}
 }
+
+// TestIntegrationAdminListAllOrdersExposesPhone is the admin-side
+// counterpart of the customer ListOrders expansion. The /api/admin/orders
+// endpoint powers the manager workspace at apps/admin/src/workspaces/Orders.tsx
+// which shows each order's contact phone as a click-to-copy chip. If the
+// admin response drops the field, managers see an empty chip and can't
+// reach the customer.
+//
+// The assertion is intentionally strict (exact "+373777908542" string)
+// rather than "non-empty" — the test would have caught the regression
+// where admin's ListAllOrders handler accidentally selected from a
+// table that didn't include `phone` (e.g. joining through `customers`
+// without falling back to `orders.phone`).
+func TestIntegrationAdminListAllOrdersExposesPhone(t *testing.T) {
+	e := newEnv(t)
+	sess, _ := e.customerSession(t, "admin-phone@ex.com")
+	pid := seedProduct(t, e, "ord-admin-phone", 500, 10)
+
+	// orderBodyWithPhone sets a specific, recognisable number that we
+	// can grep for in the admin response without false positives.
+	const wantPhone = "+373777908542"
+	createRR := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+		reqOpts{sess: sess, csrfCookieName: cookieauth.StoreCSRFCookie,
+			idempotencyKey: "e-admin-phone-1", body: orderBodyWithPhone(pid, 1, wantPhone)})
+	if createRR.Code != http.StatusCreated {
+		t.Fatalf("CreateOrder: want 201, got %d (%s)", createRR.Code, createRR.Body.String())
+	}
+
+	admin := e.userSession(t, "ordphoneadmin", "admin")
+	rr := e.do(t, e.wrapAdmin(e.adminOrdH.ListAll), http.MethodGet, "/api/admin/orders", reqOpts{sess: admin})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("ListAll orders: want 200, got %d (%s)", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Orders []map[string]any `json:"orders"`
+		Total  int              `json:"total"`
+	}
+	decode(t, rr, &resp)
+	if len(resp.Orders) == 0 {
+		t.Fatalf("orders is empty")
+	}
+	// Find our specific order — the admin list is shared across the
+	// whole DB, so we look up by id rather than blindly trusting the
+	// first row.
+	var got string
+	for _, o := range resp.Orders {
+		if v, ok := o["phone"].(string); ok && v == wantPhone {
+			got = v
+			break
+		}
+	}
+	if got == "" {
+		t.Errorf("phone field missing or wrong in admin orders response. "+
+			"Managers need it to call customers. orders: %+v", resp.Orders)
+	}
+}

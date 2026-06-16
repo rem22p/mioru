@@ -59,6 +59,7 @@ func TestCreateOrderIdempotencyRaceSameHashReturns201(t *testing.T) {
 
 	body := `{
 		"type": "cart",
+		"phone": "+37360000000",
 		"city": "Тирасполь",
 		"delivery_method": "personal",
 		"payment_method": "card",
@@ -112,6 +113,7 @@ func TestCreateOrderIdempotencyRaceDifferentHashReturns409(t *testing.T) {
 
 	body := `{
 		"type": "cart",
+		"phone": "+37360000000",
 		"city": "Тирасполь",
 		"delivery_method": "personal",
 		"payment_method": "card",

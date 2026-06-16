@@ -43,6 +43,17 @@ func (s *PostgresStore) GetCustomerCart(ctx context.Context, customerID int64) (
 
 // SaveCustomerCart replaces the entire cart for a customer atomically
 // using a batched insert (pgx.Batch) to avoid N+1 round-trips.
+//
+// All product IDs in the cart are validated against `products` in a
+// single SELECT before the batch INSERT runs. The FK constraint would
+// catch missing products at INSERT time, but only with a generic
+// SQLSTATE 23503 error that the handler would treat as a 500 ISE —
+// here we turn it into a 400 PRODUCT_NOT_FOUND with a clear message
+// so the client knows the cart is stale and the user has to refresh.
+// Defence-in-depth: even with this pre-check, the FK still protects
+// against a race where a product is deleted between the SELECT and
+// the INSERT (rare; the handler will return 500 ISE in that case,
+// which is the correct response for a true race).
 func (s *PostgresStore) SaveCustomerCart(ctx context.Context, customerID int64, items []CartItem) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -56,6 +67,44 @@ func (s *PostgresStore) SaveCustomerCart(ctx context.Context, customerID int64, 
 	}
 
 	if len(items) > 0 {
+		// Collect distinct product IDs to validate existence. CartItem
+		// uses `int` (JSON-friendly) but products.id is BIGINT, so we
+		// convert at the SQL boundary.
+		productIDs := make([]int64, 0, len(items))
+		seen := make(map[int]bool, len(items))
+		for _, it := range items {
+			if !seen[it.ProductID] {
+				productIDs = append(productIDs, int64(it.ProductID))
+				seen[it.ProductID] = true
+			}
+		}
+		rows, err := tx.Query(ctx, `SELECT id FROM products WHERE id = ANY($1)`, productIDs)
+		if err != nil {
+			return fmt.Errorf("validate cart products: %w", err)
+		}
+		existing := make(map[int64]bool, len(productIDs))
+		for rows.Next() {
+			var id int64
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				return fmt.Errorf("scan product id: %w", err)
+			}
+			existing[id] = true
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return fmt.Errorf("iterate product ids: %w", err)
+		}
+		// Fail-fast: report the first unknown product id. We don't
+		// enumerate every missing product because the user can only
+		// fix one stale line at a time in the UI anyway, and the
+		// caller already has the full cart to retry from.
+		for _, id := range productIDs {
+			if !existing[id] {
+				return fmt.Errorf("product %d: %w", id, ErrProductNotFound)
+			}
+		}
+
 		batch := &pgx.Batch{}
 		for _, item := range items {
 			batch.Queue(`

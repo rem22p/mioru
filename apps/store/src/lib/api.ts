@@ -263,6 +263,8 @@ export interface CreateOrderItem {
 
 export interface CreateOrderData {
   type: string;
+  /** Contact phone for the order. Required on every checkout. */
+  phone: string;
   city: string;
   delivery_method: string;
   payment_method: string;

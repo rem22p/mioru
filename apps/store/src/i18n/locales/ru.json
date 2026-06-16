@@ -265,7 +265,11 @@
     "next": "Далее",
     "confirm": "Подтвердить заказ",
     "orderSummary": "Заказ",
-    "total": "Итого"
+    "total": "Итого",
+    "phone": "Телефон",
+    "phonePlaceholder": "+373 ...",
+    "phoneRequired": "Введите номер телефона",
+    "useMyPhone": "Использовать мой номер"
   },
   "profile": {
     "title": "Личный кабинет",
