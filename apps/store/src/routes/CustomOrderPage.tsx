@@ -7,6 +7,7 @@ import { Upload, Send } from "lucide-react";
 import CityAutocomplete from "@/components/ui/CityAutocomplete";
 import { createOrder, uploadOrderPhoto } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
+import { isDeliveryBlocked } from "@/lib/deliveryRules";
 
 const deliveryTimeOptions = ["fast", "medium", "slow"] as const;
 
@@ -54,6 +55,18 @@ export default function CustomOrderPage() {
   const [city, setCity] = useState("");
   const [deliveryTime, setDeliveryTime] = useState<string[]>([]);
   const [deliveryMethod, setDeliveryMethod] = useState("");
+
+  // Reset delivery method if the user changed the city and their
+  // current selection is no longer available there. Mirrors the
+  // behaviour in CheckoutPage so the two order flows stay
+  // consistent — without this reset the user could fill out the
+  // rest of the form only to see a server 400 (or a stale local
+  // pick) on submit.
+  useEffect(() => {
+    if (deliveryMethod && isDeliveryBlocked(deliveryMethod, city)) {
+      setDeliveryMethod("");
+    }
+  }, [city, deliveryMethod]);
   const [comment, setComment] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -427,13 +440,30 @@ export default function CustomOrderPage() {
                 {t("customOrder.deliveryMethod")}
               </label>
               <div className="space-y-2">
-                {deliveryMethods.map((method) => (
+                {deliveryMethods.map((method) => {
+                  const disabled = isDeliveryBlocked(method.key, city);
+                  return (
                   <label
                     key={method.key}
-                    className={`flex items-start gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-all ${
-                      deliveryMethod === method.key
-                        ? "border-[#44944A] bg-[#44944A]/10"
-                        : "border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)]"
+                    title={
+                      disabled
+                        ? t("customOrder.delivery.disabledForCity", {
+                            method: t(
+                              `customOrder.deliveryMethods.${method.key}`,
+                            ),
+                            city: city || "—",
+                          })
+                        : undefined
+                    }
+                    aria-disabled={disabled}
+                    data-testid={`delivery-${method.key}`}
+                    className={`flex items-start gap-3 rounded-xl border px-4 py-3 transition-all ${
+                      disabled
+                        ? "opacity-50 cursor-not-allowed border-[var(--color-border-custom)]"
+                        : "cursor-pointer " +
+                          (deliveryMethod === method.key
+                            ? "border-[#44944A] bg-[#44944A]/10"
+                            : "border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)]")
                     }`}
                   >
                     <input
@@ -441,7 +471,13 @@ export default function CustomOrderPage() {
                       name="deliveryMethod"
                       value={method.key}
                       checked={deliveryMethod === method.key}
+                      disabled={disabled}
                       onChange={(e) => {
+                        // Hard guard: even if a stale radio somehow
+                        // dispatches a change (e.g. devtools
+                        // removed the disabled attribute), we don't
+                        // let the form accept a blocked combination.
+                        if (disabled) return;
                         setDeliveryMethod(e.target.value);
                         setTouched((prev) => ({
                           ...prev,
@@ -461,7 +497,8 @@ export default function CustomOrderPage() {
                       </span>
                     </div>
                   </label>
-                ))}
+                  );
+                })}
               </div>
               {touched.deliveryMethod && errors.deliveryMethod && (
                 <p className="text-xs text-red-400 mt-1">

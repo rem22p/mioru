@@ -821,6 +821,40 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		jsonErrorCode(w, "payment_method is required (max 50 chars)", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
+	// Defence-in-depth: the frontend disables the cash-on-delivery
+	// radio when delivery_method = "bus" via
+	// apps/store/src/lib/deliveryRules.ts, but a custom curl or a
+	// stale frontend bundle could still POST this combination.
+	//
+	// Individual orders (type = "individual") are an exception:
+	// the customer rides the bus themselves and hands cash to the
+	// driver or the meet-up person, so cod+bus is a real, valid
+	// combination. The storefront applies the same exception in
+	// the disabled-radio logic.
+	if req.PaymentMethod == "cod" && req.DeliveryMethod == "bus" && req.Type != "individual" {
+		jsonErrorCode(w, "cash on delivery is not available for bus delivery", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	// Defence-in-depth for the moldovaPost + PMR rule: Moldova Post
+	// doesn't serve Transnistria (PMR has its own postal service).
+	// The frontend hides the radio for PMR cities via
+	// isDeliveryBlocked() in lib/deliveryRules.ts; this check is the
+	// server-side safety net.
+	if req.DeliveryMethod == "moldovaPost" {
+		// PNR_CITIES mirror from apps/store/src/lib/deliveryRules.ts.
+		// Kept inline because Go and TS each have their own canonical
+		// list — they get reviewed together whenever a city is added.
+		pnrCities := map[string]bool{
+			"тирасполь": true, "бендеры": true, "дубоссары": true, "рыбница": true,
+			"григориополь": true, "днестровск": true, "каменка": true, "слободзея": true,
+			"парканы": true, "ближний хутор": true, "красное": true, "новотираспольский": true,
+			"терновка": true, "маяк": true, "суклея": true,
+		}
+		if pnrCities[strings.ToLower(req.City)] {
+			jsonErrorCode(w, "moldova post is not available for Transnistria cities", http.StatusBadRequest, "VALIDATION_FAILED")
+			return
+		}
+	}
 	if len(req.Street) > 200 {
 		jsonErrorCode(w, "street is too long (max 200)", http.StatusBadRequest, "VALIDATION_FAILED")
 		return

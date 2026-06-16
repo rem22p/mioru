@@ -56,7 +56,10 @@
     "comment": "Comentariu",
     "commentPlaceholder": "Specifică preferințele tale de mărime, culoare, material...",
     "submit": "Trimite managerului",
-    "afterSubmit": "În curând managerul nostru te va contacta pe Telegram cu informații despre comanda ta. Dacă acest format de comunicare nu este posibil pentru tine, te rugăm să ne scrii pe Instagram @mioru.store."
+    "afterSubmit": "În curând managerul nostru te va contacta pe Telegram cu informații despre comanda ta. Dacă acest format de comunicare nu este posibil pentru tine, te rugăm să ne scrii pe Instagram @mioru.store.",
+    "delivery": {
+      "disabledForCity": "Metoda de livrare «{{method}}» nu este disponibilă pentru «{{city}}»"
+    }
   },
   "nav": {
     "inStock": "CATALOG",
@@ -237,7 +240,8 @@
       "card": "Card online",
       "cardDesc": "MIA, klever",
       "cod": "Ramburs",
-      "codDesc": "Numerar sau transfer la fața locului"
+      "codDesc": "Numerar sau transfer la fața locului",
+      "codDisabled": "Plata la livrare nu este disponibilă pentru metoda de livrare «{{method}}»"
     },
     "delivery": {
       "title": "Mod de livrare",

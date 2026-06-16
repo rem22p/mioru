@@ -56,7 +56,10 @@
     "comment": "Comment",
     "commentPlaceholder": "Specify your preferences for size, color, material...",
     "submit": "Send to manager",
-    "afterSubmit": "Our manager will contact you soon on Telegram with information about your order. If this format of communication doesn't work for you, please reach out to us on Instagram @mioru.store."
+    "afterSubmit": "Our manager will contact you soon on Telegram with information about your order. If this format of communication doesn't work for you, please reach out to us on Instagram @mioru.store.",
+    "delivery": {
+      "disabledForCity": "Delivery method «{{method}}» is not available for «{{city}}»"
+    }
   },
   "nav": {
     "inStock": "CATALOG",
@@ -237,7 +240,8 @@
       "card": "Card online",
       "cardDesc": "MIA, klever",
       "cod": "Cash on delivery",
-      "codDesc": "Cash or transfer on the spot"
+      "codDesc": "Cash or transfer on the spot",
+      "codDisabled": "Cash on delivery is not available for the «{{method}}» delivery method"
     },
     "delivery": {
       "title": "Delivery method",
