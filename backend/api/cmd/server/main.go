@@ -56,6 +56,7 @@ func main() {
 	authH := handler.NewAuthHandler(pgStore, emailSvc, cfg.SecretKey, cfg.TokenExpiry, secureCookies, cfg.CookieDomain)
 	productH := handler.NewProductHandler(pgStore, cfg.UploadDir)
 	adminOrderH := handler.NewAdminOrderHandler(pgStore)
+	adminCustomerH := handler.NewAdminCustomerHandler(pgStore)
 	customerH := handler.NewCustomerHandler(pgStore, cfg.SecretKey, cfg.TokenExpiry, secureCookies, cfg.TelegramBotToken, cfg.CookieDomain,
 		cfg.UploadDir,
 		telegram.NewNotifier(cfg.TelegramBotToken, cfg.TelegramManagerChatIDs, cfg.APIBaseURL, cfg.UploadDir))
@@ -182,6 +183,8 @@ func main() {
 	// Admin: Orders (admin only)
 	mux.Handle("GET /api/admin/orders", adminOnly(http.HandlerFunc(adminOrderH.ListAll)))
 	mux.Handle("PATCH /api/admin/orders/{id}/status", adminOnly(http.HandlerFunc(adminOrderH.UpdateStatus)))
+	mux.Handle("GET /api/admin/customers", adminOnly(http.HandlerFunc(adminCustomerH.List)))
+	mux.Handle("GET /api/admin/customers/{id}", adminOnly(http.HandlerFunc(adminCustomerH.Detail)))
 
 	// Admin: Upload (admin only)
 	mux.Handle("POST /api/admin/upload", adminOnly(http.HandlerFunc(productH.Upload)))

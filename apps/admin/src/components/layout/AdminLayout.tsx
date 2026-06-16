@@ -7,6 +7,8 @@ import Placeholder from "@/components/common/Placeholder";
 import Products from "@/workspaces/Products";
 import Orders from "@/workspaces/Orders";
 import Users from "@/workspaces/Users";
+import Customers from "@/workspaces/Customers";
+import CustomerDetail from "@/workspaces/CustomerDetail";
 import Profile from "@/workspaces/Profile";
 import Settings from "@/workspaces/Settings";
 import {
@@ -60,6 +62,8 @@ export default function AdminLayout() {
           <Route path="/products" element={<Products />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/users" element={user?.role === "super_admin" ? <Users /> : <Navigate to="/products" replace />} />
+          <Route path="/customers" element={<Customers />} />
+          <Route path="/customers/:id" element={<CustomerDetail />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />
           <Route

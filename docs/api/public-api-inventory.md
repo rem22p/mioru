@@ -81,6 +81,8 @@ commands.
 | DELETE /api/admin/products/{slug} | ✓ admin | ✓ | — | 200 `{ok}` | 401/403, 404 NOT_FOUND | `TestIntegrationAdminDeleteProductHappy`, `...NotFound` |
 | GET /api/admin/orders | ✓ admin | — | — | 200 `{orders,total,...}` (joined customer_email) | 401/403 | `TestIntegrationAdminListAllOrdersJoinsCustomer` |
 | PATCH /api/admin/orders/{id}/status | ✓ admin | ✓ | — | 200 `{ok}` | 400 VALIDATION_FAILED, 401/403 | `TestIntegrationAdminUpdateOrderStatus` (valid), `...UpdateStatusInvalid`, `...NonNumericId` |
+| GET /api/admin/customers | ✓ admin | — | — | 200 `{customers,total,page,per_page}` (rolled-up order stats, Telegram link) | 401/403 | `TestIntegrationAdminListCustomers` |
+| GET /api/admin/customers/{id} | ✓ admin | — | — | 200 full customer + order list (no `hashed_password`) | 401/403, 404 NOT_FOUND | `TestIntegrationAdminGetCustomerDetail`, `TestIntegrationAdminCustomersRequiresAuth` |
 | POST /api/admin/upload | ✓ admin | ✓ | — | 200 `{url}` | 400 | `TestIntegrationAdminUploadPNG`, `...RejectsNonPNG` |
 
 ## Cross-cutting gates & infra

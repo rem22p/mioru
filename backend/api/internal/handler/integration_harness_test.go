@@ -30,12 +30,13 @@ const tokenExpiryMin = 1440 // arbitrary; the harness does not test token expiry
 // env bundles the real store and the handlers under test, all sharing one
 // throwaway database.
 type env struct {
-	st        *store.PostgresStore
-	customerH *handler.CustomerHandler
-	authH     *handler.AuthHandler
-	productH  *handler.ProductHandler
-	storeH    *handler.StoreHandler
-	adminOrdH *handler.AdminOrderHandler
+	st              *store.PostgresStore
+	customerH       *handler.CustomerHandler
+	authH           *handler.AuthHandler
+	productH        *handler.ProductHandler
+	storeH          *handler.StoreHandler
+	adminOrdH       *handler.AdminOrderHandler
+	adminCustomerH  *handler.AdminCustomerHandler
 }
 
 // newEnv builds an env on a fresh test database. Handlers are constructed with
@@ -52,7 +53,8 @@ func newEnv(t *testing.T) *env {
 		authH:     handler.NewAuthHandler(st, email.NewService(), testSecret, tokenExpiryMin, false, ""),
 		productH:  handler.NewProductHandler(st, t.TempDir()),
 		storeH:    handler.NewStoreHandler(st),
-		adminOrdH: handler.NewAdminOrderHandler(st),
+		adminOrdH:       handler.NewAdminOrderHandler(st),
+		adminCustomerH:  handler.NewAdminCustomerHandler(st),
 	}
 }
 

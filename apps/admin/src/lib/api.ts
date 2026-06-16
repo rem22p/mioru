@@ -256,4 +256,78 @@ export const updateOrderStatus = (orderId: number, status: string) =>
     body: JSON.stringify({ status }),
   });
 
+// Admin Customers workspace: a paginated list of every customer
+// with rolled-up order stats and the Telegram link, if any. The
+// shape mirrors the backend AdminCustomerRow in
+// store/admin_customers.go — the Go json tags are snake_case so we
+// match them here verbatim, no manual key remapping.
+export interface AdminCustomer {
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  avatar_color: string;
+  created_at: string;
+  orders_count: number;
+  total_spent_minor: number;
+  last_order_at: string;
+  telegram_linked: boolean;
+  telegram_username: string;
+  telegram_chat_id: string;
+}
+
+export interface AdminCustomersResponse {
+  customers: AdminCustomer[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export interface AdminCustomerOrderSummary {
+  id: number;
+  type: string;
+  total_minor: number;
+  status: string;
+  created_at: string;
+  items_count: number;
+}
+
+export interface AdminCustomerDetail {
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  avatar_color: string;
+  created_at: string;
+  updated_at: string;
+  password_changed_at: string;
+  orders_count: number;
+  total_spent_minor: number;
+  first_order_at: string;
+  last_order_at: string;
+  telegram_linked: boolean;
+  telegram_username: string;
+  telegram_chat_id: string;
+  orders: AdminCustomerOrderSummary[];
+}
+
+export const fetchAdminCustomers = (
+  page = 1,
+  perPage = 20,
+  search?: string,
+) => {
+  const params = new URLSearchParams();
+  params.set("page", String(page));
+  params.set("per_page", String(perPage));
+  if (search) params.set("search", search);
+  return api<AdminCustomersResponse>(
+    "/api/admin/customers?" + params.toString(),
+  );
+};
+
+export const fetchAdminCustomerDetail = (id: number) =>
+  api<AdminCustomerDetail>(`/api/admin/customers/${id}`);
+
 export { api, API_URL };
