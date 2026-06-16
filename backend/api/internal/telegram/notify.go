@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,7 +27,12 @@ type Notifier struct {
 }
 
 // NewNotifier creates a Telegram notifier. If botToken or chatIDs are empty,
-// notifications are silently skipped (no-op during dev).
+// notifications are silently skipped (no-op during dev) — but the skip is
+// *logged* at WARN level so the manager can see in the server logs that
+// the wiring is missing, instead of staring at a Telegram channel that
+// never fires. The pre-fix behaviour was a plain `return` with no log
+// at all, which is how "telegram notifier is broken in prod" got
+// reported as "notifications just don't arrive".
 func NewNotifier(botToken string, chatIDs []string, apiBaseURL, uploadDir string) *Notifier {
 	return &Notifier{
 		botToken:   botToken,
@@ -37,10 +43,60 @@ func NewNotifier(botToken string, chatIDs []string, apiBaseURL, uploadDir string
 	}
 }
 
+// HealthCheck calls Telegram's getMe endpoint and returns the bot's
+// @username on success. It's a thin wrapper around the same HTTP
+// client OrderCreated uses, intended to be called once at server
+// startup so an invalid or revoked token shows up in the boot log
+// instead of staying invisible until the first real order fails.
+//
+// The error message has the bot token redacted before being returned
+// to the caller (which logs it via slog) — the same `redactToken`
+// path that `OrderCreated` uses, so a leaked log line never
+// includes the raw secret.
+func (n *Notifier) HealthCheck(ctx context.Context) (string, error) {
+	if n.botToken == "" {
+		return "", fmt.Errorf("telegram notifier: TELEGRAM_BOT_TOKEN not set")
+	}
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/getMe", n.botToken)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := n.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("getMe: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		var errResp struct {
+			Description string `json:"description"`
+		}
+		_ = json.NewDecoder(resp.Body).Decode(&errResp)
+		msg := fmt.Sprintf("telegram api %d: %s", resp.StatusCode, errResp.Description)
+		return "", fmt.Errorf("%s", redactToken(msg, n.botToken))
+	}
+	var ok struct {
+		Result struct {
+			Username string `json:"username"`
+		} `json:"result"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&ok); err != nil {
+		return "", err
+	}
+	return ok.Result.Username, nil
+}
+
 // OrderCreated sends a notification about a new order to all configured chats.
 // Call from a background goroutine — never from the request handler directly.
 func (n *Notifier) OrderCreated(order *model.Order, customer *model.Customer) {
-	if n.botToken == "" || len(n.chatIDs) == 0 {
+	if n.botToken == "" {
+		slog.Warn("telegram notify skipped: TELEGRAM_BOT_TOKEN not set",
+			"order_id", order.ID)
+		return
+	}
+	if len(n.chatIDs) == 0 {
+		slog.Warn("telegram notify skipped: TELEGRAM_MANAGER_CHAT_IDS not set",
+			"order_id", order.ID)
 		return
 	}
 

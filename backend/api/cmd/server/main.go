@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -57,9 +58,10 @@ func main() {
 	productH := handler.NewProductHandler(pgStore, cfg.UploadDir)
 	adminOrderH := handler.NewAdminOrderHandler(pgStore)
 	adminCustomerH := handler.NewAdminCustomerHandler(pgStore)
+	tgNotifier := telegram.NewNotifier(cfg.TelegramBotToken, cfg.TelegramManagerChatIDs, cfg.APIBaseURL, cfg.UploadDir)
 	customerH := handler.NewCustomerHandler(pgStore, cfg.SecretKey, cfg.TokenExpiry, secureCookies, cfg.TelegramBotToken, cfg.CookieDomain,
 		cfg.UploadDir,
-		telegram.NewNotifier(cfg.TelegramBotToken, cfg.TelegramManagerChatIDs, cfg.APIBaseURL, cfg.UploadDir))
+		tgNotifier)
 
 	// getRole resolves an authenticated user's role from the DB for RequireAdmin.
 	getRole := func(ctx context.Context, username string) (string, error) {
@@ -201,6 +203,29 @@ func main() {
 
 	addr := ":" + cfg.Port
 	srv := newServer(addr, securityHeaders(mux))
+
+	// Telegram notifier startup health check. Runs once at boot
+	// so an invalid / revoked / wrong bot token shows up in the
+	// log immediately, instead of staying invisible until the
+	// first real order. The check uses a 5s timeout so a slow /
+	// hanging Telegram API can't delay the server from coming
+	// up — this is observability, not a gate. Failures are WARN,
+	// never fatal, because the rest of the API works fine
+	// without a working bot (and the warning is already enough
+	// for the manager to act on).
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		username, err := tgNotifier.HealthCheck(ctx)
+		if err != nil {
+			slog.Warn("telegram notifier health check failed at startup",
+				"error", err)
+			return
+		}
+		slog.Info("telegram notifier ready",
+			"bot_username", username,
+			"manager_chats", len(cfg.TelegramManagerChatIDs))
+	}()
 
 	// Serve in a goroutine so main can block on a shutdown signal and then drain
 	// in-flight requests instead of letting systemd kill them mid-flight.

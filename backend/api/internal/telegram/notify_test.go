@@ -1,6 +1,11 @@
 package telegram
 
 import (
+	"bytes"
+	"context"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -79,5 +84,149 @@ func TestFormatOrderMessageUsesOrderPhone(t *testing.T) {
 					tc.cPhone, tc.oPhone, got)
 			}
 		})
+	}
+}
+
+// captureLogger swaps slog.Default() for a buffer-backed handler
+// for the duration of fn, returning whatever was written. Used by
+// the new-failure-mode tests below to assert that the notifier
+// *logs* its skip / error conditions instead of swallowing them
+// silently (the original bug).
+func captureLogger(t *testing.T, fn func()) string {
+	t.Helper()
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	})))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+	fn()
+	return buf.String()
+}
+
+// TestNotifierSkipsWithWarnWhenBotTokenEmpty guards against the
+// "notifications just don't arrive" bug: when the bot token isn't
+// configured, OrderCreated must log a WARN line (not silently
+// return) so the manager can see the wiring is missing in the
+// server logs.
+func TestNotifierSkipsWithWarnWhenBotTokenEmpty(t *testing.T) {
+	n := NewNotifier("", []string{"123"}, "", t.TempDir())
+	out := captureLogger(t, func() {
+		n.OrderCreated(&model.Order{ID: 42}, &model.Customer{})
+	})
+	if !strings.Contains(out, "TELEGRAM_BOT_TOKEN not set") {
+		t.Errorf("expected warn about missing bot token, got:\n%s", out)
+	}
+	if !strings.Contains(out, "order_id=42") {
+		t.Errorf("expected order_id field, got:\n%s", out)
+	}
+}
+
+// TestNotifierSkipsWithWarnWhenChatIDsEmpty is the chat_ids twin
+// of the test above. Same bug, second env var.
+func TestNotifierSkipsWithWarnWhenChatIDsEmpty(t *testing.T) {
+	n := NewNotifier("telegram-test-token-1234567890", nil, "", t.TempDir())
+	out := captureLogger(t, func() {
+		n.OrderCreated(&model.Order{ID: 43}, &model.Customer{})
+	})
+	if !strings.Contains(out, "TELEGRAM_MANAGER_CHAT_IDS not set") {
+		t.Errorf("expected warn about missing chat ids, got:\n%s", out)
+	}
+}
+
+// TestNotifierHealthCheckReturnsErrorWhenTokenEmpty is the
+// "don't even try Telegram if we have no token" half of the
+// startup health check. The non-empty case is covered indirectly
+// by `TestNotifierHealthCheck_Success` below via an httptest
+// server.
+func TestNotifierHealthCheckReturnsErrorWhenTokenEmpty(t *testing.T) {
+	n := NewNotifier("", nil, "", t.TempDir())
+	_, err := n.HealthCheck(context.Background())
+	if err == nil {
+		t.Fatalf("expected error when token is empty")
+	}
+	if !strings.Contains(err.Error(), "TELEGRAM_BOT_TOKEN not set") {
+		t.Errorf("error should mention the missing env var, got: %v", err)
+	}
+}
+
+// TestNotifierHealthCheckReports401 guards the failure path: a
+// token that's been revoked by BotFather comes back from getMe as
+// 401 with `description: "Unauthorized"`. We must surface that
+// description (with the token redacted) instead of returning a
+// generic "request failed" so the operator can fix the right
+// thing.
+func TestNotifierHealthCheckReports401(t *testing.T) {
+	const token = "telegram-test-token-1234567890"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"ok":false,"description":"Unauthorized"}`))
+	}))
+	defer srv.Close()
+	// The real NewNotifier pins the URL to api.telegram.org;
+	// for the test we use a small wrapper that points at srv.URL.
+	n := NewNotifier(token, nil, "", t.TempDir())
+	n.client = srv.Client()
+	// Swap the URL by replacing the client and routing through a
+	// helper. Simpler: call HealthCheck with a redirector client
+	// that rewrites api.telegram.org → srv.URL.
+	n.client = &http.Client{
+		Timeout: 5 * 1e9,
+		Transport: redirector{target: srv.URL},
+	}
+	_, err := n.HealthCheck(context.Background())
+	if err == nil {
+		t.Fatalf("expected 401 error")
+	}
+	if !strings.Contains(err.Error(), "401") {
+		t.Errorf("expected status 401 in error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "Unauthorized") {
+		t.Errorf("expected description 'Unauthorized' in error, got: %v", err)
+	}
+	if strings.Contains(err.Error(), token) {
+		t.Errorf("token leaked into error message: %v", err)
+	}
+}
+
+// redirector is a tiny http.RoundTripper that rewrites every
+// request's URL host to `target`. Used to point the notifier at
+// an httptest server without exposing a test-only field on
+// Notifier.
+type redirector struct{ target string }
+
+func (r redirector) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Rebuild the URL with the test server's scheme+host.
+	u, err := req.URL.Parse(r.target + req.URL.Path + "?" + req.URL.RawQuery)
+	if err != nil {
+		return nil, err
+	}
+	req.URL = u
+	req.Host = u.Host
+	return http.DefaultTransport.RoundTrip(req)
+}
+
+// TestNotifierHealthCheckReturnsUsername covers the success path
+// — the notifier's username is what the startup log line carries
+// ("telegram notifier ready bot_username=...").
+func TestNotifierHealthCheckReturnsUsername(t *testing.T) {
+	const token = "telegram-test-token-1234567890"
+	const want = "mioru_orders_bot"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true,"result":{"id":1,"username":"` + want + `"}}`))
+	}))
+	defer srv.Close()
+	n := NewNotifier(token, nil, "", t.TempDir())
+	n.client = &http.Client{
+		Timeout: 5 * 1e9,
+		Transport: redirector{target: srv.URL},
+	}
+	got, err := n.HealthCheck(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != want {
+		t.Errorf("username = %q, want %q", got, want)
 	}
 }

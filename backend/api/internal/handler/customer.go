@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -1112,12 +1113,44 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Notify managers via Telegram (background, fire-and-forget)
+	// Notify managers via Telegram (background, fire-and-forget).
+	// The deferred recover() previously ate *every* panic silently —
+	// a nil pointer dereference inside `formatOrderMessage` (e.g. if
+	// `cust` came back as `nil` from `GetCustomer` for any reason)
+	// would crash the goroutine without a single log line, which is
+	// exactly how the "telegram notifications just don't arrive in
+	// prod" bug stayed invisible for so long. Now we log the panic
+	// with stack so the failure is recoverable from the logs.
 	if h.tgNotifier != nil {
 		go func() {
-			defer func() { _ = recover() }()
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Error("telegram notify goroutine panicked",
+						"order_id", created.ID,
+						"customer_id", customerID,
+						"panic", fmt.Sprintf("%v", r),
+						"stack", string(debug.Stack()),
+					)
+				}
+			}()
 			cust, err := h.store.GetCustomer(context.Background(), customerID)
 			if err != nil {
+				slog.Warn("telegram notify: GetCustomer failed",
+					"order_id", created.ID,
+					"customer_id", customerID,
+					"error", err)
+				return
+			}
+			if cust == nil {
+				// GetCustomer returns (nil, nil) for missing rows
+				// per customer_postgres.go::GetCustomer. Real
+				// customer_id always exists in the DB at this
+				// point (we just created the order under it), so
+				// a nil customer here is a programmer error or a
+				// race we want to see, not a normal outcome.
+				slog.Warn("telegram notify: customer not found",
+					"order_id", created.ID,
+					"customer_id", customerID)
 				return
 			}
 			h.tgNotifier.OrderCreated(created, cust)
