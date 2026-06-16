@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { fetchAdminOrders, updateOrderStatus, getImageUrl, type AdminOrder } from "@/lib/api";
 import { Package, RefreshCw, X, MapPin, Truck, CreditCard, User, Clock, ShoppingBag, Phone, Copy, Check } from "lucide-react";
 
@@ -328,8 +329,20 @@ function OrderCard({
             </select>
           </div>
 
-          {/* Customer */}
-          <div className="flex items-center gap-1.5 text-sm text-[var(--color-text-secondary)]">
+          {/* Customer — the chip is now a Link to the
+              customer detail workspace so the manager can
+              jump from an order to the customer's full
+              history with one click. We `e.stopPropagation()`
+              so clicking the customer name doesn't also
+              trigger the parent card's `setExpanded` toggle
+              (which is the one behavioural surprise the
+              first cut would have hit). */}
+          <Link
+            to={`/customers/${o.customer_id}`}
+            onClick={(e) => e.stopPropagation()}
+            data-testid={`order-customer-link-${o.id}`}
+            className="inline-flex items-center gap-1.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors rounded-md hover:underline underline-offset-4"
+          >
             <User className="h-3.5 w-3.5 shrink-0" />
             <span>
               {o.customer_first_name || o.customer_email || `#${o.customer_id}`}
@@ -339,7 +352,7 @@ function OrderCard({
                 ({o.customer_email})
               </span>
             )}
-          </div>
+          </Link>
 
           {/* Phone — manager's primary action: click to copy for outbound
               call. Always rendered so the layout doesn't shift between
