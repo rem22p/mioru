@@ -221,13 +221,26 @@ export const fetchStoreCustomerChangePassword = (data: {
 
 // ── Orders ──
 
+// Reviewer finding #3 (P0): the backend now returns a much
+// wider payload — model.Order + items with product_slug and
+// image_url, plus phone at the order level. Pre-fix the TS
+// interface silently dropped every extra field, so the
+// storefront's `OrderCard` in ProfilePage rendered orders
+// without a phone chip, without product slugs for the
+// "view product" link, without product images. Adding the
+// fields here is a no-op at runtime (TS extras are already
+// discarded by JSON.parse), but it makes the type contract
+// honest so future regression tests can pin the wider
+// payload.
 export interface StoreOrderItem {
   id: number;
   product_id: number;
   product_name: string;
+  product_slug: string;
   size_label: string;
   quantity: number;
   price_minor: number;
+  image_url?: string;
 }
 
 export interface StoreOrder {
@@ -236,6 +249,7 @@ export interface StoreOrder {
   status: string;
   type: string;
   city: string;
+  phone: string;
   delivery_method: string;
   payment_method: string;
   street: string;

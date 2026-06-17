@@ -115,6 +115,31 @@ func (s *PostgresStore) UpdateCustomer(ctx context.Context, id int64, updates ma
 // UpdateCustomerPassword updates the hashed password for a customer and stamps
 // password_changed_at = NOW() in the same statement, the session-revocation epoch
 // that invalidates every token issued before the change (see UpdatePassword).
+// UpdateCustomerPhoneIfChanged writes `phone` for the customer only
+// when the stored value differs. It is the single-round-trip
+// counterpart to the old "GetCustomer + (if different) UpdateCustomer"
+// pattern that the CreateOrder handler used to do synchronously
+// after WriteHeader(201) on every successful checkout — two DB
+// round-trips per order on the busiest write path, with the
+// added hazard that the GetCustomer ran on the request context
+// (so a client disconnect between WriteHeader and the UPDATE
+// would leave the profile stale and the order already
+// committed). This single conditional UPDATE returns
+// (rowsAffected, nil) so the caller can log a debug line
+// without ever having to fetch the row first.
+func (s *PostgresStore) UpdateCustomerPhoneIfChanged(ctx context.Context, id int64, phone string) (int64, error) {
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE customers
+		    SET phone = $1, updated_at = NOW()
+		  WHERE id = $2
+		    AND phone IS DISTINCT FROM $1`,
+		phone, id)
+	if err != nil {
+		return 0, fmt.Errorf("update customer phone if changed: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
 func (s *PostgresStore) UpdateCustomerPassword(ctx context.Context, id int64, hashedPW string) error {
 	tag, err := s.pool.Exec(ctx,
 		`UPDATE customers SET hashed_password = $1, password_changed_at = NOW(), updated_at = NOW() WHERE id = $2`,

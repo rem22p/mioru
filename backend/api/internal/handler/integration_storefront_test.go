@@ -186,7 +186,7 @@ func TestIntegrationSaveCartCSRFGate(t *testing.T) {
 // missing product_id would surface as a generic SQLSTATE 23503 FK
 // violation, which the handler treated as a catch-all error → 500.
 // With the sentinel branch in customer.go::SaveCart the same input
-// now returns 400 PRODUCT_NOT_FOUND, signalling to the frontend that
+// now returns 400 NOT_FOUND, signalling to the frontend that
 // the cart is stale and the user has to refresh.
 func TestIntegrationSaveCartRejectsUnknownProduct(t *testing.T) {
 	e := newEnv(t)
@@ -208,8 +208,8 @@ func TestIntegrationSaveCartRejectsUnknownProduct(t *testing.T) {
 		Error string `json:"error"`
 	}
 	decode(t, rr, &resp)
-	if resp.Code != "PRODUCT_NOT_FOUND" {
-		t.Errorf("response code = %q, want PRODUCT_NOT_FOUND (full: %s)", resp.Code, rr.Body.String())
+	if resp.Code != "NOT_FOUND" {
+		t.Errorf("response code = %q, want NOT_FOUND (full: %s)", resp.Code, rr.Body.String())
 	}
 
 	// A second PUT with a MIX of valid + invalid product ids should
@@ -246,7 +246,7 @@ func TestIntegrationSaveCartRejectsUnknownProduct(t *testing.T) {
 // TestIntegrationCreateOrderRejectsUnknownProduct is the CreateOrder
 // counterpart: even with a clean cart at save time, a product can
 // vanish between save and checkout (admin deletes, migration, etc).
-// The order must come back 400 PRODUCT_NOT_FOUND, not 500 ISE.
+// The order must come back 400 NOT_FOUND, not 500 ISE.
 func TestIntegrationCreateOrderRejectsUnknownProduct(t *testing.T) {
 	e := newEnv(t)
 	sess, _ := e.customerSession(t, "stale-order@ex.com")
@@ -275,8 +275,8 @@ func TestIntegrationCreateOrderRejectsUnknownProduct(t *testing.T) {
 		Error string `json:"error"`
 	}
 	decode(t, rr, &resp)
-	if resp.Code != "PRODUCT_NOT_FOUND" {
-		t.Errorf("response code = %q, want PRODUCT_NOT_FOUND (full: %s)", resp.Code, rr.Body.String())
+	if resp.Code != "NOT_FOUND" {
+		t.Errorf("response code = %q, want NOT_FOUND (full: %s)", resp.Code, rr.Body.String())
 	}
 }
 
