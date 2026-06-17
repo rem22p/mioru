@@ -230,3 +230,67 @@ func TestNotifierHealthCheckReturnsUsername(t *testing.T) {
 		t.Errorf("username = %q, want %q", got, want)
 	}
 }
+
+// TestIsMarkdownV2Safe covers the O(n) validator that the
+// notifier runs over the rendered message before posting. It
+// must return false for any *unescaped* MarkdownV2 reserved
+// character (`.`, `(`, `)`, `!`, etc.) and true for the
+// escaped forms + the `*` / `_` characters Telegram
+// accepts as bold/italic markers. The regression that
+// motivated this helper was an unescaped "." in a price
+// ("0.00") that cost a 400 from Telegram and a silent
+// dropped manager notification.
+func TestIsMarkdownV2Safe(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want bool
+	}{
+		{"plain", "hello world", true},
+		{"escaped dot", `0\.00 лей`, true},
+		{"escaped paren", `\(размер XL\)`, true},
+		{"unescaped dot", "0.00 лей", false},
+		{"unescaped paren", "(размер XL)", false},
+		{"unescaped bang", "привет!", false},
+		{"unescaped hash", "#tag", false},
+		{"bold marker", "*жирный*", true},
+		{"italic marker", "_курсив_", true},
+		{"mixed safe and escaped", "*Итого:* 0\\.00 лей", true},
+		{"mixed with unescaped", "*Итого:* 0.00 лей", false},
+		{"empty", "", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isMarkdownV2Safe(tc.in); got != tc.want {
+				t.Errorf("isMarkdownV2Safe(%q) = %v, want %v", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestSanitizeForMarkdownV2FallsBackToPlainText exercises the
+// full fallback path: an unescaped "." in the input must
+// cause sanitizeForMarkdownV2 to log a warning and return
+// the input with every backslash stripped (Telegram's
+// "plain text" mode treats backslashes as literal text, so
+// stripping them is what we want). The warning is captured
+// via the same captureLogger helper used by the other
+// failure-mode tests.
+func TestSanitizeForMarkdownV2FallsBackToPlainText(t *testing.T) {
+	n := NewNotifier("telegram-test-token-1234567890", []string{"1"}, "", t.TempDir())
+	in := `*Итого:* 0.00 лей \(escape me\)`
+	out := captureLogger(t, func() {
+		got := n.sanitizeForMarkdownV2(in)
+		// Every MarkdownV2 special (`*`, `.`, `(`, `)`)
+		// must end up bare in the plain-text output. The
+		// original backslashes around the trailing "escape
+		// me" are gone, but the parentheses are now literal
+		// characters that Telegram will render as plain text.
+		if got != `*Итого:* 0.00 лей (escape me)` {
+			t.Errorf("plain-text fallback = %q, want %q", got, `*Итого:* 0.00 лей (escape me)`)
+		}
+	})
+	if !strings.Contains(out, "falling back to plain text") {
+		t.Errorf("expected warning log about plain-text fallback, got:\n%s", out)
+	}
+}

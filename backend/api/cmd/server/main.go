@@ -59,6 +59,8 @@ func main() {
 	adminOrderH := handler.NewAdminOrderHandler(pgStore)
 	adminCustomerH := handler.NewAdminCustomerHandler(pgStore)
 	tgNotifier := telegram.NewNotifier(cfg.TelegramBotToken, cfg.TelegramManagerChatIDs, cfg.APIBaseURL, cfg.UploadDir)
+	tgNotifier.SetRecorder(pgStore)
+	adminTelegramH := handler.NewAdminTelegramHandler(pgStore, tgNotifier)
 	customerH := handler.NewCustomerHandler(pgStore, cfg.SecretKey, cfg.TokenExpiry, secureCookies, cfg.TelegramBotToken, cfg.CookieDomain,
 		cfg.UploadDir,
 		tgNotifier)
@@ -187,6 +189,14 @@ func main() {
 	mux.Handle("PATCH /api/admin/orders/{id}/status", adminOnly(http.HandlerFunc(adminOrderH.UpdateStatus)))
 	mux.Handle("GET /api/admin/customers", adminOnly(http.HandlerFunc(adminCustomerH.List)))
 	mux.Handle("GET /api/admin/customers/{id}", adminOnly(http.HandlerFunc(adminCustomerH.Detail)))
+
+	// Telegram admin workspace: status card, history list, and
+	// the "send a test message to every manager chat" button.
+	// adminOnly (not super_admin) so a regular admin can debug
+	// their own notifier without escalation.
+	mux.Handle("GET /api/admin/telegram/diagnose", adminOnly(http.HandlerFunc(adminTelegramH.Diagnose)))
+	mux.Handle("GET /api/admin/telegram/messages", adminOnly(http.HandlerFunc(adminTelegramH.Messages)))
+	mux.Handle("POST /api/admin/telegram/test", adminOnly(adminCSRF(http.HandlerFunc(adminTelegramH.Test))))
 
 	// Admin: Upload (admin only)
 	mux.Handle("POST /api/admin/upload", adminOnly(http.HandlerFunc(productH.Upload)))

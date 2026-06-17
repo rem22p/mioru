@@ -3,6 +3,7 @@ export const WORKSPACES = [
   { id: 'orders', label: 'Заказы', icon: 'ShoppingBag', active: true },
   { id: 'users', label: 'Пользователи', icon: 'UsersRound', active: true },
   { id: 'customers', label: 'Клиенты', icon: 'UserCircle', active: true },
+  { id: 'telegram', label: 'Telegram', icon: 'Send', active: true },
   { id: 'accounting', label: 'Бухгалтерия', icon: 'Banknote', active: false },
   { id: 'analytics', label: 'Аналитика', icon: 'BarChart3', active: false },
   { id: 'chatbot', label: 'Чат-бот', icon: 'Bot', active: false },
