@@ -20,6 +20,16 @@ type Config struct {
 	DatabaseURL            string
 	UploadDir              string
 	APIBaseURL             string
+	// AdminURL is the public origin where the admin SPA is
+	// served. Telegram notification messages embed it as the
+	// host for clickable "open in admin" links (customer
+	// profile, product detail). Falls back to APIBaseURL
+	// when unset, which is correct in single-host deployments
+	// (admin SPA is reverse-proxied behind the same origin)
+	// and produces a clear log line in multi-host setups so
+	// the operator knows to set ADMIN_URL.
+	AdminURL               string
+	StoreURL               string
 	AppEnv                 string
 	TelegramBotToken       string
 	TelegramManagerChatIDs []string
@@ -78,6 +88,32 @@ func Load() Config {
 	}
 	apiBaseURL = strings.TrimRight(apiBaseURL, "/")
 
+	// AdminURL: optional override for the admin SPA origin.
+	// If unset, fall back to apiBaseURL (single-host
+	// deployments run admin and API behind the same origin
+	// so the fallback is correct) and log a hint in dev so
+	// the operator knows about the env var.
+	adminURL := os.Getenv("ADMIN_URL")
+	adminURL = strings.TrimRight(adminURL, "/")
+	if adminURL == "" {
+		adminURL = apiBaseURL
+	}
+
+	// StoreURL: optional override for the storefront SPA
+	// origin. Used to build the "open in store" link inside
+	// Telegram notifications — a manager reading a "new
+	// order" message in chat will sometimes want to jump
+	// straight to the public product page (e.g. to check
+	// stock or copy a paragraph for a reply), not to the
+	// admin edit form. Falls back to adminURL (then
+	// apiBaseURL) so a single-host deployment still
+	// produces a usable link rather than an empty href.
+	storeURL := os.Getenv("STORE_URL")
+	storeURL = strings.TrimRight(storeURL, "/")
+	if storeURL == "" {
+		storeURL = adminURL
+	}
+
 	cookieDomain := os.Getenv("COOKIE_DOMAIN")
 
 	return Config{
@@ -87,6 +123,8 @@ func Load() Config {
 		DatabaseURL:            databaseURL,
 		UploadDir:              uploadDir,
 		APIBaseURL:             apiBaseURL,
+		AdminURL:               adminURL,
+		StoreURL:               storeURL,
 		AppEnv:                 appEnv,
 		TelegramBotToken:       telegramBotToken,
 		TelegramManagerChatIDs: managerChatIDs,

@@ -131,7 +131,7 @@ func newAdminTelegramEnv(t *testing.T) *adminTelegramEnv {
 	storeStub := &stubAdminTelegramStore{rec: rec}
 	// Empty token + nil chat IDs → notifier is a no-op; we
 	// don't need real network here.
-	not := telegram.NewNotifier("", nil, "", t.TempDir())
+	not := telegram.NewNotifier("", nil, "", t.TempDir(), "", "")
 	not.SetRecorder(rec)
 	h := NewAdminTelegramHandler(storeStub, not)
 	return &adminTelegramEnv{tgH: h, rec: rec, not: not}

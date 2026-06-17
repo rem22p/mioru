@@ -32,6 +32,19 @@ type Recorder interface {
 type Notifier struct {
 	botToken   string
 	apiBaseURL string
+	// adminURL is the origin of the admin SPA, used as the host
+	// for clickable "open in admin" links inside order
+	// notifications. When empty, formatOrderMessageHTML
+	// degrades gracefully and emits no link — the message
+	// still ships, it just won't be clickable. Set this
+	// from config.AdminURL on the cmd/server side.
+	adminURL   string
+	// storeURL is the origin of the storefront SPA, used to
+	// build the per-product "view in store" link in cart
+	// orders. Falls back to adminURL (which in turn falls
+	// back to APIBaseURL) when the operator doesn't
+	// differentiate the two SPAs.
+	storeURL   string
 	uploadDir  string
 	chatIDs    []string
 	client     *http.Client
@@ -92,13 +105,15 @@ func (n *Notifier) LastHealthCheck() (username, errMsg string, ok bool) {
 // never fires. The pre-fix behaviour was a plain `return` with no log
 // at all, which is how "telegram notifier is broken in prod" got
 // reported as "notifications just don't arrive".
-func NewNotifier(botToken string, chatIDs []string, apiBaseURL, uploadDir string) *Notifier {
+func NewNotifier(botToken string, chatIDs []string, apiBaseURL, uploadDir, adminURL, storeURL string) *Notifier {
 	return &Notifier{
 		botToken:   botToken,
 		apiBaseURL: apiBaseURL,
+		adminURL:   strings.TrimRight(adminURL, "/"),
+		storeURL:   strings.TrimRight(storeURL, "/"),
 		uploadDir:  uploadDir,
 		chatIDs:    chatIDs,
-		client:     &http.Client{Timeout: 10 * time.Second},
+		client:     &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -183,22 +198,7 @@ func (n *Notifier) OrderCreated(order *model.Order, customer *model.Customer) {
 		return
 	}
 
-	text := formatOrderMessage(order, customer)
-	// Defence-in-depth: the previous incarnations of
-	// formatOrderMessage slipped unescaped MarkdownV2 reserved
-	// characters through the gap between `%.2f` formatting
-	// and `escapeMarkdown` (we now run the float through a
-	// string first), but if any *other* literal in the
-	// template ever grows a `.` / `(` / `)` / `!` we'll
-	// bounce a 400 from Telegram again. To keep that from
-	// silently killing manager notifications in the future,
-	// re-validate the rendered message before posting: if any
-	// MarkdownV2 special appears outside an escape or a
-	// known-safe bold/italic pair, fall back to plain text and
-	// still send. The manager still gets the order — they just
-	// don't get pretty formatting. The fallback is logged so
-	// the regression is visible in the server logs.
-	text = n.sanitizeForMarkdownV2(text)
+	text := n.formatOrderMessageHTML(order, customer)
 
 	for _, chatID := range n.chatIDs {
 		if err := n.sendMessage(chatID, text, order.ID); err != nil {
@@ -240,7 +240,7 @@ func (n *Notifier) sendMessage(chatID, text string, orderID int64) error {
 	body := map[string]string{
 		"chat_id":    chatID,
 		"text":       text,
-		"parse_mode": "MarkdownV2",
+		"parse_mode": "HTML",
 	}
 	b, _ := json.Marshal(body)
 
@@ -325,199 +325,183 @@ func redactToken(s, token string) string {
 }
 
 // escapeMarkdown escapes Telegram MarkdownV2 special characters.
-func escapeMarkdown(s string) string {
-	replacer := strings.NewReplacer(
-		"_", `\_`,
-		"*", `\*`,
-		"[", `\[`,
-		"]", `\]`,
-		"(", `\(`,
-		")", `\)`,
-		"~", `\~`,
-		"`", "\\`",
-		">", `\>`,
-		"#", `\#`,
-		"+", `\+`,
-		"-", `\-`,
-		"=", `\=`,
-		"|", `\|`,
-		"{", `\{`,
-		"}", `\}`,
-		".", `\.`,
-		"!", `\!`,
+// escapeHTML escapes the four HTML-special characters
+// (&, <, >, ") that Telegram's HTML parse mode treats as
+// markup delimiters. Every other character (including
+// `.`, `(`, `)`, `*`, `_`, `~`, `=`, `+` etc.) is left
+// as-is — Telegram's HTML parser doesn't reserve them.
+// One pass through strings.NewReplacer keeps it O(n) and
+// allocation-light.
+func escapeHTML(s string) string {
+	r := strings.NewReplacer(
+		"&", "&amp;",
+		"<", "&lt;",
+		">", "&gt;",
+		`"`, "&quot;",
 	)
-	return replacer.Replace(s)
+	return r.Replace(s)
 }
 
-// sanitizeForMarkdownV2 is the last line of defence before
-// we hand a string to Telegram. It walks the message looking
-// for MarkdownV2 reserved characters that *aren't* already
-// escaped and *aren't* part of a recognised bold / italic
-// pair, and if it finds any it strips every backslash and
-// re-sends the message as plain text. The cost of a false
-// positive (a few bold/italic markers disappear for one
-// message) is much smaller than the cost of a 400 that
-// silently kills a manager notification, so we err on the
-// side of "send something, even if it isn't pretty".
-//
-// The plain-text path is logged so the operator can see
-// which template slipped through and fix the upstream gap.
-func (n *Notifier) sanitizeForMarkdownV2(s string) string {
-	if isMarkdownV2Safe(s) {
-		return s
-	}
-	slog.Warn("telegram notify: message contained unescaped MarkdownV2 specials — falling back to plain text")
-	// Strip every backslash we put in for escaping, plus
-	// every bare unescaped special. Result is identical
-	// formatting but Telegram treats it as plain text.
-	var b strings.Builder
-	b.Grow(len(s))
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c == '\\' && i+1 < len(s) {
-			b.WriteByte(s[i+1])
-			i++
-			continue
-		}
-		b.WriteByte(c)
-	}
-	return b.String()
-}
-
-// isMarkdownV2Safe walks s and returns true if every
-// MarkdownV2 special character is either preceded by a
-// backslash or is one of the `*` / `_` characters that
-// Telegram's parser will accept as bold / italic markers.
-// Cheap O(n) scan; no regex.
-func isMarkdownV2Safe(s string) bool {
-	specials := "[]()~`>#+-=|{}.!"
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c == '\\' {
-			// Skip the next byte — the pair `\<special>`
-			// is an intentional escape.
-			i++
-			continue
-		}
-		// `*` and `_` outside an escape can be valid
-		// bold/italic markers; we can't prove it from
-		// scanning the string alone without a real parser,
-		// so we trust the template. Telegram will tell us
-		// if the markers are unbalanced.
-		if c == '*' || c == '_' {
-			continue
-		}
-		if strings.IndexByte(specials, c) >= 0 {
-			return false
-		}
-	}
-	return true
-}
-
-func formatOrderMessage(o *model.Order, c *model.Customer) string {
+// formatOrderMessageHTML renders the notification body
+// in Telegram's HTML parse mode. We switched to HTML from
+// MarkdownV2 because `[text](url)` in MarkdownV2 silently
+// drops the link as soon as the URL contains a `.` — which
+// every real admin URL does — and `\.` escaping inside the
+// URL breaks the parser outright with "Can't find end of a
+// URL". HTML's `<a href="...">click</a>` is the only mode
+// that handles arbitrary URLs reliably. The trade-off is
+// that every dynamic field needs to be run through
+// escapeHTML so a customer typing `<script>` in the comment
+// can't inject markup into the message; the link targets
+// themselves are operator config + a numeric id, so they
+// don't need the same escape layer but we apply it
+// anyway as defence-in-depth.
+func (n *Notifier) formatOrderMessageHTML(o *model.Order, c *model.Customer) string {
 	items := ""
 	total := float64(o.TotalMinor) / 100
 	for _, item := range o.Items {
 		price := float64(item.PriceMinor) / 100
-		// Format the price *first* and only then run it through
-		// MarkdownV2 escape. The previous code used `%.2f лей`
-		// inline, which produced "0.00" without escaping the
-		// decimal separator — Telegram then rejected the
-		// message with "Character '.' is reserved and must be
-		// escaped with the preceding '\'". We round-trip the
-		// number through a string so the escape covers the
-		// "." that %.2f produced. (The product name and size
-		// label are user input, so they go through the regular
-		// escape path; the price is a server-controlled float.)
-		priceStr := escapeMarkdown(fmt.Sprintf("%.2f", price))
-		items += fmt.Sprintf("  • %dx \\(размер %s\\) — %s лей\n",
-			item.Quantity, escapeMarkdown(item.SizeLabel), priceStr)
+		sizeStr := escapeHTML(item.SizeLabel)
+		var line string
+		if item.ProductID > 0 || item.ProductSlug != "" {
+			linkText := item.ProductName
+			if linkText == "" {
+				linkText = fmt.Sprintf("Товар #%d", item.ProductID)
+			}
+			link := n.makeStoreProductLinkHTML(item, linkText)
+			line = fmt.Sprintf("  • %dx %s (размер %s) — %.2f лей\n",
+				item.Quantity, link, sizeStr, price)
+		} else {
+			line = fmt.Sprintf("  • %dx (размер %s) — %.2f лей\n",
+				item.Quantity, sizeStr, price)
+		}
+		items += line
 	}
-	totalStr := escapeMarkdown(fmt.Sprintf("%.2f", total))
+
+	// Customer line: clickable "First Last" that opens the
+	// admin profile. Falls back to plain text when adminURL
+	// is empty or the customer id is missing.
+	customerLine := escapeHTML(c.FirstName) + " " + escapeHTML(c.LastName)
+	if c.ID > 0 {
+		if link := n.makeAdminCustomerLinkHTML(c.ID, c.FirstName+" "+c.LastName); link != "" {
+			customerLine = link
+		}
+	}
 
 	return fmt.Sprintf(
-		"🛍 *Новый заказ \\#%d*\n\n"+
-			"*Тип:* %s\n"+
-			"*Клиент:* %s %s\n"+
-			"*Email:* %s\n"+
-			"*Телефон:* %s\n\n"+
-			"*Город:* %s\n"+
-			"*Доставка:* %s\n"+
-			"*Оплата:* %s\n"+
+		"🛍 <b>Новый заказ #%d</b>\n\n"+
+			"<b>Тип:</b> %s\n"+
+			"<b>Клиент:</b> %s\n"+
+			"<b>Email:</b> %s\n"+
+			"<b>Телефон:</b> %s\n\n"+
+			"<b>Город:</b> %s\n"+
+			"<b>Доставка:</b> %s\n"+
+			"<b>Оплата:</b> %s\n"+
 			"%s%s%s\n"+
-			"*Товары:*\n%s"+
-			"*Итого: %s лей*\n\n"+
-			"_%s_",
+			"<b>Товары:</b>\n%s"+
+			"<b>Итого: %.2f лей</b>\n\n"+
+			"<i>%s</i>",
 		o.ID,
-		escapeMarkdown(o.Type),
-		escapeMarkdown(c.FirstName), escapeMarkdown(c.LastName),
-		escapeMarkdown(c.Email),
-		// Use the order's phone, not the customer's profile phone.
-		// The order phone is what the customer typed at this checkout
-		// and is always present (>= migration 012). The customer
-		// profile phone is best-effort synced after the order and may
-		// be empty for guest/anonymous checkouts, in which case the
-		// Telegram message would otherwise have a blank phone line
-		// and managers couldn't reach the customer.
-		escapeMarkdown(o.Phone),
-		escapeMarkdown(o.City),
-		escapeMarkdown(o.DeliveryMethod),
-		escapeMarkdown(o.PaymentMethod),
-		addressLine(o),
-		commentLine(o),
-		individualFields(o),
+			escapeHTML(o.Type),
+			customerLine,
+			escapeHTML(c.Email),
+			escapeHTML(o.Phone),
+		escapeHTML(o.City),
+		escapeHTML(o.DeliveryMethod),
+		escapeHTML(o.PaymentMethod),
+		addressLineHTML(o),
+		commentLineHTML(o),
+		individualFieldsHTML(o),
 		items,
-		totalStr,
-		// The created_at is a server-controlled timestamp,
-		// but the date format we use ("02.01.2006 15:04")
-		// contains two "." separators, both of which Telegram
-		// treats as reserved MarkdownV2 characters. Run the
-		// formatted timestamp through the same escape we apply
-		// to user input — it's paranoid-cheap and removes a
-		// whole class of "fixed string slipped through
-		// unescaped" bugs (the previous fix missed this line
-		// and Telegram correctly rejected the message).
-		escapeMarkdown(o.CreatedAt.Format("02.01.2006 15:04")),
+		total,
+		escapeHTML(o.CreatedAt.Format("02.01.2006 15:04")),
 	)
 }
 
-func addressLine(o *model.Order) string {
+// makeStoreProductLinkHTML builds the per-product "open in
+// store" link used inside cart-order notifications. Unlike
+// the customer link, the product link points at the
+// *storefront* (the public product page) rather than the
+// admin edit form — a manager reading a "new order" in
+// chat will more often want to check the public listing
+// (price, stock, photos, description) than to dive into
+// the admin form. We use ProductSlug when the order
+// carries it (the storefront router wants slugs, not ids,
+// for SEO) and fall back to id so legacy orders still
+// produce a working link.
+func (n *Notifier) makeStoreProductLinkHTML(item model.OrderItem, text string) string {
+	if n.storeURL == "" || (item.ProductID <= 0 && item.ProductSlug == "") {
+		return ""
+	}
+	// The store router exposes products at /product/{slug}
+	// (singular, not /products/...) — the trailing "s" was
+	// a guess on our part that turned out to be wrong when
+	// we started pointing the link at the public store
+	// instead of the admin edit form. We hardcode the
+	// singular form here because the storefront and the
+	// admin use different URL shapes (`/products/{id}` in
+	// admin, `/product/{slug}` in store) and we have to
+	// pick one. The slug is preferred for SEO and is what
+	// the React Router link uses everywhere in
+	// apps/store/src. Fall back to the numeric id so a
+	// legacy order without a slug still ships a working
+	// link.
+	var path string
+	if item.ProductSlug != "" {
+		path = "/product/" + item.ProductSlug
+	} else {
+		path = fmt.Sprintf("/product/%d", item.ProductID)
+	}
+	url := n.storeURL + path
+	return fmt.Sprintf(`<a href="%s">%s</a>`, escapeHTML(url), escapeHTML(text))
+}
+
+// makeAdminCustomerLinkHTML mirrors makeAdminProductLinkHTML
+// for the /customers/{id} route.
+func (n *Notifier) makeAdminCustomerLinkHTML(customerID int64, text string) string {
+	if n.adminURL == "" || customerID <= 0 {
+		return ""
+	}
+	url := fmt.Sprintf("%s/customers/%d", n.adminURL, customerID)
+	return fmt.Sprintf(`<a href="%s">%s</a>`, escapeHTML(url), escapeHTML(text))
+}
+
+// addressLineHTML, commentLineHTML, individualFieldsHTML
+// are the HTML-mode rewrites of the previous MarkdownV2
+// helpers. They use <b>...</b> for headings and pass
+// dynamic fields through escapeHTML.
+func addressLineHTML(o *model.Order) string {
 	if o.DeliveryMethod == "address" && (o.Street != "" || o.House != "") {
-		return fmt.Sprintf("*Адрес:* %s, %s", escapeMarkdown(o.Street), escapeMarkdown(o.House)) + aptSuffix(o.Apartment) + "\n"
+		return fmt.Sprintf("<b>Адрес:</b> %s, %s", escapeHTML(o.Street), escapeHTML(o.House)) + aptSuffixHTML(o.Apartment) + "\n"
 	}
 	return ""
 }
 
-func aptSuffix(a string) string {
+func aptSuffixHTML(a string) string {
 	if a != "" {
-		// The literal "кв." in the prefix contains an
-		// unescaped "." which is a MarkdownV2 reserved
-		// character. We escape it inline rather than
-		// running the whole prefix through escapeMarkdown
-		// because the rest of the string contains no other
-		// specials.
-		return ", кв\\. " + escapeMarkdown(a)
+		// Periods are literal in HTML — no escape needed.
+		return ", кв. " + escapeHTML(a)
 	}
 	return ""
 }
 
-func commentLine(o *model.Order) string {
+func commentLineHTML(o *model.Order) string {
 	if o.Comment != "" {
-		return fmt.Sprintf("*Комментарий:* %s\n", escapeMarkdown(o.Comment))
+		return fmt.Sprintf("<b>Комментарий:</b> %s\n", escapeHTML(o.Comment))
 	}
 	return ""
 }
 
-func individualFields(o *model.Order) string {
+func individualFieldsHTML(o *model.Order) string {
 	if o.Type != "individual" {
 		return ""
 	}
 	s := ""
 	if o.Height != nil {
-		s += fmt.Sprintf("*Рост:* %.0f см\n", *o.Height)
+		s += fmt.Sprintf("<b>Рост:</b> %.0f см\n", *o.Height)
 	}
 	if o.Weight != nil {
-		s += fmt.Sprintf("*Вес:* %.0f кг\n", *o.Weight)
+		s += fmt.Sprintf("<b>Вес:</b> %.0f кг\n", *o.Weight)
 	}
 	return s
 }

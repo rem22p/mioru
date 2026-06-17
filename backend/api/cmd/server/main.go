@@ -58,7 +58,7 @@ func main() {
 	productH := handler.NewProductHandler(pgStore, cfg.UploadDir)
 	adminOrderH := handler.NewAdminOrderHandler(pgStore)
 	adminCustomerH := handler.NewAdminCustomerHandler(pgStore)
-	tgNotifier := telegram.NewNotifier(cfg.TelegramBotToken, cfg.TelegramManagerChatIDs, cfg.APIBaseURL, cfg.UploadDir)
+	tgNotifier := telegram.NewNotifier(cfg.TelegramBotToken, cfg.TelegramManagerChatIDs, cfg.APIBaseURL, cfg.UploadDir, cfg.AdminURL, cfg.StoreURL)
 	tgNotifier.SetRecorder(pgStore)
 	adminTelegramH := handler.NewAdminTelegramHandler(pgStore, tgNotifier)
 	customerH := handler.NewCustomerHandler(pgStore, cfg.SecretKey, cfg.TokenExpiry, secureCookies, cfg.TelegramBotToken, cfg.CookieDomain,

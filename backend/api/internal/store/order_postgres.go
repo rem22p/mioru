@@ -242,14 +242,35 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 	o.CustomerID = customerID
 	o.Status = "pending"
 
-	// Insert line items
+	// Insert line items. We also denormalise product_name
+	// and product_slug from the products table into
+	// order_items (see migration 014) so the Telegram
+	// "new order" notification can render a clickable
+	// "<a href="...">Product Name</a>" link even if the
+	// product gets renamed or deleted later. We do the
+	// product lookup here — *inside* the transaction — so
+	// a product that gets deleted between the client's
+	// "Add to cart" and the order POST still produces a
+	// meaningful line item (the FK constraint on
+	// order_items.product_id would otherwise fail the
+	// transaction).
 	for i := range items {
 		items[i].OrderID = o.ID
+		var pname, pslug string
+		err = tx.QueryRow(ctx,
+			`SELECT name, slug FROM products WHERE id = $1`,
+			items[i].ProductID,
+		).Scan(&pname, &pslug)
+		if err != nil {
+			return nil, fmt.Errorf("lookup product for order item: %w", err)
+		}
+		items[i].ProductName = pname
+		items[i].ProductSlug = pslug
 		err = tx.QueryRow(ctx, `
-			INSERT INTO order_items (order_id, product_id, size_label, quantity, price_minor)
-			VALUES ($1, $2, $3, $4, $5)
+			INSERT INTO order_items (order_id, product_id, product_name, product_slug, size_label, quantity, price_minor)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			RETURNING id`,
-			o.ID, items[i].ProductID, items[i].SizeLabel, items[i].Quantity, items[i].PriceMinor,
+			o.ID, items[i].ProductID, pname, pslug, items[i].SizeLabel, items[i].Quantity, items[i].PriceMinor,
 		).Scan(&items[i].ID)
 		if err != nil {
 			return nil, fmt.Errorf("insert order item: %w", err)
