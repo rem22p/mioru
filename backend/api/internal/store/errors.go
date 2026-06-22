@@ -5,7 +5,7 @@
 // specific status code lives here.
 //
 // Any error that should be returned to the HTTP client with a specific
-// status code (e.g. 400 PRODUCT_NOT_FOUND, 409 INSUFFICIENT_STOCK) MUST
+// status code (e.g. 400 NOT_FOUND, 409 INSUFFICIENT_STOCK) MUST
 // be a sentinel. Generic `fmt.Errorf("...")` errors are always treated
 // as 500 ISE in the handler's catch-all, per the project logging
 // standard (CLAUDE.md: "ERROR means operation failed").
@@ -39,7 +39,9 @@ var ErrIdempotencyRace = errors.New("idempotency race")
 //   - CreateOrder: when one or more line items reference a missing
 //     product.
 //
-// The handler maps this to 400 PRODUCT_NOT_FOUND so the client knows
+// The handler maps this to 400 NOT_FOUND so the client knows
 // the problem is a stale cart and the user has to refresh — not a
-// transient server failure.
+// transient server failure. NOT_FOUND is the reserved code in
+// CLAUDE.md:172; PRODUCT_NOT_FOUND would be an ad-hoc code that
+// the SPA can't safely branch on.
 var ErrProductNotFound = errors.New("product not found")

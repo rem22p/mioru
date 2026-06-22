@@ -48,8 +48,10 @@ func (s *PostgresStore) GetCustomerCart(ctx context.Context, customerID int64) (
 // single SELECT before the batch INSERT runs. The FK constraint would
 // catch missing products at INSERT time, but only with a generic
 // SQLSTATE 23503 error that the handler would treat as a 500 ISE —
-// here we turn it into a 400 PRODUCT_NOT_FOUND with a clear message
+// here we turn it into a 400 NOT_FOUND with a clear message
 // so the client knows the cart is stale and the user has to refresh.
+// NOT_FOUND is the reserved code from CLAUDE.md:172 — the handler
+// returns it via the generic jsonErrorCode for ErrProductNotFound.
 // Defence-in-depth: even with this pre-check, the FK still protects
 // against a race where a product is deleted between the SELECT and
 // the INSERT (rare; the handler will return 500 ISE in that case,
