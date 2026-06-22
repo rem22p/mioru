@@ -66,8 +66,14 @@ func TestIntegrationCustomerListOrdersIncludesFullDetails(t *testing.T) {
 	o := resp.Orders[0]
 
 	// Every field the ProfilePage reads must be present.
+	// Reviewer finding (re-review PR #51): `phone` was missing from
+	// mustHave even though order_postgres.go:65 SELECTs `o.phone`
+	// and the OrderCard in ProfilePage renders a `tel:` chip from it.
+	// A regression in the Scan/SELECT would pass silently while the
+	// chip disappeared. Pin it.
 	mustHave := []string{
 		"id", "type", "status", "total_minor",
+		"phone",
 		"city", "delivery_method", "payment_method",
 		"street", "house", "apartment", "comment",
 		"items", "created_at",
