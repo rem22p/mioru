@@ -1084,15 +1084,21 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	// customer is just sitting with a stale profile row until their
 	// next successful edit).
 	//
-	// Reviewer finding #6 (P1): pre-fix this block did
-	// `GetCustomer` + (if different) `UpdateCustomer` — two DB
-	// round-trips on the busiest write path, both on the request
-	// context. Replaced with a single conditional UPDATE
+	// Reviewer finding #6 (P1) and re-review finding N1: the
+	// pre-fix block did `GetCustomer` + (if different)
+	// `UpdateCustomer` — two DB round-trips on the busiest write
+	// path. Replaced with a single conditional UPDATE
 	// (`UpdateCustomerPhoneIfChanged`) that no-ops when the
-	// stored phone already matches. One round-trip, idempotent,
-	// unaffected by client disconnects.
+	// stored phone already matches.
+	//
+	// The call uses `context.Background()` (not `r.Context()`)
+	// because the order is already `WriteHeader(201)`-ed by this
+	// point. A client disconnect must not cancel the profile
+	// sync — the order is committed, the profile would be left
+	// stale until the customer's next edit. The Telegram block
+	// below (~line 1104) uses the same pattern.
 	if h.store != nil {
-		if _, uerr := h.store.UpdateCustomerPhoneIfChanged(r.Context(), customerID, req.Phone); uerr != nil {
+		if _, uerr := h.store.UpdateCustomerPhoneIfChanged(context.Background(), customerID, req.Phone); uerr != nil {
 			slog.Warn("update customer phone after order failed", "customer_id", customerID, "error", uerr)
 		}
 	}

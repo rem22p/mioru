@@ -112,20 +112,20 @@ func (s *PostgresStore) UpdateCustomer(ctx context.Context, id int64, updates ma
 	return nil
 }
 
-// UpdateCustomerPassword updates the hashed password for a customer and stamps
-// password_changed_at = NOW() in the same statement, the session-revocation epoch
-// that invalidates every token issued before the change (see UpdatePassword).
 // UpdateCustomerPhoneIfChanged writes `phone` for the customer only
 // when the stored value differs. It is the single-round-trip
-// counterpart to the old "GetCustomer + (if different) UpdateCustomer"
+// counterpart to the old `GetCustomer + (if different) UpdateCustomer`
 // pattern that the CreateOrder handler used to do synchronously
 // after WriteHeader(201) on every successful checkout — two DB
-// round-trips per order on the busiest write path, with the
-// added hazard that the GetCustomer ran on the request context
-// (so a client disconnect between WriteHeader and the UPDATE
-// would leave the profile stale and the order already
-// committed). This single conditional UPDATE returns
-// (rowsAffected, nil) so the caller can log a debug line
+// round-trips per order on the busiest write path.
+//
+// Callers should pass a detached context (e.g. `context.Background()`),
+// not a request-scoped context: the order is already committed and
+// acked by the time this is called, so a client disconnect must not
+// leave the profile stale. The CreateOrder caller uses
+// `context.Background()` for exactly this reason.
+//
+// Returns (rowsAffected, nil) so the caller can log a debug line
 // without ever having to fetch the row first.
 func (s *PostgresStore) UpdateCustomerPhoneIfChanged(ctx context.Context, id int64, phone string) (int64, error) {
 	tag, err := s.pool.Exec(ctx,
