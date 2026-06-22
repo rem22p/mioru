@@ -74,6 +74,12 @@ func TestIntegrationCustomerListOrdersIncludesFullDetails(t *testing.T) {
 	mustHave := []string{
 		"id", "type", "status", "total_minor",
 		"phone",
+		// Reviewer finding (re-review PR #51) angle B: same DoA risk
+		// as `phone` — order_postgres.go returns COALESCE'd
+		// customer_first_name, ProfilePage could surface it, but the
+		// test did not pin it. customerSession seeds FirstName: "T"
+		// so the omitempty path is exercised.
+		"customer_first_name",
 		"city", "delivery_method", "payment_method",
 		"street", "house", "apartment", "comment",
 		"items", "created_at",
