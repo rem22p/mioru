@@ -24,7 +24,7 @@ import (
 )
 
 var customerEmailRe = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
-var customerPhoneRe = regexp.MustCompile(`^\+?[\d\s\-()]{7,15}$`)
+
 
 // customerStore is the subset of the store consumed by the storefront customer
 // handlers. Defined here (where it is used) to keep the seam small and let tests
@@ -154,7 +154,7 @@ func (h *CustomerHandler) Register(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "некорректный email", http.StatusBadRequest)
 		return
 	}
-	if req.Phone != "" && !customerPhoneRe.MatchString(req.Phone) {
+	if req.Phone != "" && !phoneRE.MatchString(req.Phone) {
 		jsonError(w, "некорректный номер телефона", http.StatusBadRequest)
 		return
 	}

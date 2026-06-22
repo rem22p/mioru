@@ -8,6 +8,7 @@ import CityAutocomplete from "@/components/ui/CityAutocomplete";
 import { createOrder, uploadOrderPhoto } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
 import { isDeliveryBlocked } from "@/lib/deliveryRules";
+import { isValidPhone } from "@/lib/phoneValidation";
 
 const deliveryTimeOptions = ["fast", "medium", "slow"] as const;
 
@@ -110,7 +111,7 @@ export default function CustomOrderPage() {
       errs.body = "Вес не может быть больше 200 кг";
     if (!city.trim()) errs.city = "Укажите город";
     if (!phone.trim()) errs.phone = "Введите номер телефона";
-    else if (!/^\+?\d{7,15}$/.test(phone.trim()))
+    else if (!isValidPhone(phone))
       errs.phone = "Формат: +<код страны> и 7-15 цифр";
     if (!deliveryMethod) errs.deliveryMethod = "Выберите способ доставки";
     setErrors(errs);

@@ -9,6 +9,7 @@ import { formatPrice } from "@/lib/currency";
 import { CreditCard, Check, ChevronRight, Package } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { isDeliveryBlocked as isMethodBlocked } from "@/lib/deliveryRules";
+import { isValidPhone } from "@/lib/phoneValidation";
 import { Helmet } from "@dr.pogodin/react-helmet";
 import CityAutocomplete from "@/components/ui/CityAutocomplete";
 
@@ -150,9 +151,10 @@ export default function CheckoutPage() {
       case 1:
         if (!formData.phone || !formData.city || !formData.deliveryMethod) return false;
         // Phone must look like +<digits> (7-15 digits, optional leading +).
+        // Mirror of backend `phoneRE`; see apps/store/src/lib/phoneValidation.ts.
         // The backend re-validates, but we block submit early so the user
         // doesn't bounce on the API round-trip.
-        if (!/^\+?\d{7,15}$/.test(formData.phone.trim())) return false;
+        if (!isValidPhone(formData.phone)) return false;
         if (formData.deliveryMethod === "address") {
           return formData.street !== "" && formData.house !== "";
         }
