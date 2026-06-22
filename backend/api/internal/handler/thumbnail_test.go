@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"mioru/internal/thumbnail"
 )
 
 func TestGenerateThumbnail(t *testing.T) {
@@ -42,9 +44,9 @@ func TestGenerateThumbnail(t *testing.T) {
 }
 
 func TestGenerateThumbnailRejectsTooLarge(t *testing.T) {
-	saved := maxPixels
-	maxPixels = 100 // tiny limit for testing
-	defer func() { maxPixels = saved }()
+	saved := thumbnail.MaxPixels
+	thumbnail.MaxPixels = 100 // tiny limit for testing
+	defer func() { thumbnail.MaxPixels = saved }()
 
 	dir := t.TempDir()
 	src := filepath.Join(dir, "src.png")
