@@ -843,8 +843,11 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	// server-side safety net.
 	if req.DeliveryMethod == "moldovaPost" {
 		// PNR_CITIES mirror from apps/store/src/lib/deliveryRules.ts.
-		// Kept inline because Go and TS each have their own canonical
-		// list — they get reviewed together whenever a city is added.
+		// Drift between the two lists is caught in CI by
+		// TestPNRCitiesGoAndTSAline in pnr_cities_parity_test.go —
+		// adding a city to one without the other fails the build, so
+		// the human "review them together" contract is no longer
+		// load-bearing.
 		pnrCities := map[string]bool{
 			"тирасполь": true, "бендеры": true, "дубоссары": true, "рыбница": true,
 			"григориополь": true, "днестровск": true, "каменка": true, "слободзея": true,
