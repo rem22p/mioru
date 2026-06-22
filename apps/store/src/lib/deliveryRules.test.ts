@@ -49,6 +49,20 @@ describe("isDeliveryBlocked", () => {
     it("allows bus in Dubossary", () => {
       expect(isDeliveryBlocked("bus", "Дубоссары")).toBe(false);
     });
+    it("normalises case, ё→е and trim for Dubossary paste / IME", () => {
+      // The PMR_CITIES set is canonically lowercase ("дубоссары").
+      // Real-world input arrives as Дубоссары (capitalised, ё),
+      // ДУБОССАРЫ (caps), or with stray spaces from a paste/IME
+      // — every shape should resolve to the same PMR match. The
+      // unrelated spelling "Дубосары" (one "с") is a different
+      // town name and intentionally does NOT match — this test
+      // pins the success cases only.
+      expect(isDeliveryBlocked("bus", "Дубоссары")).toBe(false);
+      expect(isDeliveryBlocked("moldovaPost", "Дубоссары")).toBe(true);
+      expect(isDeliveryBlocked("bus", "дубоссары")).toBe(false);
+      expect(isDeliveryBlocked("bus", "ДУБОССАРЫ")).toBe(false);
+      expect(isDeliveryBlocked("bus", "  Дубоссары  ")).toBe(false);
+    });
     it("allows express in Kamenka (PMR, not TB)", () => {
       expect(isDeliveryBlocked("express", "Каменка")).toBe(false);
     });

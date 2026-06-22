@@ -15,19 +15,29 @@
 // physical delivery / pickup is feasible here, but Moldova Post
 // doesn't operate because Transnistria has its own postal service
 // (ГУП «Почта Приднестровья»). Bus routes also run between PMR
-// cities.
+// cities. Spellings are stored in their ё-stripped form; the
+// canonical spelling (with ё) is preserved above as a comment for
+// editors — runtime comparison goes through `normaliseCity` below.
 const PNR_CITIES = new Set([
   "тирасполь", "бендеры", "дубоссары", "рыбница", "григориополь",
   "днестровск", "каменка", "слободзея", "парканы", "ближний хутор",
   "красное", "новотираспольский", "терновка", "маяк", "суклея",
-]);
+].map((s) => s.replace(/ё/g, "е")));
 
 // Subset of PNR_CITIES where the seller personally hands the
 // order over to the customer (or the courier drops it at an
 // address). The other PMR cities are still served by bus, but
 // require the customer to meet at a fixed stop rather than at
 // their door.
-const TIRASPOL_BENDERY = new Set(["тирасполь", "бендеры"]);
+const TIRASPOL_BENDERY = new Set(["тирасполь", "бендеры"].map((s) => s.replace(/ё/g, "е")));
+
+// normaliseCity trims whitespace, lower-cases, and strips ё→е so
+// that paste / IME / autofill variants of any Cyrillic city match
+// the canonical lookup sets above. Same-shape helper lives on the
+// backend in handler/customer.go::CreateOrder — keep them in sync.
+function normaliseCity(raw: string): string {
+  return raw.trim().toLowerCase().replace(/ё/g, "е");
+}
 
 export const DELIVERY_METHODS = [
   "personal",
@@ -46,7 +56,7 @@ export type DeliveryKey = (typeof DELIVERY_METHODS)[number];
 // return a proper 400.
 export function isDeliveryBlocked(method: string, city: string): boolean {
   if (!city) return true; // nothing selectable until city is picked
-  const lower = city.toLowerCase();
+  const lower = normaliseCity(city);
   const isPnr = PNR_CITIES.has(lower);
   const isTb = TIRASPOL_BENDERY.has(lower);
   const isChisinau = lower === "кишинев";
