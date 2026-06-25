@@ -64,6 +64,13 @@ export default function CheckoutPage() {
       await createOrder(
         {
           type: "cart",
+          // phone + city are trimmed here because the client-side
+          // gate (isValidPhone / normaliseCity) trims before
+          // validation, but the backend phoneRE does NOT trim
+          // (^\+?\d{7,15}$). Raw "  +373...  " from a paste/IME
+          // passes the gate but would 400 on the server — see
+          // PR #51 round-3 review (mmx003) for the full discussion.
+          // CustomOrderPage.tsx:140 applies the same trim for parity.
           city: formData.city.trim(),
           phone: formData.phone.trim(),
           delivery_method: formData.deliveryMethod,
