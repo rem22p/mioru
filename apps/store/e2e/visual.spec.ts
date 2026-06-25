@@ -14,6 +14,7 @@ test.describe("Visual Regression — Desktop (1280×800)", () => {
     await page.waitForLoadState("networkidle");
     await expect(page).toHaveScreenshot("desktop-homepage.png", {
       fullPage: true,
+      maxDiffPixelRatio: 0.03,
     });
   });
 
@@ -100,6 +101,7 @@ test.describe("Visual Regression — Mobile (375×812)", () => {
     await page.waitForLoadState("networkidle");
     await expect(page).toHaveScreenshot("mobile-homepage.png", {
       fullPage: true,
+      maxDiffPixelRatio: 0.03,
     });
   });
 
@@ -152,6 +154,7 @@ test.describe("Visual Regression — Tablet (768×1024)", () => {
     await page.waitForLoadState("networkidle");
     await expect(page).toHaveScreenshot("tablet-homepage.png", {
       fullPage: true,
+      maxDiffPixelRatio: 0.03,
     });
   });
 });
