@@ -206,8 +206,7 @@ func findRepoRoot(t *testing.T) string {
 	}
 	dir := wd
 	for {
-		if _, beErr := os.Stat(filepath.Join(dir, "backend"));
-			beErr == nil {
+		if _, beErr := os.Stat(filepath.Join(dir, "backend")); beErr == nil {
 			if _, apErr := os.Stat(filepath.Join(dir, "apps")); apErr == nil {
 				return dir
 			}

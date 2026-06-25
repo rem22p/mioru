@@ -25,7 +25,6 @@ import (
 
 var customerEmailRe = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 
-
 // customerStore is the subset of the store consumed by the storefront customer
 // handlers. Defined here (where it is used) to keep the seam small and let tests
 // supply a fake; *store.PostgresStore satisfies it.

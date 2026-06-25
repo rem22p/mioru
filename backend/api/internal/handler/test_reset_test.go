@@ -21,9 +21,9 @@ import (
 // the reset handler in isolation. Records the last call so we can assert
 // it round-trips.
 type fakeAdminStore struct {
-	lastUser    model.User
-	lastTime    time.Time
-	err         error
+	lastUser model.User
+	lastTime time.Time
+	err      error
 }
 
 func (f *fakeAdminStore) ResetAdminForTest(_ context.Context, u model.User, t time.Time) error {

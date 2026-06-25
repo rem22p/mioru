@@ -138,7 +138,7 @@ export default function CustomOrderPage() {
         {
           type: "individual",
           phone: phone.trim(),
-          city,
+          city: city.trim(),
           delivery_method: deliveryMethod,
           payment_method: "cod",
           total_minor: 0,

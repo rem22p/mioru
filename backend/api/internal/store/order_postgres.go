@@ -442,9 +442,9 @@ func (s *PostgresStore) ListAllOrders(ctx context.Context, page, perPage int, st
 // loadOrderItems fetches items for given order IDs with product names,
 // slugs, and a single representative image. We do TWO batched queries
 // instead of N+1 / correlated subqueries per row:
-//   1) order_items JOIN products (name, slug)
-//   2) product_images for the involved product IDs (one image per
-//      product, the lowest sort_order), then join in Go
+//  1. order_items JOIN products (name, slug)
+//  2. product_images for the involved product IDs (one image per
+//     product, the lowest sort_order), then join in Go
 func (s *PostgresStore) loadOrderItems(ctx context.Context, orderIDs []int64) (map[int64][]model.OrderItem, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT oi.id, oi.order_id, oi.product_id,

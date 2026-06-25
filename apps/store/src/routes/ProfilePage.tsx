@@ -1,6 +1,6 @@
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { fetchStoreCustomerOrders, type StoreOrder } from "@/lib/api";
+import { fetchStoreCustomerOrders, type StoreOrder, getImageUrl } from "@/lib/api";
 import {
   User, Settings, ChevronRight, LogOut,
   MapPin, Truck, CreditCard, ShoppingBag, Phone,
@@ -286,7 +286,7 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
                           order card showed a text-only line item. */}
                       {item.image_url && (
                         <img
-                          src={item.image_url}
+                          src={getImageUrl(item.image_url)}
                           alt=""
                           className="h-10 w-10 rounded-md object-cover shrink-0"
                           loading="lazy"
