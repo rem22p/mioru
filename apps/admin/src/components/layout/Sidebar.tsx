@@ -9,21 +9,23 @@ import {
   Package,
   ShoppingBag,
   UsersRound,
+  UserCircle,
   Banknote,
   BarChart3,
   Bot,
   Flame,
   Lightbulb,
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useAuthStore } from '@/stores/authStore';
-import { WORKSPACES } from '@/lib/constants';
-import { cn } from '@/lib/utils';
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useAuthStore } from "@/stores/authStore";
+import { WORKSPACES } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Package,
   ShoppingBag,
   UsersRound,
+  UserCircle,
   Banknote,
   BarChart3,
   Bot,
