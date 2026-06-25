@@ -333,3 +333,75 @@ export const fetchAdminCustomerDetail = (id: number) =>
   api<AdminCustomerDetail>(`/api/admin/customers/${id}`);
 
 export { api, API_URL };
+
+// ─── Telegram admin workspace ────────────────────────────────────────────
+//
+// Types and fetchers for the /telegram route. The backend
+// answers three endpoints:
+//
+//	GET  /api/admin/telegram/diagnose
+//	GET  /api/admin/telegram/messages?page=&per_page=&status=
+//	POST /api/admin/telegram/test
+//
+// `TelegramMessageRow` is the full row from the
+// `telegram_messages` log table — text is the *exact* payload
+// the bot tried to send (MarkdownV2), so the manager can
+// inspect it when Telegram returned 400 "can't parse
+// entities".
+export interface TelegramMessageRow {
+  id: number;
+  order_id?: number;
+  chat_id: string;
+  text: string;
+  parse_mode: string;
+  status: "pending" | "sent" | "failed";
+  http_status?: number;
+  error?: string;
+  telegram_message_id?: number;
+  duration_ms?: number;
+  sent_at: string;
+}
+
+export interface TelegramDiagnose {
+  bot_token_set: boolean;
+  bot_username: string;
+  manager_chat_count: number;
+  last_24h_total: number;
+  last_24h_sent: number;
+  last_24h_failed: number;
+  last_send_at?: string;
+  last_send_error?: string;
+  last_send_status: "ok" | "failed" | "never" | "unknown";
+}
+
+export interface TelegramMessagesResponse {
+  messages: TelegramMessageRow[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export interface TelegramTestResult {
+  chat_id: string;
+  ok: boolean;
+  status: "sent" | "failed";
+  http_status?: number;
+  error?: string;
+  duration_ms: number;
+}
+
+export const fetchTelegramDiagnose = () =>
+  api<TelegramDiagnose>("/api/admin/telegram/diagnose");
+
+export const fetchTelegramMessages = (
+  page = 1,
+  perPage = 20,
+  status?: string,
+) => {
+  const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+  if (status && status !== "all") params.set("status", status);
+  return api<TelegramMessagesResponse>(`/api/admin/telegram/messages?${params}`);
+};
+
+export const sendTelegramTest = () =>
+  api<{ results: TelegramTestResult[] }>("/api/admin/telegram/test", { method: "POST" });

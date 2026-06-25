@@ -9,6 +9,7 @@ import Orders from "@/workspaces/Orders";
 import Users from "@/workspaces/Users";
 import Customers from "@/workspaces/Customers";
 import CustomerDetail from "@/workspaces/CustomerDetail";
+import Telegram from "@/workspaces/Telegram";
 import Profile from "@/workspaces/Profile";
 import Settings from "@/workspaces/Settings";
 import {
@@ -64,6 +65,7 @@ export default function AdminLayout() {
           <Route path="/users" element={user?.role === "super_admin" ? <Users /> : <Navigate to="/products" replace />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/customers/:id" element={<CustomerDetail />} />
+          <Route path="/telegram" element={<Telegram />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />
           <Route

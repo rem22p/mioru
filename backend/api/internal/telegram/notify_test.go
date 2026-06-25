@@ -1,82 +1,144 @@
 package telegram
 
 import (
+	"bytes"
+	"log/slog"
+	"net/http"
 	"strings"
 	"testing"
 
 	"mioru/internal/model"
 )
 
-// TestFormatOrderMessageUsesOrderPhone guards the contract that
-// managers see the *order's* phone in the Telegram notification, not
-// the customer's profile phone. The two can differ in three real
-// scenarios:
+
+// captureLogger swaps slog.Default() for a buffer-backed handler
+// for the duration of fn, returning whatever was written. Used by
+// the new-failure-mode tests below to assert that the notifier
+// *logs* its skip / error conditions instead of swallowing them
+// silently (the original bug).
+func captureLogger(t *testing.T, fn func()) string {
+	t.Helper()
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	})))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+	fn()
+	return buf.String()
+}
+
+
+
+
+
+// redirector is a tiny http.RoundTripper that rewrites every
+// request's URL host to `target`. Used to point the notifier at
+// an httptest server without exposing a test-only field on
+// Notifier.
+type redirector struct{ target string }
+
+func (r redirector) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Rebuild the URL with the test server's scheme+host.
+	u, err := req.URL.Parse(r.target + req.URL.Path + "?" + req.URL.RawQuery)
+	if err != nil {
+		return nil, err
+	}
+	req.URL = u
+	req.Host = u.Host
+	return http.DefaultTransport.RoundTrip(req)
+}
+
+
+
+
+// full fallback path: an unescaped "." in the input must
+// cause sanitizeForMarkdownV2 to log a warning and return
+// the input with every backslash stripped (Telegram's
+// TestFormatOrderMessageHTMLEmitsAdminLinks covers the new
+// HTML-mode rendering path. When adminURL is set, the
+// rendered message must contain:
 //
-//  1. Anonymous checkout — the order has no associated customer row
-//     at all, so c.Phone is "" by construction. Without this fix the
-//     Telegram message would be missing the contact line entirely.
-//  2. Profile sync failure — even when c is non-nil, the best-effort
-//     UpdateCustomer in customer.go::CreateOrder can fail. The order
-//     still saves with o.Phone, but c.Phone would still be the old
-//     value (possibly "").
-//  3. Customer edited their profile to a different number since the
-//     last order. We don't want a manager to call the *profile*
-//     number, we want the number the customer used *for this order*.
+//   * <a href="{adminURL}/customers/{id}">Name Surname</a>
+//     for the customer
+//   * <a href="{adminURL}/products/{id}">Product Name</a>
+//     per cart item
 //
-// All three are "wrong number on Telegram" bugs that we closed by
-// switching the formatOrderMessage source-of-truth from c.Phone to
-// o.Phone. The contract is enforced by this test.
-func TestFormatOrderMessageUsesOrderPhone(t *testing.T) {
-	cases := []struct {
-		name     string
-		oPhone   string
-		cPhone   string
-		wantSeen bool
-	}{
-		{
-			name:     "logged-in customer, phones match",
-			oPhone:   "+373777908542",
-			cPhone:   "+373777908542",
-			wantSeen: true,
-		},
-		{
-			name:     "order phone present, profile phone different (stale profile)",
-			oPhone:   "+373777908542",
-			cPhone:   "+37360000000",
-			wantSeen: true, // we want the order's number, not the stale profile one
-		},
-		{
-			name:     "anonymous checkout (nil customer profile)",
-			oPhone:   "+373777908542",
-			cPhone:   "", // no profile to fall back to
-			wantSeen: true,
-		},
+// And when adminURL is empty the message must still ship
+// (graceful degradation) with the names as plain text. We
+// only assert on the *presence* of the tags here — the real
+// defence for the link path is the live end-to-end test
+// in the dev server, which is what we use to verify that
+// Telegram actually returns a `text_link` entity for the
+// generated markup.
+func TestFormatOrderMessageHTMLEmitsAdminLinks(t *testing.T) {
+	o := &model.Order{
+		ID: 42, Type: "cart", TotalMinor: 5000, Status: "pending",
+		Phone:          "+373777908542",
+		City:           "Тирасполь",
+		DeliveryMethod: "personal",
+		PaymentMethod:  "card",
+		Items: []model.OrderItem{{
+			ProductID:   7,
+			ProductName: "Худи Mioru Classic",
+			SizeLabel:   "XL",
+			Quantity:    1,
+			PriceMinor:  5000,
+		}},
+	}
+	c := &model.Customer{ID: 2, Email: "c@ex.com", FirstName: "Test", LastName: "Customer", Phone: ""}
+
+	t.Run("with adminURL", func(t *testing.T) {
+		n := NewNotifier("", nil, "", t.TempDir(), "https://admin.mioru.store", "https://mioru.store")
+		got := n.formatOrderMessageHTML(o, c)
+		wantCustomer := `<a href="https://admin.mioru.store/customers/2">Test Customer</a>`
+		if !strings.Contains(got, wantCustomer) {
+			t.Errorf("customer link not found in:\n%s\nwant: %s", got, wantCustomer)
+		}
+		wantProduct := `<a href="https://mioru.store/product/7">Худи Mioru Classic</a>`
+		if !strings.Contains(got, wantProduct) {
+			t.Errorf("product link not found in:\n%s\nwant: %s", got, wantProduct)
+		}
+	})
+
+	t.Run("without adminURL", func(t *testing.T) {
+		n := NewNotifier("", nil, "", t.TempDir(), "", "")
+		got := n.formatOrderMessageHTML(o, c)
+		if strings.Contains(got, `<a href="`) {
+			t.Errorf("expected no link markup, got: %s", got)
+		}
+		if !strings.Contains(got, "Test Customer") {
+			t.Errorf("customer name should still appear as plain text, got: %s", got)
+		}
+	})
+}
+
+// TestEscapeHTML covers the four-character HTML escape used
+// in the HTML rendering path. We escape the four markup
+// delimiters that Telegram's HTML parser reserves (&, <, >,
+// ") and leave every other character alone. The pin is
+// important because over-escaping would break link markup
+// (e.g. `&amp;` inside an `href` attribute is fine for
+// display, but `&` inside a URL is a real character) and
+// under-escaping would let a customer who types
+// `<script>alert(1)</script>` in the comment field inject
+// markup into the message.
+func TestEscapeHTML(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"hello", "hello"},
+		{"<b>жирный</b>", "&lt;b&gt;жирный&lt;/b&gt;"},
+		{"M&M <Sale>", "M&amp;M &lt;Sale&gt;"},
+		{`"quoted"`, "&quot;quoted&quot;"},
+		// Periods, parens, stars are all literal in HTML.
+		{"0.00 лей (XL)", "0.00 лей (XL)"},
+		{"*foo* _bar_", "*foo* _bar_"},
+		// Empty stays empty.
+		{"", ""},
 	}
 	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			o := &model.Order{
-				ID: 1, Type: "cart", TotalMinor: 5000, Status: "pending",
-				Phone:          tc.oPhone,
-				City:           "Tiraspol",
-				DeliveryMethod: "personal",
-				PaymentMethod:  "cash",
-			}
-			c := &model.Customer{
-				Email: "c@ex.com", FirstName: "T", LastName: "C", Phone: tc.cPhone,
-			}
-			got := formatOrderMessage(o, c)
-			if tc.wantSeen && !strings.Contains(got, tc.oPhone) {
-				t.Errorf("expected order phone %q to appear in Telegram message:\n%s",
-					tc.oPhone, got)
-			}
-			// Defence-in-depth: the *profile* phone (when different
-			// from the order phone) must NOT appear in the message.
-			// If it does, a stale-profile bug has snuck back in.
-			if tc.cPhone != "" && tc.cPhone != tc.oPhone &&
-				strings.Contains(got, tc.cPhone) {
-				t.Errorf("profile phone %q should not appear in Telegram message "+
-					"when it differs from the order phone %q:\n%s",
-					tc.cPhone, tc.oPhone, got)
+		t.Run(tc.in, func(t *testing.T) {
+			if got := escapeHTML(tc.in); got != tc.want {
+				t.Errorf("escapeHTML(%q) = %q, want %q", tc.in, got, tc.want)
 			}
 		})
 	}

@@ -242,14 +242,60 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 	o.CustomerID = customerID
 	o.Status = "pending"
 
-	// Insert line items
+	// Insert line items. We also denormalise product_name
+	// and product_slug from the products table into
+	// order_items (see migration 014) so the Telegram
+	// "new order" notification can render a clickable
+	// "<a href="...">Product Name</a>" link even if the
+	// product gets renamed or deleted later. The lookup is
+	// batched once before the loop (not N+1) and a missing
+	// product causes the transaction to roll back (the FK
+	// constraint on order_items.product_id is the second
+	// line of defence). Once the order is committed, the
+	// denormalised name/slug survive any future product
+	// change.
+	productIDs := make([]int64, 0, len(items))
+	seen := make(map[int64]bool, len(items))
+	for _, it := range items {
+		if !seen[it.ProductID] {
+			productIDs = append(productIDs, it.ProductID)
+			seen[it.ProductID] = true
+		}
+	}
+	productMeta := make(map[int64]struct{ Name, Slug string }, len(productIDs))
+	rows, err := tx.Query(ctx,
+		`SELECT id, name, slug FROM products WHERE id = ANY($1)`, productIDs)
+	if err != nil {
+		return nil, fmt.Errorf("batch lookup products: %w", err)
+	}
+	for rows.Next() {
+		var id int64
+		var name, slug string
+		if err := rows.Scan(&id, &name, &slug); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("scan product meta: %w", err)
+		}
+		productMeta[id] = struct{ Name, Slug string }{name, slug}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate product meta: %w", err)
+	}
+
 	for i := range items {
 		items[i].OrderID = o.ID
+		meta, ok := productMeta[items[i].ProductID]
+		if !ok {
+			return nil, fmt.Errorf("product %d not found during order insert", items[i].ProductID)
+		}
+		pname, pslug := meta.Name, meta.Slug
+		items[i].ProductName = pname
+		items[i].ProductSlug = pslug
 		err = tx.QueryRow(ctx, `
-			INSERT INTO order_items (order_id, product_id, size_label, quantity, price_minor)
-			VALUES ($1, $2, $3, $4, $5)
+			INSERT INTO order_items (order_id, product_id, product_name, product_slug, size_label, quantity, price_minor)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			RETURNING id`,
-			o.ID, items[i].ProductID, items[i].SizeLabel, items[i].Quantity, items[i].PriceMinor,
+			o.ID, items[i].ProductID, pname, pslug, items[i].SizeLabel, items[i].Quantity, items[i].PriceMinor,
 		).Scan(&items[i].ID)
 		if err != nil {
 			return nil, fmt.Errorf("insert order item: %w", err)

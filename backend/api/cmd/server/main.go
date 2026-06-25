@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -57,9 +58,15 @@ func main() {
 	productH := handler.NewProductHandler(pgStore, cfg.UploadDir)
 	adminOrderH := handler.NewAdminOrderHandler(pgStore)
 	adminCustomerH := handler.NewAdminCustomerHandler(pgStore)
+	tgNotifier := telegram.NewNotifier(cfg.TelegramBotToken, cfg.TelegramManagerChatIDs, cfg.APIBaseURL, cfg.UploadDir, cfg.AdminURL, cfg.StoreURL)
+	tgNotifier.SetRecorder(pgStore)
+	// Start background PII purge: delete telegram_messages rows
+	// older than 90 days, every 24h (S1 data-minimization).
+	tgNotifier.StartPurge(context.Background(), 24*time.Hour, 90, pgStore.DeleteTelegramMessagesOlderThan)
+	adminTelegramH := handler.NewAdminTelegramHandler(pgStore, tgNotifier)
 	customerH := handler.NewCustomerHandler(pgStore, cfg.SecretKey, cfg.TokenExpiry, secureCookies, cfg.TelegramBotToken, cfg.CookieDomain,
 		cfg.UploadDir,
-		telegram.NewNotifier(cfg.TelegramBotToken, cfg.TelegramManagerChatIDs, cfg.APIBaseURL, cfg.UploadDir))
+		tgNotifier)
 
 	// getRole resolves an authenticated user's role from the DB for RequireAdmin.
 	getRole := func(ctx context.Context, username string) (string, error) {
@@ -186,6 +193,14 @@ func main() {
 	mux.Handle("GET /api/admin/customers", adminOnly(http.HandlerFunc(adminCustomerH.List)))
 	mux.Handle("GET /api/admin/customers/{id}", adminOnly(http.HandlerFunc(adminCustomerH.Detail)))
 
+	// Telegram admin workspace: status card, history list, and
+	// the "send a test message to every manager chat" button.
+	// adminOnly (not super_admin) so a regular admin can debug
+	// their own notifier without escalation.
+	mux.Handle("GET /api/admin/telegram/diagnose", adminOnly(http.HandlerFunc(adminTelegramH.Diagnose)))
+	mux.Handle("GET /api/admin/telegram/messages", adminOnly(http.HandlerFunc(adminTelegramH.Messages)))
+	mux.Handle("POST /api/admin/telegram/test", adminOnly(http.HandlerFunc(adminTelegramH.Test)))
+
 	// Admin: Upload (admin only)
 	mux.Handle("POST /api/admin/upload", adminOnly(http.HandlerFunc(productH.Upload)))
 
@@ -201,6 +216,29 @@ func main() {
 
 	addr := ":" + cfg.Port
 	srv := newServer(addr, securityHeaders(mux))
+
+	// Telegram notifier startup health check. Runs once at boot
+	// so an invalid / revoked / wrong bot token shows up in the
+	// log immediately, instead of staying invisible until the
+	// first real order. The check uses a 5s timeout so a slow /
+	// hanging Telegram API can't delay the server from coming
+	// up — this is observability, not a gate. Failures are WARN,
+	// never fatal, because the rest of the API works fine
+	// without a working bot (and the warning is already enough
+	// for the manager to act on).
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		username, err := tgNotifier.HealthCheck(ctx)
+		if err != nil {
+			slog.Warn("telegram notifier health check failed at startup",
+				"error", err)
+			return
+		}
+		slog.Info("telegram notifier ready",
+			"bot_username", username,
+			"manager_chats", len(cfg.TelegramManagerChatIDs))
+	}()
 
 	// Serve in a goroutine so main can block on a shutdown signal and then drain
 	// in-flight requests instead of letting systemd kill them mid-flight.

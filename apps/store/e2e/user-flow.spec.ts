@@ -107,7 +107,6 @@ test("customer registers, adds a product to cart, and places an order", async ({
   await page.keyboard.press("Escape"); // close the autocomplete dropdown overlay
   await page.getByTestId("checkout-delivery-personal").check();
   await page.getByTestId("checkout-next").click();
-
   // ── Checkout step 2: payment (card is the default) ─────────────────────
   await page.getByTestId("checkout-next").click();
 
