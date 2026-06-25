@@ -46,7 +46,10 @@ type env struct {
 func newEnv(t *testing.T) *env {
 	t.Helper()
 	st := storetest.Fresh(t)
-	var tgNotifier *telegram.Notifier // nil — no network in tests
+	// Non-nil notifier so adminTelegramH.Diagnose can call
+	// LastHealthCheck / BotTokenSet without nil deref.
+	// Empty token + no chat IDs → no network calls.
+	tgNotifier := telegram.NewNotifier("", nil, "", t.TempDir(), "", "")
 	// separate upload dirs: each handler gets its own root
 	return &env{
 		st:             st,
