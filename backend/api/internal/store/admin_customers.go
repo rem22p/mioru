@@ -61,11 +61,11 @@ func (s *PostgresStore) ListCustomers(ctx context.Context, search string, page, 
 	const maxSearchLen = 200
 	const maxPage = 1000
 
-	if len(search) > maxSearchLen {
-		// maxSearchLen is in characters, not bytes — slicing by
-		// byte count would split a multi-byte Cyrillic rune and
-		// produce an invalid UTF-8 string, which Postgres would
-		// reject with an "invalid byte sequence" error.
+	// maxSearchLen is in characters (runes), not bytes. Both the
+	// length guard and the truncation slice use the rune count so
+	// a Cyrillic search of 101 characters (202 bytes) does not
+	// panic with "slice bounds out of range".
+	if len([]rune(search)) > maxSearchLen {
 		search = string([]rune(search)[:maxSearchLen])
 	}
 	if page < 1 {
