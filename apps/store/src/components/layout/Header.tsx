@@ -294,7 +294,7 @@ export default function Header({
                 >
                   <Link
                     to={link.href}
-                    className={`text-3xl font-bold block py-2 px-4 transition-colors ${
+                    className={`text-3xl font-bold text-center block py-2 px-4 transition-colors ${
                       isLight
                         ? "text-gray-900 hover:text-[#44944A]"
                         : "text-[var(--color-text-primary)] hover:text-[#44944A]"

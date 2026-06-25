@@ -7,6 +7,8 @@ import { Upload, Send } from "lucide-react";
 import CityAutocomplete from "@/components/ui/CityAutocomplete";
 import { createOrder, uploadOrderPhoto } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
+import { isDeliveryBlocked } from "@/lib/deliveryRules";
+import { isValidPhone } from "@/lib/phoneValidation";
 
 const deliveryTimeOptions = ["fast", "medium", "slow"] as const;
 
@@ -38,6 +40,7 @@ export default function CustomOrderPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -49,9 +52,22 @@ export default function CustomOrderPage() {
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
+  const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
   const [deliveryTime, setDeliveryTime] = useState<string[]>([]);
   const [deliveryMethod, setDeliveryMethod] = useState("");
+
+  // Reset delivery method if the user changed the city and their
+  // current selection is no longer available there. Mirrors the
+  // behaviour in CheckoutPage so the two order flows stay
+  // consistent — without this reset the user could fill out the
+  // rest of the form only to see a server 400 (or a stale local
+  // pick) on submit.
+  useEffect(() => {
+    if (deliveryMethod && isDeliveryBlocked(deliveryMethod, city)) {
+      setDeliveryMethod("");
+    }
+  }, [city, deliveryMethod]);
   const [comment, setComment] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -94,6 +110,9 @@ export default function CustomOrderPage() {
     if (weight && Number(weight) > 200)
       errs.body = "Вес не может быть больше 200 кг";
     if (!city.trim()) errs.city = "Укажите город";
+    if (!phone.trim()) errs.phone = "Введите номер телефона";
+    else if (!isValidPhone(phone))
+      errs.phone = "Формат: +<код страны> и 7-15 цифр";
     if (!deliveryMethod) errs.deliveryMethod = "Выберите способ доставки";
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -101,7 +120,7 @@ export default function CustomOrderPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setTouched({ photos: true, body: true, city: true, deliveryMethod: true });
+    setTouched({ photos: true, body: true, phone: true, city: true, deliveryMethod: true });
     if (!validate()) return;
 
     setSubmitting(true);
@@ -118,7 +137,8 @@ export default function CustomOrderPage() {
       await createOrder(
         {
           type: "individual",
-          city,
+          phone: phone.trim(),
+          city: city.trim(),
           delivery_method: deliveryMethod,
           payment_method: "cod",
           total_minor: 0,
@@ -330,6 +350,43 @@ export default function CustomOrderPage() {
               )}
             </div>
 
+            {/* Phone */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)]">
+                  {t("checkout.phone")}
+                </label>
+                {user?.phone && user.phone !== phone && (
+                  <button
+                    type="button"
+                    onClick={() => setPhone(user.phone)}
+                    className="text-xs font-semibold uppercase tracking-wider text-[#44944A] hover:text-[var(--color-text-primary)] transition-colors"
+                    data-testid="custom-order-use-my-phone"
+                  >
+                    {t("checkout.useMyPhone")}
+                  </button>
+                )}
+              </div>
+              <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  if (touched.phone && errors.phone) {
+                    setErrors((prev) => ({ ...prev, phone: "" }));
+                  }
+                }}
+                placeholder={t("checkout.phonePlaceholder")}
+                data-testid="custom-order-phone"
+                className={`${inputClass} ${touched.phone && errors.phone ? "!border-red-500" : ""}`}
+              />
+              {touched.phone && errors.phone && (
+                <p className="text-xs text-red-400 mt-1">{errors.phone}</p>
+              )}
+            </div>
+
             {/* City */}
             <div>
               <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
@@ -384,13 +441,30 @@ export default function CustomOrderPage() {
                 {t("customOrder.deliveryMethod")}
               </label>
               <div className="space-y-2">
-                {deliveryMethods.map((method) => (
+                {deliveryMethods.map((method) => {
+                  const disabled = isDeliveryBlocked(method.key, city);
+                  return (
                   <label
                     key={method.key}
-                    className={`flex items-start gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-all ${
-                      deliveryMethod === method.key
-                        ? "border-[#44944A] bg-[#44944A]/10"
-                        : "border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)]"
+                    title={
+                      disabled
+                        ? t("customOrder.delivery.disabledForCity", {
+                            method: t(
+                              `customOrder.deliveryMethods.${method.key}`,
+                            ),
+                            city: city || "—",
+                          })
+                        : undefined
+                    }
+                    aria-disabled={disabled}
+                    data-testid={`delivery-${method.key}`}
+                    className={`flex items-start gap-3 rounded-xl border px-4 py-3 transition-all ${
+                      disabled
+                        ? "opacity-50 cursor-not-allowed border-[var(--color-border-custom)]"
+                        : "cursor-pointer " +
+                          (deliveryMethod === method.key
+                            ? "border-[#44944A] bg-[#44944A]/10"
+                            : "border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)]")
                     }`}
                   >
                     <input
@@ -398,7 +472,13 @@ export default function CustomOrderPage() {
                       name="deliveryMethod"
                       value={method.key}
                       checked={deliveryMethod === method.key}
+                      disabled={disabled}
                       onChange={(e) => {
+                        // Hard guard: even if a stale radio somehow
+                        // dispatches a change (e.g. devtools
+                        // removed the disabled attribute), we don't
+                        // let the form accept a blocked combination.
+                        if (disabled) return;
                         setDeliveryMethod(e.target.value);
                         setTouched((prev) => ({
                           ...prev,
@@ -418,7 +498,8 @@ export default function CustomOrderPage() {
                       </span>
                     </div>
                   </label>
-                ))}
+                  );
+                })}
               </div>
               {touched.deliveryMethod && errors.deliveryMethod && (
                 <p className="text-xs text-red-400 mt-1">

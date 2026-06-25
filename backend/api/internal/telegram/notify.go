@@ -128,7 +128,14 @@ func formatOrderMessage(o *model.Order, c *model.Customer) string {
 		escapeMarkdown(o.Type),
 		escapeMarkdown(c.FirstName), escapeMarkdown(c.LastName),
 		escapeMarkdown(c.Email),
-		escapeMarkdown(c.Phone),
+		// Use the order's phone, not the customer's profile phone.
+		// The order phone is what the customer typed at this checkout
+		// and is always present (>= migration 012). The customer
+		// profile phone is best-effort synced after the order and may
+		// be empty for guest/anonymous checkouts, in which case the
+		// Telegram message would otherwise have a blank phone line
+		// and managers couldn't reach the customer.
+		escapeMarkdown(o.Phone),
 		escapeMarkdown(o.City),
 		escapeMarkdown(o.DeliveryMethod),
 		escapeMarkdown(o.PaymentMethod),

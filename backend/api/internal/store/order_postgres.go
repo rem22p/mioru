@@ -13,19 +13,6 @@ import (
 	"mioru/internal/model"
 )
 
-// ErrIdempotencyHashMismatch is returned when an idempotency key is reused
-// with a different request body — a probable client bug or replay attack.
-var ErrIdempotencyHashMismatch = errors.New("idempotency key reused with different request hash")
-
-// ErrIdempotencyRace is returned when a concurrent first submit with the
-// same Idempotency-Key won the INSERT on order_idempotency_pkey. The
-// handler re-fetches the winner's stored record and returns 201 with the
-// winner's body when the request hash matches (true idempotent replay),
-// or 409 IDEMPOTENCY_REPLAY only when the hash differs (a real conflict,
-// not a benign double-click). Money and stock are safe regardless — the
-// unique constraint guarantees exactly one order per key.
-var ErrIdempotencyRace = errors.New("idempotency race: winner already inserted")
-
 // IdempotencyRecord is the row stored in order_idempotency. The handler
 // fetches it on the race-loser path to return the winner's response
 // when the request hash matches. Status is the HTTP status (typically
@@ -38,12 +25,6 @@ type IdempotencyRecord struct {
 	Status       int
 	ResponseBody string
 }
-
-// ErrInsufficientStock is returned when an order requests more units of a
-// product than the available stock. Wrapped with %w so the handler can
-// branch via errors.Is instead of substring-matching the error text —
-// per CLAUDE.md, finance-critical paths use sentinels.
-var ErrInsufficientStock = errors.New("insufficient stock")
 
 // validOrderStatuses is the set of allowed order status values.
 var validOrderStatuses = map[string]bool{
@@ -81,6 +62,7 @@ func (s *PostgresStore) ListCustomerOrders(ctx context.Context, customerID int64
 	offset := (page - 1) * perPage
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, customer_id, type, total_minor, status,
+		       phone,
 		       city, delivery_method, payment_method,
 		       street, house, apartment, comment,
 		       height, weight, delivery_time, photos,
@@ -99,6 +81,7 @@ func (s *PostgresStore) ListCustomerOrders(ctx context.Context, customerID int64
 	for rows.Next() {
 		var o model.Order
 		if err := rows.Scan(&o.ID, &o.CustomerID, &o.Type, &o.TotalMinor, &o.Status,
+			&o.Phone,
 			&o.City, &o.DeliveryMethod, &o.PaymentMethod,
 			&o.Street, &o.House, &o.Apartment, &o.Comment,
 			&o.Height, &o.Weight, &o.DeliveryTime, &o.Photos,
@@ -209,7 +192,7 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 	for i := range items {
 		dbPrice, ok := prices[items[i].ProductID]
 		if !ok {
-			return nil, fmt.Errorf("product %d not found", items[i].ProductID)
+			return nil, fmt.Errorf("product %d: %w", items[i].ProductID, ErrProductNotFound)
 		}
 		items[i].PriceMinor = dbPrice
 		totalMinor += dbPrice * int64(items[i].Quantity)
@@ -237,15 +220,18 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 	// Insert order
 	err = tx.QueryRow(ctx, `
 		INSERT INTO orders (customer_id, type, total_minor, status,
+		                    phone,
 		                    city, delivery_method, payment_method,
 		                    street, house, apartment, comment,
 		                    height, weight, delivery_time, photos)
 		VALUES ($1, $2, $3, 'pending',
-		        $4, $5, $6,
-		        $7, $8, $9, $10,
-		        $11, $12, $13, $14)
+		        $4,
+		        $5, $6, $7,
+		        $8, $9, $10, $11,
+		        $12, $13, $14, $15)
 		RETURNING id, created_at`,
 		customerID, o.Type, o.TotalMinor,
+		o.Phone,
 		o.City, o.DeliveryMethod, o.PaymentMethod,
 		o.Street, o.House, o.Apartment, o.Comment,
 		o.Height, o.Weight, o.DeliveryTime, o.Photos,
@@ -397,6 +383,7 @@ func (s *PostgresStore) ListAllOrders(ctx context.Context, page, perPage int, st
 
 	query := fmt.Sprintf(`
 		SELECT o.id, o.customer_id, o.type, o.total_minor, o.status,
+		       o.phone,
 		       o.city, o.delivery_method, o.payment_method,
 		       o.street, o.house, o.apartment, o.comment,
 		       o.height, o.weight, o.delivery_time, o.photos,
@@ -420,6 +407,7 @@ func (s *PostgresStore) ListAllOrders(ctx context.Context, page, perPage int, st
 	for rows.Next() {
 		var o model.Order
 		if err := rows.Scan(&o.ID, &o.CustomerID, &o.Type, &o.TotalMinor, &o.Status,
+			&o.Phone,
 			&o.City, &o.DeliveryMethod, &o.PaymentMethod,
 			&o.Street, &o.House, &o.Apartment, &o.Comment,
 			&o.Height, &o.Weight, &o.DeliveryTime, &o.Photos,
@@ -451,10 +439,17 @@ func (s *PostgresStore) ListAllOrders(ctx context.Context, page, perPage int, st
 	return orders, total, nil
 }
 
-// loadOrderItems fetches items for given order IDs with product names.
+// loadOrderItems fetches items for given order IDs with product names,
+// slugs, and a single representative image. We do TWO batched queries
+// instead of N+1 / correlated subqueries per row:
+//  1. order_items JOIN products (name, slug)
+//  2. product_images for the involved product IDs (one image per
+//     product, the lowest sort_order), then join in Go
 func (s *PostgresStore) loadOrderItems(ctx context.Context, orderIDs []int64) (map[int64][]model.OrderItem, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT oi.id, oi.order_id, oi.product_id, COALESCE(p.name, ''), oi.size_label, oi.quantity, oi.price_minor
+		SELECT oi.id, oi.order_id, oi.product_id,
+		       COALESCE(p.name, ''), COALESCE(p.slug, ''),
+		       oi.size_label, oi.quantity, oi.price_minor
 		FROM order_items oi
 		LEFT JOIN products p ON p.id = oi.product_id
 		WHERE oi.order_id = ANY($1)
@@ -465,14 +460,59 @@ func (s *PostgresStore) loadOrderItems(ctx context.Context, orderIDs []int64) (m
 	defer rows.Close()
 
 	m := make(map[int64][]model.OrderItem)
+	productIDs := make(map[int64]struct{})
 	for rows.Next() {
 		var item model.OrderItem
-		if err := rows.Scan(&item.ID, &item.OrderID, &item.ProductID, &item.ProductName, &item.SizeLabel, &item.Quantity, &item.PriceMinor); err != nil {
+		if err := rows.Scan(&item.ID, &item.OrderID, &item.ProductID,
+			&item.ProductName, &item.ProductSlug,
+			&item.SizeLabel, &item.Quantity, &item.PriceMinor); err != nil {
 			return nil, fmt.Errorf("scan order item: %w", err)
 		}
 		m[item.OrderID] = append(m[item.OrderID], item)
+		productIDs[item.ProductID] = struct{}{}
 	}
-	return m, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Batch load one image per product (DISTINCT ON).
+	if len(productIDs) > 0 {
+		ids := make([]int64, 0, len(productIDs))
+		for id := range productIDs {
+			ids = append(ids, id)
+		}
+		imgRows, err := s.pool.Query(ctx, `
+			SELECT DISTINCT ON (product_id) product_id, url
+			FROM product_images
+			WHERE product_id = ANY($1)
+			ORDER BY product_id, sort_order`, ids)
+		if err != nil {
+			return nil, fmt.Errorf("load order item images: %w", err)
+		}
+		defer imgRows.Close()
+		imageByProduct := make(map[int64]string, len(ids))
+		for imgRows.Next() {
+			var pid int64
+			var url string
+			if err := imgRows.Scan(&pid, &url); err != nil {
+				return nil, fmt.Errorf("scan order item image: %w", err)
+			}
+			imageByProduct[pid] = url
+		}
+		if err := imgRows.Err(); err != nil {
+			return nil, err
+		}
+		// Patch images onto items in-place.
+		for orderID, items := range m {
+			for i := range items {
+				if url, ok := imageByProduct[items[i].ProductID]; ok {
+					items[i].ImageURL = url
+				}
+			}
+			m[orderID] = items
+		}
+	}
+	return m, nil
 }
 
 // UpdateOrderStatus changes the status of an order. Only valid statuses

@@ -53,6 +53,10 @@ func (f *fakeCustomerStore) GetCustomerByEmail(ctx context.Context, email string
 func (f *fakeCustomerStore) UpdateCustomer(ctx context.Context, id int64, updates map[string]string) error {
 	return nil
 }
+func (f *fakeCustomerStore) UpdateCustomerPhoneIfChanged(ctx context.Context, id int64, phone string) (int64, error) {
+	return 0, nil
+}
+
 func (f *fakeCustomerStore) UpdateCustomerPassword(ctx context.Context, id int64, hashedPW string) error {
 	return nil
 }

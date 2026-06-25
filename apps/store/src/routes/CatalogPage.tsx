@@ -4,9 +4,10 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useCatalogStore } from "@/stores/catalogStore";
 import { useCurrencyStore } from "@/stores/currencyStore";
 import { formatPrice } from "@/lib/currency";
-import { useCartStore } from "@/stores/cartStore";
+import { useFavoritesStore } from "@/stores/favoritesStore";
 import { getThumbUrl, getImageUrl } from "@/lib/api";
-import { ShoppingBag, ChevronDown } from "lucide-react";
+import { colorHex, contrastTextFor } from "@/lib/colors";
+import { Heart, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import CatalogStatusToggle from "@/components/catalog/CatalogStatusToggle";
 import { Helmet } from "@dr.pogodin/react-helmet";
@@ -99,7 +100,12 @@ export default function CatalogPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const addItem = useCartStore((state) => state.addItem);
+  // Subscribe to `items` so the component re-renders on toggle. Selecting
+  // only `isFavorite` (the function) is a no-op: Zustand sees the same
+  // function reference and skips the update, so the heart never flips.
+  const items = useFavoritesStore((state) => state.items);
+  const toggleFavorite = useFavoritesStore((state) => state.toggleFavorite);
+  const isFavorite = (id: number) => items.some((i) => i.id === id);
 
   const handleCategoryChange = (slug: string) => {
     setSelectedCategory(slug);
@@ -531,21 +537,36 @@ export default function CatalogPage() {
                               </button>
                               {filterSubsectionsOpen.colors && (
                               <div className="flex flex-wrap gap-2">
-                                {availableFilters.colors.map((c) => (
+                                {availableFilters.colors.map((c) => {
+                                  // Each chip keeps the same shape as the
+                                  // size / brand chips (rounded, same
+                                  // padding, same active state) and gets
+                                  // a small colour swatch to the right of
+                                  // the label. Unknown colour names fall
+                                  // back to neutral grey so the swatch
+                                  // always renders something readable.
+                                  const hex = colorHex(c) ?? "#888888";
+                                  return (
                                   <button
                                     key={c}
                                     onClick={() =>
                                       toggleFilter(setSelectedColors, c)
                                     }
-                                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border inline-flex items-center gap-2 ${
                                       selectedColors.has(c)
                                         ? "bg-[#44944A] text-black border-[#44944A]"
                                         : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                                     }`}
                                   >
-                                    {c}
+                                    <span>{t(`catalog.colorFilter.${c}`, c)}</span>
+                                    <span
+                                      aria-hidden="true"
+                                      style={{ background: hex }}
+                                      className="inline-block h-4 w-4 rounded-md border border-black/20 shrink-0"
+                                    />
                                   </button>
-                                ))}
+                                  );
+                                })}
                               </div>
                               )}
                             </div>
@@ -659,12 +680,22 @@ export default function CatalogPage() {
                         <button
                           onClick={(e) => {
                             e.preventDefault();
-                            addItem(product, product.sizes[0]);
+                            toggleFavorite(product);
                           }}
+                          aria-label={
+                            isFavorite(product.id)
+                              ? t("nav.favorites") + " — remove"
+                              : t("nav.favorites") + " — add"
+                          }
                           className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#44944A] opacity-0 transition-all duration-300 hover:scale-110 group-hover:opacity-100"
-                          aria-label={t("home.featured.addToCart")}
                         >
-                          <ShoppingBag className="h-4 w-4 text-black" />
+                          <Heart
+                            className={
+                              isFavorite(product.id)
+                                ? "h-4 w-4 text-black fill-black"
+                                : "h-4 w-4 text-black"
+                            }
+                          />
                         </button>
                       </div>
                       <div className="px-3 py-2.5 border-t border-[var(--color-border-custom)]">

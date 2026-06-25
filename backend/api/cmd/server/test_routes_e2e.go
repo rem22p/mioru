@@ -18,10 +18,10 @@ import (
 // specs that mutate the password.
 //
 // Gated on:
-//   1. !cfg.IsProduction() — fail-safe if APP_ENV is misconfigured
-//   2. E2E_RESET_KEY env var is set — without it the handler itself
-//      returns 503 with a generic envelope, so registering the route
-//      without a server-side secret serves no purpose.
+//  1. !cfg.IsProduction() — fail-safe if APP_ENV is misconfigured
+//  2. E2E_RESET_KEY env var is set — without it the handler itself
+//     returns 503 with a generic envelope, so registering the route
+//     without a server-side secret serves no purpose.
 //
 // This file is gated on the `e2e` build tag. Production binaries
 // (`go build ./cmd/server`) do not include it, so the route does not

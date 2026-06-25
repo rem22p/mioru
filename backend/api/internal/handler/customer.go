@@ -24,7 +24,6 @@ import (
 )
 
 var customerEmailRe = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
-var customerPhoneRe = regexp.MustCompile(`^\+?[\d\s\-()]{7,15}$`)
 
 // customerStore is the subset of the store consumed by the storefront customer
 // handlers. Defined here (where it is used) to keep the seam small and let tests
@@ -34,6 +33,7 @@ type customerStore interface {
 	GetCustomer(ctx context.Context, id int64) (*model.Customer, error)
 	GetCustomerByEmail(ctx context.Context, email string) (*model.Customer, error)
 	UpdateCustomer(ctx context.Context, id int64, updates map[string]string) error
+	UpdateCustomerPhoneIfChanged(ctx context.Context, id int64, phone string) (int64, error)
 	UpdateCustomerPassword(ctx context.Context, id int64, hashedPW string) error
 
 	// OAuth
@@ -153,7 +153,7 @@ func (h *CustomerHandler) Register(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "некорректный email", http.StatusBadRequest)
 		return
 	}
-	if req.Phone != "" && !customerPhoneRe.MatchString(req.Phone) {
+	if req.Phone != "" && !phoneRE.MatchString(req.Phone) {
 		jsonError(w, "некорректный номер телефона", http.StatusBadRequest)
 		return
 	}
@@ -762,6 +762,7 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		Type           string   `json:"type"`
+		Phone          string   `json:"phone"`
 		City           string   `json:"city"`
 		DeliveryMethod string   `json:"delivery_method"`
 		PaymentMethod  string   `json:"payment_method"`
@@ -792,6 +793,22 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		jsonErrorCode(w, "type must be 'cart' or 'individual'", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
+	// Phone is required on every checkout (cart / individual /
+	// preorder). Customers are asked to type it at every order so
+	// the historical record on the order is always the number they
+	// actually wanted to be reached at, even if their profile phone
+	// is later edited. We accept a single optional leading '+' plus 7-15
+	// digits, which covers MDL (+373), RUS (+7), UA (+380), EU
+	// (+NN…) — anything else gets a 400.
+	req.Phone = strings.TrimSpace(req.Phone)
+	if req.Phone == "" {
+		jsonErrorCode(w, "phone is required", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	if !phoneRE.MatchString(req.Phone) {
+		jsonErrorCode(w, "phone must be +<countrycode> followed by 7-15 digits", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
 	if len(req.City) == 0 || len(req.City) > 100 {
 		jsonErrorCode(w, "city is required (max 100 chars)", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
@@ -803,6 +820,50 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	if len(req.PaymentMethod) == 0 || len(req.PaymentMethod) > 50 {
 		jsonErrorCode(w, "payment_method is required (max 50 chars)", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
+	}
+	// Defence-in-depth: the frontend disables the cash-on-delivery
+	// radio when delivery_method = "bus" via
+	// apps/store/src/lib/deliveryRules.ts, but a custom curl or a
+	// stale frontend bundle could still POST this combination.
+	//
+	// Individual orders (type = "individual") are an exception:
+	// the customer rides the bus themselves and hands cash to the
+	// driver or the meet-up person, so cod+bus is a real, valid
+	// combination. The storefront applies the same exception in
+	// the disabled-radio logic.
+	if req.PaymentMethod == "cod" && req.DeliveryMethod == "bus" && req.Type != "individual" {
+		jsonErrorCode(w, "cash on delivery is not available for bus delivery", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	// Defence-in-depth for the moldovaPost + PMR rule: Moldova Post
+	// doesn't serve Transnistria (PMR has its own postal service).
+	// The frontend hides the radio for PMR cities via
+	// isDeliveryBlocked() in lib/deliveryRules.ts; this check is the
+	// server-side safety net.
+	if req.DeliveryMethod == "moldovaPost" {
+		// PNR_CITIES mirror from apps/store/src/lib/deliveryRules.ts.
+		// Drift between the two lists is caught in CI by
+		// TestPNRCitiesGoAndTSAline in pnr_cities_parity_test.go —
+		// adding a city to one without the other fails the build, so
+		// the human "review them together" contract is no longer
+		// load-bearing.
+		pnrCities := map[string]bool{
+			"тирасполь": true, "бендеры": true, "дубоссары": true, "рыбница": true,
+			"григориополь": true, "днестровск": true, "каменка": true, "слободзея": true,
+			"парканы": true, "ближний хутор": true, "красное": true, "новотираспольский": true,
+			"терновка": true, "маяк": true, "суклея": true,
+		}
+		// Normalise for parity with apps/store/src/lib/deliveryRules.ts
+		// (normaliseCity): trim whitespace, lower-case, ё→е. Without
+		// trim, a city like " Тирасполь " (paste / IME padding) passes
+		// Go but is blocked by the frontend, diverging from the
+		// promised parity. Round-3 review D2.
+		normalised := strings.ToLower(strings.TrimSpace(req.City))
+		normalised = strings.ReplaceAll(normalised, "ё", "е")
+		if pnrCities[normalised] {
+			jsonErrorCode(w, "moldova post is not available for Transnistria cities", http.StatusBadRequest, "VALIDATION_FAILED")
+			return
+		}
 	}
 	if len(req.Street) > 200 {
 		jsonErrorCode(w, "street is too long (max 200)", http.StatusBadRequest, "VALIDATION_FAILED")
@@ -928,6 +989,7 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	// Build order model (prices calculated server-side in store)
 	order := &model.Order{
 		Type:           req.Type,
+		Phone:          req.Phone,
 		City:           req.City,
 		DeliveryMethod: req.DeliveryMethod,
 		PaymentMethod:  req.PaymentMethod,
@@ -993,6 +1055,25 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 			jsonErrorCode(w, "товара нет в наличии", http.StatusConflict, "INSUFFICIENT_STOCK")
 			return
 		}
+		// Sentinel: the cart contained a product_id that no longer
+		// exists in `products` (admin deleted it, or the client built
+		// the cart from a stale frontend cache). This is a client
+		// error, not a server failure — 400 with a code the frontend
+		// can branch on to force a catalog refresh.
+		if errors.Is(err, store.ErrProductNotFound) {
+			slog.Info("CreateOrder rejected stale product in cart",
+				"customer_id", customerID, "error", err)
+			// Reviewer finding #5 (P1): PRODUCT_NOT_FOUND was
+			// an ad-hoc error code, not in the reserved list
+			// at CLAUDE.md:172. Switched to NOT_FOUND (already
+			// reserved) so the SPA keeps a single branch on
+			// this code path. The message is the same, so
+			// any client matching on text (which they
+			// shouldn't) is unchanged.
+			jsonErrorCode(w, "one or more products in your cart no longer exist; please refresh the catalog",
+				http.StatusBadRequest, "NOT_FOUND")
+			return
+		}
 		// Catch-all 500: this is the only path that warrants
 		// slog.Error under the CLAUDE.md log standard. Sentinels
 		// above (idempotency, oversell) are expected business
@@ -1005,6 +1086,31 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(created)
+
+	// Keep the customer's profile phone in sync with whatever they
+	// typed at checkout. This is best-effort — a sync failure must
+	// not fail the order (the order is already created and the
+	// customer is just sitting with a stale profile row until their
+	// next successful edit).
+	//
+	// Reviewer finding #6 (P1) and re-review finding N1: the
+	// pre-fix block did `GetCustomer` + (if different)
+	// `UpdateCustomer` — two DB round-trips on the busiest write
+	// path. Replaced with a single conditional UPDATE
+	// (`UpdateCustomerPhoneIfChanged`) that no-ops when the
+	// stored phone already matches.
+	//
+	// The call uses `context.Background()` (not `r.Context()`)
+	// because the order is already `WriteHeader(201)`-ed by this
+	// point. A client disconnect must not cancel the profile
+	// sync — the order is committed, the profile would be left
+	// stale until the customer's next edit. The Telegram block
+	// below (~line 1104) uses the same pattern.
+	if h.store != nil {
+		if _, uerr := h.store.UpdateCustomerPhoneIfChanged(context.Background(), customerID, req.Phone); uerr != nil {
+			slog.Warn("update customer phone after order failed", "customer_id", customerID, "error", uerr)
+		}
+	}
 
 	// Notify managers via Telegram (background, fire-and-forget)
 	if h.tgNotifier != nil {
@@ -1086,6 +1192,14 @@ func (h *CustomerHandler) UploadOrderPhoto(w http.ResponseWriter, r *http.Reques
 
 // ListOrders returns the authenticated customer's order history, newest first.
 // Query params: page (1-based, default 1), per_page (1-100, default 20).
+//
+// The store fills model.Order with ALL order fields (type, city, delivery /
+// payment method, address, photos, height, weight, etc.) plus a fully
+// populated Items[] (with product slug, name and a single representative
+// image) via batched queries. We hand model.Order back to the client
+// directly — its json tags already match the wire schema — so adding
+// new fields later only requires changing the model + store, not the
+// handler.
 func (h *CustomerHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 	id := middleware.CustomerID(r)
 
@@ -1108,24 +1222,19 @@ func (h *CustomerHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type orderResp struct {
-		ID         int64     `json:"id"`
-		TotalMinor int64     `json:"total_minor"`
-		Status     string    `json:"status"`
-		CreatedAt  time.Time `json:"created_at"`
+	// Scrub admin-only fields before sending. CustomerID leaks the account
+	// id; CustomerEmail / CustomerFirstName are populated by the admin
+	// list path, not the customer self-list path, but strip them anyway
+	// so they never appear in this response.
+	for i := range orders {
+		orders[i].CustomerID = 0
+		orders[i].CustomerEmail = ""
+		orders[i].CustomerFirstName = ""
 	}
-	out := make([]orderResp, 0, len(orders))
-	for _, o := range orders {
-		out = append(out, orderResp{
-			ID:         o.ID,
-			TotalMinor: o.TotalMinor,
-			Status:     o.Status,
-			CreatedAt:  o.CreatedAt,
-		})
-	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"orders":   out,
+		"orders":   orders,
 		"total":    total,
 		"page":     page,
 		"per_page": perPage,
@@ -1133,6 +1242,12 @@ func (h *CustomerHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 }
 
 // ── Cart & Favorites handlers ──
+
+// phoneRE matches a single optional leading '+' followed by 7-15
+// digits. Covers MDL (+373...), RUS (+7...), UA (+380...), EU
+// (+NN...) without being so loose it accepts nonsense like spaces,
+// letters or wildly long numbers.
+var phoneRE = regexp.MustCompile(`^\+?\d{7,15}$`)
 
 const (
 	maxCartItems      = 200
@@ -1214,6 +1329,20 @@ func (h *CustomerHandler) SaveCart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.store.SaveCustomerCart(r.Context(), id, items); err != nil {
+		// Sentinel branch: a stale-cart save is a client error (the
+		// products in the cart no longer exist in the catalog), not a
+		// 500. Without this branch the FK violation would surface as a
+		// generic SQLSTATE 23503 and the catch-all below would 500.
+		if errors.Is(err, store.ErrProductNotFound) {
+			slog.Info("SaveCart rejected stale product",
+				"customer_id", id, "error", err)
+			// See the CreateOrder branch above for the
+			// NOT_FOUND vs PRODUCT_NOT_FOUND rationale.
+			jsonErrorCode(w, "one or more products in your cart no longer exist; please refresh the catalog",
+				http.StatusBadRequest, "NOT_FOUND")
+			return
+		}
+		slog.Error("SaveCart failed", "customer_id", id, "error", err)
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}

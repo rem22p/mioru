@@ -1,9 +1,9 @@
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { fetchStoreCustomerOrders, type StoreOrder } from "@/lib/api";
+import { fetchStoreCustomerOrders, type StoreOrder, getImageUrl } from "@/lib/api";
 import {
   User, Settings, ChevronRight, LogOut,
-  MapPin, Truck, CreditCard, ShoppingBag,
+  MapPin, Truck, CreditCard, ShoppingBag, Phone,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -217,6 +217,22 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
               <MapPin className="h-3 w-3" />
               {o.city}
             </span>
+            {/* Reviewer finding #3 (P0): backend now returns
+                `phone` on every order. Manager needs it to
+                contact the buyer. Pre-fix this chip was
+                missing entirely, so the storefront's order
+                history rendered orders with no way to call
+                the customer from the order card. */}
+            {o.phone && (
+              <a
+                href={`tel:${o.phone.replace(/[^\d+]/g, "")}`}
+                data-testid="order-phone"
+                className="flex items-center gap-1 text-[var(--color-text-primary)] hover:text-[#44944A] transition-colors"
+              >
+                <Phone className="h-3 w-3" />
+                {o.phone}
+              </a>
+            )}
             <span className="flex items-center gap-1">
               <Truck className="h-3 w-3" />
               {deliveryLabel}
@@ -262,15 +278,39 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
                     key={item.id}
                     className="flex items-center justify-between text-sm py-1.5 px-3 rounded-lg bg-[var(--color-bg-secondary)]"
                   >
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[var(--color-text-primary)]">
-                        {item.product_name || `#${item.product_id}`}
-                      </span>
-                      {item.size_label && (
-                        <span className="text-[var(--color-text-muted)] ml-1.5 text-xs">
-                          {item.size_label}
-                        </span>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {/* Reviewer finding #3 (P0): backend now
+                          returns `image_url` for the first product
+                          image and `product_slug` for the storefront
+                          link. Pre-fix neither was surfaced so the
+                          order card showed a text-only line item. */}
+                      {item.image_url && (
+                        <img
+                          src={getImageUrl(item.image_url)}
+                          alt=""
+                          className="h-10 w-10 rounded-md object-cover shrink-0"
+                          loading="lazy"
+                        />
                       )}
+                      <div className="flex-1 min-w-0">
+                        {item.product_slug ? (
+                          <Link
+                            to={`/product/${item.product_slug}`}
+                            className="text-[var(--color-text-primary)] hover:text-[#44944A] transition-colors"
+                          >
+                            {item.product_name || `#${item.product_id}`}
+                          </Link>
+                        ) : (
+                          <span className="text-[var(--color-text-primary)]">
+                            {item.product_name || `#${item.product_id}`}
+                          </span>
+                        )}
+                        {item.size_label && (
+                          <span className="text-[var(--color-text-muted)] ml-1.5 text-xs">
+                            {item.size_label}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0 ml-3">
                       <span className="text-[var(--color-text-muted)] text-xs">

@@ -202,6 +202,11 @@ export interface AdminOrder {
   customer_id: number;
   customer_email: string;
   customer_first_name: string;
+  /** Contact phone the customer typed at checkout. Always present
+   *  (>= migration 012) — even for guest/anonymous checkouts the
+   *  order row stores it. Managers click the chip to copy it to
+   *  the clipboard for outbound calls. */
+  phone: string;
   type: string;
   total_minor: number;
   status: string;

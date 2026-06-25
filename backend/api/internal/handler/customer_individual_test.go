@@ -53,6 +53,7 @@ func TestCreateOrderIndividualRejectsCraftedItems(t *testing.T) {
 			body: `{
 				"type": "individual",
 				"city": "Тирасполь",
+				"phone": "+37377711234",
 				"delivery_method": "personal",
 				"payment_method": "card",
 				"items": [{"product_id": 105, "size_label": "M", "quantity": -100}],
@@ -64,6 +65,7 @@ func TestCreateOrderIndividualRejectsCraftedItems(t *testing.T) {
 			body: `{
 				"type": "individual",
 				"city": "Тирасполь",
+				"phone": "+37377711234",
 				"delivery_method": "personal",
 				"payment_method": "card",
 				"items": [{"product_id": 105, "size_label": "M", "quantity": 0}],
@@ -75,6 +77,7 @@ func TestCreateOrderIndividualRejectsCraftedItems(t *testing.T) {
 			body: `{
 				"type": "individual",
 				"city": "Тирасполь",
+				"phone": "+37377711234",
 				"delivery_method": "personal",
 				"payment_method": "card",
 				"items": [{"product_id": 0, "size_label": "M", "quantity": 1}],
@@ -86,6 +89,7 @@ func TestCreateOrderIndividualRejectsCraftedItems(t *testing.T) {
 			body: `{
 				"type": "individual",
 				"city": "Тирасполь",
+				"phone": "+37377711234",
 				"delivery_method": "personal",
 				"payment_method": "card",
 				"items": [{"product_id": 105, "size_label": "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM", "quantity": 1}],

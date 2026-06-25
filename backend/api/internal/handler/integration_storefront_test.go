@@ -3,6 +3,7 @@ package handler_test
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	"mioru/internal/cookieauth"
@@ -176,5 +177,246 @@ func TestIntegrationSaveCartCSRFGate(t *testing.T) {
 		reqOpts{sess: sess, csrfCookieName: "store_csrf", badCSRF: true, body: map[string]any{"items": []any{}}})
 	if rr.Code != http.StatusForbidden {
 		t.Errorf("bad CSRF: want 403, got %d (%s)", rr.Code, rr.Body.String())
+	}
+}
+
+// TestIntegrationSaveCartRejectsUnknownProduct guards a regression that
+// turned a "save cart with a stale product_id" scenario into a 500 ISE.
+// Before the defence-in-depth pre-check in store.SaveCustomerCart, a
+// missing product_id would surface as a generic SQLSTATE 23503 FK
+// violation, which the handler treated as a catch-all error → 500.
+// With the sentinel branch in customer.go::SaveCart the same input
+// now returns 400 NOT_FOUND, signalling to the frontend that
+// the cart is stale and the user has to refresh.
+func TestIntegrationSaveCartRejectsUnknownProduct(t *testing.T) {
+	e := newEnv(t)
+	sess, _ := e.customerSession(t, "stale-cart@ex.com")
+
+	body := map[string]any{
+		"items": []map[string]any{
+			{"product_id": 999999, "size_label": "M", "quantity": 1},
+		},
+	}
+	rr := e.do(t, e.wrapCustomer(e.customerH.SaveCart), http.MethodPut,
+		"/api/store/customers/me/cart",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", body: body})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("SaveCart with unknown product: want 400, got %d (%s)", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Code  string `json:"code"`
+		Error string `json:"error"`
+	}
+	decode(t, rr, &resp)
+	if resp.Code != "NOT_FOUND" {
+		t.Errorf("response code = %q, want NOT_FOUND (full: %s)", resp.Code, rr.Body.String())
+	}
+
+	// A second PUT with a MIX of valid + invalid product ids should
+	// also fail-fast on the first invalid one — we don't want to
+	// silently drop the unknown line and keep the rest.
+	pid := seedProduct(t, e, "stale-cart-mix", 500, 5)
+	body2 := map[string]any{
+		"items": []map[string]any{
+			{"product_id": pid, "size_label": "M", "quantity": 1},
+			{"product_id": 999998, "size_label": "L", "quantity": 1},
+		},
+	}
+	rr2 := e.do(t, e.wrapCustomer(e.customerH.SaveCart), http.MethodPut,
+		"/api/store/customers/me/cart",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", body: body2})
+	if rr2.Code != http.StatusBadRequest {
+		t.Fatalf("SaveCart with mix valid+invalid: want 400, got %d (%s)", rr2.Code, rr2.Body.String())
+	}
+
+	// Sanity: a fully-valid cart still saves OK on the same session.
+	body3 := map[string]any{
+		"items": []map[string]any{
+			{"product_id": pid, "size_label": "M", "quantity": 1},
+		},
+	}
+	rr3 := e.do(t, e.wrapCustomer(e.customerH.SaveCart), http.MethodPut,
+		"/api/store/customers/me/cart",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", body: body3})
+	if rr3.Code != http.StatusOK {
+		t.Fatalf("SaveCart fully valid: want 200, got %d (%s)", rr3.Code, rr3.Body.String())
+	}
+}
+
+// TestIntegrationCreateOrderRejectsUnknownProduct is the CreateOrder
+// counterpart: even with a clean cart at save time, a product can
+// vanish between save and checkout (admin deletes, migration, etc).
+// The order must come back 400 NOT_FOUND, not 500 ISE.
+func TestIntegrationCreateOrderRejectsUnknownProduct(t *testing.T) {
+	e := newEnv(t)
+	sess, _ := e.customerSession(t, "stale-order@ex.com")
+	pid := seedProduct(t, e, "stale-order-p", 500, 5)
+
+	body := map[string]any{
+		"type":            "cart",
+		"phone":           "+373777908542",
+		"city":            "Tiraspol",
+		"delivery_method": "personal",
+		"payment_method":  "cash",
+		"items": []map[string]any{
+			{"product_id": pid, "size_label": "M", "quantity": 1},
+			{"product_id": 999999, "size_label": "L", "quantity": 1},
+		},
+	}
+	rr := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost,
+		"/api/store/orders",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf",
+			idempotencyKey: "key-stale-order-1", body: body})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("CreateOrder with unknown product: want 400, got %d (%s)", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Code  string `json:"code"`
+		Error string `json:"error"`
+	}
+	decode(t, rr, &resp)
+	if resp.Code != "NOT_FOUND" {
+		t.Errorf("response code = %q, want NOT_FOUND (full: %s)", resp.Code, rr.Body.String())
+	}
+}
+
+// TestIntegrationCreateOrderRejectsCodWithBus is the server-side
+// guard for the rule "cash on delivery is not available for bus
+// (маршрутка) delivery". The store frontend already disables the
+// radio in CheckoutPage::isPaymentBlocked, but a custom curl or a
+// stale frontend bundle could still POST this combination. The
+// handler must reject it with 400 VALIDATION_FAILED and never
+// create the order — the bus courier has no way to take the money,
+// so allowing the combination would create a payment that physically
+// can't happen.
+func TestIntegrationCreateOrderRejectsCodWithBus(t *testing.T) {
+	e := newEnv(t)
+	sess, _ := e.customerSession(t, "cod-bus@ex.com")
+	pid := seedProduct(t, e, "cod-bus-p", 500, 5)
+
+	body := map[string]any{
+		"type":            "cart",
+		"phone":           "+373777908542",
+		"city":            "Кишинёв", // one of the cities that allows "bus"
+		"delivery_method": "bus",
+		"payment_method":  "cod", // forbidden combo
+		"items":           []map[string]any{{"product_id": pid, "size_label": "M", "quantity": 1}},
+	}
+	rr := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: "key-cod-bus-1", body: body})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("cod + bus: want 400, got %d (%s)", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Code  string `json:"code"`
+		Error string `json:"error"`
+	}
+	decode(t, rr, &resp)
+	if resp.Code != "VALIDATION_FAILED" {
+		t.Errorf("response code = %q, want VALIDATION_FAILED (full: %s)", resp.Code, rr.Body.String())
+	}
+	if !strings.Contains(resp.Error, "cash on delivery") && !strings.Contains(resp.Error, "bus") {
+		t.Errorf("error message should mention the rule (got: %q)", resp.Error)
+	}
+
+	// Sanity: a valid combo (cod + address) still passes.
+	body["delivery_method"] = "address"
+	body["street"] = "Ленина 1"
+	body["house"] = "5"
+	rr = e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: "key-cod-bus-2", body: body})
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("cod + address: want 201, got %d (%s)", rr.Code, rr.Body.String())
+	}
+
+	// And card + bus (the other direction) also passes — there is
+	// no constraint against card payment for bus.
+	body["payment_method"] = "card"
+	body["city"] = "Бельцы" // bus-available PNR city
+	body["street"] = ""
+	body["house"] = ""
+	rr = e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: "key-cod-bus-3", body: body})
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("card + bus: want 201, got %d (%s)", rr.Code, rr.Body.String())
+	}
+}
+
+// TestIntegrationCreateOrderAllowsCodWithBusForIndividual locks in
+// the exception to the cod+bus rule for type=individual orders:
+// when the customer submits an individual order, they ride the
+// bus themselves and pay the driver, so this combination is valid
+// even though it is rejected for cart orders. Without this test
+// a future tightening of the rule (e.g. "always block cod+bus")
+// would silently break a legitimate customer flow.
+func TestIntegrationCreateOrderAllowsCodWithBusForIndividual(t *testing.T) {
+	e := newEnv(t)
+	sess, _ := e.customerSession(t, "cod-bus-individual@ex.com")
+
+	body := map[string]any{
+		"type":            "individual",
+		"phone":           "+373777908542",
+		"city":            "Тирасполь",
+		"delivery_method": "bus",
+		"payment_method":  "cod",
+		"comment":         "привезу на маршрутке",
+	}
+	rr := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: "key-cod-bus-individual-1", body: body})
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("individual + bus + cod: want 201, got %d (%s)", rr.Code, rr.Body.String())
+	}
+}
+
+// TestIntegrationCreateOrderRejectsMoldovaPostInPNR is the
+// server-side guard for the rule "Moldova Post is not available
+// for Transnistria (PMR) cities". The store frontend already
+// disables the radio in lib/deliveryRules.ts::isDeliveryBlocked,
+// but a custom curl or a stale frontend bundle could still POST
+// this combination. The handler must reject it with 400
+// VALIDATION_FAILED and never create the order — the courier
+// path doesn't exist for PMR.
+func TestIntegrationCreateOrderRejectsMoldovaPostInPNR(t *testing.T) {
+	e := newEnv(t)
+	sess, _ := e.customerSession(t, "moldovapost-pnr@ex.com")
+	pid := seedProduct(t, e, "moldovapost-pnr-p", 500, 5)
+
+	for _, pnrCity := range []string{"Тирасполь", "Бендеры", "Рыбница", "дубоссары"} {
+		body := map[string]any{
+			"type":            "cart",
+			"phone":           "+373777908542",
+			"city":            pnrCity,
+			"delivery_method": "moldovaPost",
+			"payment_method":  "card",
+			"items":           []map[string]any{{"product_id": pid, "size_label": "M", "quantity": 1}},
+		}
+		rr := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+			reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: "key-mp-pnr-" + pnrCity, body: body})
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("moldovaPost + %s: want 400, got %d (%s)", pnrCity, rr.Code, rr.Body.String())
+		}
+		var resp struct {
+			Code  string `json:"code"`
+			Error string `json:"error"`
+		}
+		decode(t, rr, &resp)
+		if resp.Code != "VALIDATION_FAILED" {
+			t.Errorf("moldovaPost + %s: code = %q, want VALIDATION_FAILED", pnrCity, resp.Code)
+		}
+	}
+
+	// Sanity: a non-PNR city still passes (e.g. Chisinau).
+	body := map[string]any{
+		"type":            "cart",
+		"phone":           "+373777908542",
+		"city":            "Кишинёв",
+		"delivery_method": "moldovaPost",
+		"payment_method":  "card",
+		"items":           []map[string]any{{"product_id": pid, "size_label": "M", "quantity": 1}},
+	}
+	rr := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: "key-mp-chisinau-1", body: body})
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("moldovaPost + Chisinau: want 201, got %d (%s)", rr.Code, rr.Body.String())
 	}
 }

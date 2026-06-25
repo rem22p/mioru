@@ -95,8 +95,14 @@ test("customer registers, adds a product to cart, and places an order", async ({
   await expect(page.getByTestId("cart-row")).toHaveCount(1);
   await page.getByTestId("cart-checkout").click();
 
-  // ── Checkout step 1: city + delivery ───────────────────────────────────
+  // ── Checkout step 1: city + delivery + phone ─────────────────────
   // Tiraspol allows the free "personal" pickup method.
+  // E2E reviewer finding #1: `canProceed()` for step 1 now
+  // requires `phone` (was added in this PR — every checkout
+  // needs the manager to be able to call the buyer). The
+  // E2E must fill it before clicking "next" or the click
+  // is a no-op and the test deadlocks on the next step.
+  await page.getByTestId("checkout-phone").fill("+37377711234");
   await page.getByTestId("checkout-city").fill("Тирасполь");
   await page.keyboard.press("Escape"); // close the autocomplete dropdown overlay
   await page.getByTestId("checkout-delivery-personal").check();

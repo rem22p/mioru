@@ -129,11 +129,11 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                 </div>
                 <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Доставка</h4>
                 <ul className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                  <li>• Личная встреча — Тирасполь, бесплатно</li>
-                  <li>• Доставка по адресу — Тирасполь/Бендеры, 25 руб</li>
-                  <li>• Маршрутка — ПМР + Кишинёв, до 50 руб</li>
-                  <li>• Экспресс-почта — ПМР, до 50 руб</li>
-                  <li>• Почта Молдовы — все города, до 50 руб</li>
+                  <li>• Личная встреча — Тирасполь</li>
+                  <li>• Доставка по адресу — Тирасполь/Бендеры</li>
+                  <li>• Маршрутка — ПМР + Кишинёв</li>
+                  <li>• Экспресс-почта — ПМР</li>
+                  <li>• Почта Молдовы — все города</li>
                 </ul>
               </div>
 

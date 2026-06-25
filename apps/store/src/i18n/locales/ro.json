@@ -56,7 +56,10 @@
     "comment": "Comentariu",
     "commentPlaceholder": "Specifică preferințele tale de mărime, culoare, material...",
     "submit": "Trimite managerului",
-    "afterSubmit": "În curând managerul nostru te va contacta pe Telegram cu informații despre comanda ta. Dacă acest format de comunicare nu este posibil pentru tine, te rugăm să ne scrii pe Instagram @mioru.store."
+    "afterSubmit": "În curând managerul nostru te va contacta pe Telegram cu informații despre comanda ta. Dacă acest format de comunicare nu este posibil pentru tine, te rugăm să ne scrii pe Instagram @mioru.store.",
+    "delivery": {
+      "disabledForCity": "Metoda de livrare «{{method}}» nu este disponibilă pentru «{{city}}»"
+    }
   },
   "nav": {
     "inStock": "CATALOG",
@@ -73,10 +76,10 @@
   },
   "home": {
     "hero": {
-      "badge": "3D Avatar Try-On",
-      "title1": "Probă",
-      "title2": "înainte de cumpărare",
-      "description": "Creează-ți avatarul 3D și probează haine online. Potrivire exactă, proporții reale.",
+      "badge": "MIORU.STORE",
+      "title1": "CREEĂ-ȚI",
+      "title2": "ȚINUTA",
+      "description": "ARTICOLE ÎN STOC ȘI LA COMANDĂ",
       "cta1": "Vezi catalogul",
       "cta2": "Comandă personalizată",
       "stats": {
@@ -154,6 +157,12 @@
       "price": "Preț",
       "from": "De la",
       "to": "Până la"
+    },
+    "colorFilter": {
+      "black": "Negru",
+      "white": "Alb",
+      "pink": "Roz",
+      "yellow": "Galben"
     }
   },
   "product": {
@@ -231,7 +240,8 @@
       "card": "Card online",
       "cardDesc": "MIA, klever",
       "cod": "Ramburs",
-      "codDesc": "Numerar sau transfer la fața locului"
+      "codDesc": "Numerar sau transfer la fața locului",
+      "codDisabled": "Plata la livrare nu este disponibilă pentru metoda de livrare «{{method}}»"
     },
     "delivery": {
       "title": "Mod de livrare",
@@ -259,7 +269,11 @@
     "next": "Continuă",
     "confirm": "Confirmă comanda",
     "orderSummary": "Comanda",
-    "total": "Total"
+    "total": "Total",
+    "phone": "Telefon",
+    "phonePlaceholder": "+373 ...",
+    "phoneRequired": "Introduceți numărul de telefon",
+    "useMyPhone": "Folosește numărul meu"
   },
   "profile": {
     "title": "Contul meu",

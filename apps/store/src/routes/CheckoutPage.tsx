@@ -8,6 +8,8 @@ import { useCurrencyStore } from "@/stores/currencyStore";
 import { formatPrice } from "@/lib/currency";
 import { CreditCard, Check, ChevronRight, Package } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { isDeliveryBlocked as isMethodBlocked } from "@/lib/deliveryRules";
+import { isValidPhone } from "@/lib/phoneValidation";
 import { Helmet } from "@dr.pogodin/react-helmet";
 import CityAutocomplete from "@/components/ui/CityAutocomplete";
 
@@ -21,25 +23,18 @@ const deliveryMethods = [
 
 
 // Delivery methods blocked in PMR cities
-// Each method has its own city allowlist:
-//   personal, address — only Tiraspol & Bendery
-//   bus — PMR + Chișinău
-//   express — PMR except Tiraspol & Bendery
-//   moldovaPost — all cities
-
-const PNR_CITIES = new Set([
-  "тирасполь", "бендеры", "дубоссары", "рыбница", "григориополь",
-  "днестровск", "каменка", "слободзея", "парканы", "ближний хутор",
-  "красное", "новотираспольский", "терновка", "маяк", "суклея",
-]);
-
-const TIRASPOL_BENDERY = new Set(["тирасполь", "бендеры"]);
+// Delivery-method city rules live in lib/deliveryRules.ts so both
+// CheckoutPage (cart) and CustomOrderPage (individual) share a
+// single source of truth — the rule comment block used to live here
+// and the same logic got copy-pasted with subtle drift between the
+// two pages. Any change now goes through isDeliveryBlocked().
 
 export default function CheckoutPage() {
   const { t } = useTranslation();
   const currency = useCurrencyStore((s) => s.currency);
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
   const [currentStep, setCurrentStep] = useState(1);
   const items = useCartStore((state) => state.items);
   const totalPrice = useCartStore((state) => state.totalPrice());
@@ -69,7 +64,15 @@ export default function CheckoutPage() {
       await createOrder(
         {
           type: "cart",
-          city: formData.city,
+          // phone + city are trimmed here because the client-side
+          // gate (isValidPhone / normaliseCity) trims before
+          // validation, but the backend phoneRE does NOT trim
+          // (^\+?\d{7,15}$). Raw "  +373...  " from a paste/IME
+          // passes the gate but would 400 on the server — see
+          // PR #51 round-3 review (mmx003) for the full discussion.
+          // CustomOrderPage.tsx:140 applies the same trim for parity.
+          city: formData.city.trim(),
+          phone: formData.phone.trim(),
           delivery_method: formData.deliveryMethod,
           payment_method: formData.paymentMethod,
           street: formData.street || undefined,
@@ -90,6 +93,7 @@ export default function CheckoutPage() {
   };
 
   const [formData, setFormData] = useState({
+    phone: "",
     city: "",
     street: "",
     house: "",
@@ -104,24 +108,22 @@ export default function CheckoutPage() {
     { id: 3, label: t("checkout.steps.confirmation"), icon: Check },
   ];
 
-  const cityLower = formData.city.toLowerCase();
-  const isPnrCity = PNR_CITIES.has(cityLower);
-  const isTiraspolBendery = TIRASPOL_BENDERY.has(cityLower);
-  const isChisinau = cityLower === "кишинев";
-
-  const isMethodBlocked = (key: string): boolean => {
-    if (!formData.city) return true; // all blocked until city selected
-    switch (key) {
-      case "personal":
-      case "address":
-        return !isTiraspolBendery;
-      case "bus":
-        return !(isPnrCity || isChisinau);
-      case "express":
-        return !(isPnrCity && !isTiraspolBendery);
-      default:
-        return false;
-    }
+  // isPaymentBlocked: "Оплата при получении" (cod) is physically
+  // impossible for the bus (маршрутка) delivery method — there's no
+  // courier to hand the money to, so a frontend user could only be
+  // confused if the option stayed enabled. Card payment is always
+  // available regardless of delivery method.
+  //
+  // We return the same shape as isMethodBlocked so the JSX below
+  // can apply the same disabled style, tooltip and useEffect-driven
+  // auto-reset without duplicating the visual logic.
+  const isPaymentBlocked = (
+    paymentId: "card" | "cod",
+    deliveryMethod: string,
+  ): boolean => {
+    if (paymentId === "card") return false;
+    if (paymentId === "cod") return deliveryMethod === "bus";
+    return false;
   };
 
   const updateField = (field: string, value: string) => {
@@ -130,15 +132,36 @@ export default function CheckoutPage() {
 
   // Reset delivery method if blocked by city change
   useEffect(() => {
-    if (formData.deliveryMethod && isMethodBlocked(formData.deliveryMethod)) {
+    if (formData.deliveryMethod && isMethodBlocked(formData.deliveryMethod, formData.city)) {
       updateField("deliveryMethod", "");
     }
   }, [formData.city]);
 
+  // Reset payment method if it became blocked by a delivery method
+  // change (e.g. user picked "cod" for personal delivery, then
+  // switched the city to one that only allows "bus" — at that
+  // moment "cod" is no longer valid and must fall back to "card").
+  // Without this reset the user would proceed to step 3 with a
+  // payment choice the server would then 400 on.
+  useEffect(() => {
+    if (
+      formData.deliveryMethod &&
+      formData.paymentMethod &&
+      isPaymentBlocked(formData.paymentMethod as "card" | "cod", formData.deliveryMethod)
+    ) {
+      updateField("paymentMethod", "card");
+    }
+  }, [formData.deliveryMethod]);
+
   const canProceed = () => {
     switch (currentStep) {
       case 1:
-        if (!formData.city || !formData.deliveryMethod) return false;
+        if (!formData.phone || !formData.city || !formData.deliveryMethod) return false;
+        // Phone must look like +<digits> (7-15 digits, optional leading +).
+        // Mirror of backend `phoneRE`; see apps/store/src/lib/phoneValidation.ts.
+        // The backend re-validates, but we block submit early so the user
+        // doesn't bounce on the API round-trip.
+        if (!isValidPhone(formData.phone)) return false;
         if (formData.deliveryMethod === "address") {
           return formData.street !== "" && formData.house !== "";
         }
@@ -159,6 +182,33 @@ export default function CheckoutPage() {
         return (
           <div className="space-y-4">
             <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)]">
+                  {t("checkout.phone")}
+                </label>
+                {isAuthenticated && user?.phone && user.phone !== formData.phone && (
+                  <button
+                    type="button"
+                    onClick={() => updateField("phone", user.phone)}
+                    className="text-xs font-semibold uppercase tracking-wider text-[#44944A] hover:text-[var(--color-text-primary)] transition-colors"
+                    data-testid="checkout-use-my-phone"
+                  >
+                    {t("checkout.useMyPhone")}
+                  </button>
+                )}
+              </div>
+              <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={formData.phone}
+                onChange={(e) => updateField("phone", e.target.value)}
+                placeholder={t("checkout.phonePlaceholder")}
+                data-testid="checkout-phone"
+                className={inputBaseClass}
+              />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                 {t("checkout.fields.city")}
               </label>
@@ -176,7 +226,7 @@ export default function CheckoutPage() {
               </label>
               <div className="space-y-2">
                 {deliveryMethods.map((method) => {
-                  const disabled = isMethodBlocked(method.key);
+                  const disabled = isMethodBlocked(method.key, formData.city);
                   return (
                   <label
                     key={method.key}
@@ -272,14 +322,43 @@ export default function CheckoutPage() {
                 label: t("checkout.payment.cod"),
                 desc: t("checkout.payment.codDesc"),
               },
-            ].map((method) => (
+            ].map((method) => {
+              const disabled = isPaymentBlocked(
+                method.id as "card" | "cod",
+                formData.deliveryMethod,
+              );
+              return (
               <button
                 key={method.id}
-                onClick={() => updateField("paymentMethod", method.id)}
+                onClick={() => {
+                  // Hard guard: even if a stale radio somehow
+                  // dispatches a click (e.g. devtools removed the
+                  // disabled attribute), we don't let the form
+                  // accept a blocked combination. The server still
+                  // re-validates, but the client guard means a
+                  // confused user never sees a 400 they could have
+                  // been prevented from triggering.
+                  if (disabled) return;
+                  updateField("paymentMethod", method.id);
+                }}
+                disabled={disabled}
+                aria-disabled={disabled}
+                title={
+                  disabled
+                    ? t("checkout.payment.codDisabled", {
+                        method: t(
+                          `checkout.delivery.${formData.deliveryMethod}`,
+                        ),
+                      })
+                    : undefined
+                }
+                data-testid={`payment-${method.id}`}
                 className={`w-full rounded-xl border p-5 text-left transition-all relative ${
-                  formData.paymentMethod === method.id
-                    ? "border-[#44944A] bg-[#44944A]/10"
-                    : "border-[var(--color-border-custom)] bg-[var(--color-bg-card)] hover:border-[var(--color-text-muted)]"
+                  disabled
+                    ? "opacity-50 cursor-not-allowed border-[var(--color-border-custom)] bg-[var(--color-bg-card)]"
+                    : formData.paymentMethod === method.id
+                      ? "border-[#44944A] bg-[#44944A]/10"
+                      : "border-[var(--color-border-custom)] bg-[var(--color-bg-card)] hover:border-[var(--color-text-muted)]"
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -302,7 +381,8 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               </button>
-            ))}
+              );
+            })}
           </div>
         );
       case 3:
