@@ -37,6 +37,7 @@ type env struct {
 	storeH         *handler.StoreHandler
 	adminOrdH      *handler.AdminOrderHandler
 	adminCustomerH *handler.AdminCustomerHandler
+	adminTelegramH *handler.AdminTelegramHandler
 }
 
 // newEnv builds an env on a fresh test database. Handlers are constructed with
@@ -55,6 +56,7 @@ func newEnv(t *testing.T) *env {
 		storeH:         handler.NewStoreHandler(st),
 		adminOrdH:      handler.NewAdminOrderHandler(st),
 		adminCustomerH: handler.NewAdminCustomerHandler(st),
+		adminTelegramH: handler.NewAdminTelegramHandler(st, tgNotifier),
 	}
 }
 
