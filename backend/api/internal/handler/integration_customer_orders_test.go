@@ -71,15 +71,18 @@ func TestIntegrationCustomerListOrdersIncludesFullDetails(t *testing.T) {
 	// and the OrderCard in ProfilePage renders a `tel:` chip from it.
 	// A regression in the Scan/SELECT would pass silently while the
 	// chip disappeared. Pin it.
+	//
+	// NOTE: `customer_first_name` is intentionally NOT in mustHave.
+	// It is an admin-only field (model.Order:156 has
+	// `json:"customer_first_name,omitempty"`) and ListCustomerOrders
+	// deliberately scrubs it (customer.go:1226 sets
+	// `orders[i].CustomerFirstName = ""`). With omitempty the field
+	// never reaches the customer's response. Asserting on it makes
+	// the test deterministically red — Max's round-3 review (D1)
+	// caught this after the round-2 "angle B" suggestion proved wrong.
 	mustHave := []string{
 		"id", "type", "status", "total_minor",
 		"phone",
-		// Reviewer finding (re-review PR #51) angle B: same DoA risk
-		// as `phone` — order_postgres.go returns COALESCE'd
-		// customer_first_name, ProfilePage could surface it, but the
-		// test did not pin it. customerSession seeds FirstName: "T"
-		// so the omitempty path is exercised.
-		"customer_first_name",
 		"city", "delivery_method", "payment_method",
 		"street", "house", "apartment", "comment",
 		"items", "created_at",
