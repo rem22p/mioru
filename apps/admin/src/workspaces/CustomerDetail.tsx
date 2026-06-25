@@ -407,11 +407,16 @@ export default function CustomerDetail() {
                   </tr>
                 </thead>
                 <tbody>
+                  {// NOTE: there is no /orders/:id route yet — the admin
+                  // Orders workspace renders all orders as cards on one
+                  // page. When /orders/:id is added, link here to the
+                  // specific order. See PR #52 re-review MEDIUM A.
+                  }
                   {data.orders.map((o) => (
                     <tr
                       key={o.id}
                       data-testid={`customer-order-row-${o.id}`}
-                      onClick={() => navigate(`/orders/${o.id}`)}
+                      onClick={() => navigate("/orders")}
                       className="hover:bg-[var(--color-bg-primary)]/50 transition-colors cursor-pointer"
                     >
                       <td className="px-6 py-4 text-lg font-bold text-[var(--color-text-primary)] font-mono whitespace-nowrap">

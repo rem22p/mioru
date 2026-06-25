@@ -62,7 +62,11 @@ func (s *PostgresStore) ListCustomers(ctx context.Context, search string, page, 
 	const maxPage = 1000
 
 	if len(search) > maxSearchLen {
-		search = search[:maxSearchLen]
+		// maxSearchLen is in characters, not bytes — slicing by
+		// byte count would split a multi-byte Cyrillic rune and
+		// produce an invalid UTF-8 string, which Postgres would
+		// reject with an "invalid byte sequence" error.
+		search = string([]rune(search)[:maxSearchLen])
 	}
 	if page < 1 {
 		page = 1
@@ -166,22 +170,22 @@ func (s *PostgresStore) ListCustomers(ctx context.Context, search string, page, 
 // header, the first/last order dates for the stats card, and the
 // full list of orders.
 type AdminCustomerDetail struct {
-	ID                int64  `json:"id"`
-	Email             string `json:"email"`
-	FirstName         string `json:"first_name"`
-	LastName          string `json:"last_name"`
-	Phone             string `json:"phone"`
-	AvatarColor       string `json:"avatar_color"`
-	CreatedAt         string `json:"created_at"`
-	UpdatedAt         string `json:"updated_at"`
-	PasswordChangedAt string `json:"-"`
-	OrdersCount       int    `json:"orders_count"`
-	TotalSpentMinor   int64  `json:"total_spent_minor"`
-	FirstOrderAt      string `json:"first_order_at"`
-	LastOrderAt       string `json:"last_order_at"`
-	TelegramLinked    bool   `json:"telegram_linked"`
-	TelegramUsername  string `json:"telegram_username"`
-	TelegramChatID    string `json:"telegram_chat_id"`
+	ID                int64               `json:"id"`
+	Email             string              `json:"email"`
+	FirstName         string              `json:"first_name"`
+	LastName          string              `json:"last_name"`
+	Phone             string              `json:"phone"`
+	AvatarColor       string              `json:"avatar_color"`
+	CreatedAt         string              `json:"created_at"`
+	UpdatedAt         string              `json:"updated_at"`
+	PasswordChangedAt string              `json:"-"`
+	OrdersCount       int                 `json:"orders_count"`
+	TotalSpentMinor   int64               `json:"total_spent_minor"`
+	FirstOrderAt      string              `json:"first_order_at"`
+	LastOrderAt       string              `json:"last_order_at"`
+	TelegramLinked    bool                `json:"telegram_linked"`
+	TelegramUsername  string              `json:"telegram_username"`
+	TelegramChatID    string              `json:"telegram_chat_id"`
 	Orders            []AdminOrderSummary `json:"orders"`
 }
 

@@ -69,7 +69,7 @@ func TestIntegrationAdminListCustomers(t *testing.T) {
 		t.Errorf("hashed_password leaked in admin list response — security regression")
 	}
 
-// Search filter — "alpha" should match by substring on first name
+	// Search filter — "alpha" should match by substring on first name
 	// (Alpha contains "alpha"). The old code used LIKE without wildcards
 	// and happened to match here because first_name was EXACTLY "Alpha",
 	// not because substring search worked. After the HIGH #1 fix (LIKE
@@ -134,8 +134,8 @@ func TestIntegrationAdminGetCustomerDetail(t *testing.T) {
 
 	rr := e.do(t, e.wrapAdmin(e.adminCustomerH.Detail), http.MethodGet,
 		"/api/admin/customers/{id}", reqOpts{
-			sess:        admin,
-			pathValues:  map[string]string{"id": strconv.FormatInt(cID, 10)},
+			sess:       admin,
+			pathValues: map[string]string{"id": strconv.FormatInt(cID, 10)},
 		})
 	if rr.Code != http.StatusOK {
 		t.Fatalf("Detail: want 200, got %d (%s)", rr.Code, rr.Body.String())
@@ -164,8 +164,8 @@ func TestIntegrationAdminGetCustomerDetail(t *testing.T) {
 	// 404 path
 	rr404 := e.do(t, e.wrapAdmin(e.adminCustomerH.Detail), http.MethodGet,
 		"/api/admin/customers/{id}", reqOpts{
-			sess:        admin,
-			pathValues:  map[string]string{"id": "9999999"},
+			sess:       admin,
+			pathValues: map[string]string{"id": "9999999"},
 		})
 	if rr404.Code != http.StatusNotFound {
 		t.Errorf("missing customer: want 404, got %d", rr404.Code)
@@ -187,8 +187,8 @@ func TestIntegrationAdminGetCustomerDetailWithoutTelegram(t *testing.T) {
 
 	rr := e.do(t, e.wrapAdmin(e.adminCustomerH.Detail), http.MethodGet,
 		"/api/admin/customers/{id}", reqOpts{
-			sess:        admin,
-			pathValues:  map[string]string{"id": strconv.FormatInt(cID, 10)},
+			sess:       admin,
+			pathValues: map[string]string{"id": strconv.FormatInt(cID, 10)},
 		})
 	if rr.Code != http.StatusOK {
 		t.Fatalf("Detail without Telegram: want 200, got %d (%s)", rr.Code, rr.Body.String())
@@ -247,10 +247,10 @@ func TestIntegrationAdminCustomersRequiresAuth(t *testing.T) {
 func seedCustomer(t *testing.T, e *env, email, first, last, phone string) int64 {
 	t.Helper()
 	throwaway := model.Customer{
-		Email:      email,
-		FirstName:  first,
-		LastName:   last,
-		Phone:      phone,
+		Email:       email,
+		FirstName:   first,
+		LastName:    last,
+		Phone:       phone,
 		AvatarColor: "#44944A", // matches the DB default; CreateCustomer
 		// doesn't set it, so without this we'd hit the NOT NULL
 		// constraint on avatar_color for a freshly inserted row.
