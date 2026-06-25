@@ -254,16 +254,41 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 	// meaningful line item (the FK constraint on
 	// order_items.product_id would otherwise fail the
 	// transaction).
+	productIDs := make([]int64, 0, len(items))
+	seen := make(map[int64]bool, len(items))
+	for _, it := range items {
+		if !seen[it.ProductID] {
+			productIDs = append(productIDs, it.ProductID)
+			seen[it.ProductID] = true
+		}
+	}
+	productMeta := make(map[int64]struct{ Name, Slug string }, len(productIDs))
+	rows, err := tx.Query(ctx,
+		`SELECT id, name, slug FROM products WHERE id = ANY($1)`, productIDs)
+	if err != nil {
+		return nil, fmt.Errorf("batch lookup products: %w", err)
+	}
+	for rows.Next() {
+		var id int64
+		var name, slug string
+		if err := rows.Scan(&id, &name, &slug); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("scan product meta: %w", err)
+		}
+		productMeta[id] = struct{ Name, Slug string }{name, slug}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate product meta: %w", err)
+	}
+
 	for i := range items {
 		items[i].OrderID = o.ID
-		var pname, pslug string
-		err = tx.QueryRow(ctx,
-			`SELECT name, slug FROM products WHERE id = $1`,
-			items[i].ProductID,
-		).Scan(&pname, &pslug)
-		if err != nil {
-			return nil, fmt.Errorf("lookup product for order item: %w", err)
+		meta, ok := productMeta[items[i].ProductID]
+		if !ok {
+			return nil, fmt.Errorf("product %d not found during order insert", items[i].ProductID)
 		}
+		pname, pslug := meta.Name, meta.Slug
 		items[i].ProductName = pname
 		items[i].ProductSlug = pslug
 		err = tx.QueryRow(ctx, `
