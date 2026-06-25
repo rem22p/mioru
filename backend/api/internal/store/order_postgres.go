@@ -247,13 +247,13 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 	// order_items (see migration 014) so the Telegram
 	// "new order" notification can render a clickable
 	// "<a href="...">Product Name</a>" link even if the
-	// product gets renamed or deleted later. We do the
-	// product lookup here — *inside* the transaction — so
-	// a product that gets deleted between the client's
-	// "Add to cart" and the order POST still produces a
-	// meaningful line item (the FK constraint on
-	// order_items.product_id would otherwise fail the
-	// transaction).
+	// product gets renamed or deleted later. The lookup is
+	// batched once before the loop (not N+1) and a missing
+	// product causes the transaction to roll back (the FK
+	// constraint on order_items.product_id is the second
+	// line of defence). Once the order is committed, the
+	// denormalised name/slug survive any future product
+	// change.
 	productIDs := make([]int64, 0, len(items))
 	seen := make(map[int64]bool, len(items))
 	for _, it := range items {

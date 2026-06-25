@@ -124,6 +124,33 @@ func NewNotifier(botToken string, chatIDs []string, apiBaseURL, uploadDir, admin
 // constructed.
 func (n *Notifier) SetRecorder(r Recorder) { n.rec = r }
 
+// StartPurge launches a background goroutine that periodically
+// deletes telegram_messages rows older than retentionDays.
+// Intended to be called once at boot from main.go.
+// ctx cancellation stops the goroutine (e.g. on server shutdown).
+// S1 (data-minimization, CLAUDE.md priority #2): prevents
+// unbounded PII accumulation in the debug log.
+func (n *Notifier) StartPurge(ctx context.Context, interval time.Duration, retentionDays int, purgeFn func(context.Context, int) (int64, error)) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				slog.Info("telegram purge stopped")
+				return
+			case <-ticker.C:
+				deleted, err := purgeFn(context.Background(), retentionDays)
+				if err != nil {
+					slog.Warn("telegram purge failed", "error", err)
+				} else if deleted > 0 {
+					slog.Info("telegram purge completed", "deleted", deleted)
+				}
+			}
+		}
+	}()
+}
+
 // HealthCheck calls Telegram's getMe endpoint and returns the bot's
 // @username on success. It's a thin wrapper around the same HTTP
 // client OrderCreated uses, intended to be called once at server
@@ -158,7 +185,9 @@ func (n *Notifier) HealthCheck(ctx context.Context) (string, error) {
 		}
 		_ = json.NewDecoder(resp.Body).Decode(&errResp)
 		msg := fmt.Sprintf("telegram api %d: %s", resp.StatusCode, errResp.Description)
-		return "", fmt.Errorf("%s", redactToken(msg, n.botToken))
+		err := fmt.Errorf("%s", redactToken(msg, n.botToken))
+		n.recordHealth("", err)
+		return "", err
 	}
 	var ok struct {
 		Result struct {
@@ -260,7 +289,7 @@ func (n *Notifier) sendMessage(chatID, text string, orderID int64) error {
 		if oid != 0 {
 			orderPtr = &oid
 		}
-		id, err := n.rec.RecordTelegramSend(context.Background(), orderPtr, chatID, text, "MarkdownV2")
+		id, err := n.rec.RecordTelegramSend(context.Background(), orderPtr, chatID, text, "HTML")
 		if err != nil {
 			slog.Warn("telegram recorder: RecordTelegramSend failed", "error", err)
 		} else {
@@ -332,7 +361,6 @@ func redactToken(s, token string) string {
 	return strings.ReplaceAll(s, token, "***")
 }
 
-// escapeMarkdown escapes Telegram MarkdownV2 special characters.
 // escapeHTML escapes the four HTML-special characters
 // (&, <, >, ") that Telegram's HTML parse mode treats as
 // markup delimiters. Every other character (including

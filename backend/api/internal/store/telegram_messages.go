@@ -182,6 +182,21 @@ func (s *PostgresStore) ListTelegramMessages(ctx context.Context, page, perPage 
 	return out, total, rows.Err()
 }
 
+// DeleteTelegramMessagesOlderThan removes rows whose sent_at
+// is older than the given number of days. Returns the count
+// of deleted rows. Called periodically by the notifier's
+// background purge goroutine (default: every 24h, 90-day
+// retention) to limit PII accumulation in the debug log.
+// S1 (data-minimization, CLAUDE.md priority #2).
+func (s *PostgresStore) DeleteTelegramMessagesOlderThan(ctx context.Context, retentionDays int) (int64, error) {
+	tag, err := s.pool.Exec(ctx,
+		`DELETE FROM telegram_messages WHERE sent_at < NOW() - MAKE_INTERVAL(days => $1)`, retentionDays)
+	if err != nil {
+		return 0, fmt.Errorf("purge telegram messages: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
 // GetTelegramStats is the Status-card payload. The 24h window
 // is the only window the admin UI asks for, so we don't build
 // a more flexible "last N hours" aggregator.

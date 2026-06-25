@@ -172,8 +172,9 @@ func (h *AdminTelegramHandler) Test(w http.ResponseWriter, r *http.Request) {
 
 	// Use the live notifier so the test message also lands in
 	// the `telegram_messages` log (and shows up in the history
-	// list with order_id NULL). The text is short and has no
-	// MarkdownV2 special chars, so it can never hit a 400.
+	// list with order_id NULL). The text is short and uses
+	// plain emoji only — no HTML special characters, so it
+	// can never hit a 400.
 	text := "🧪 test message from mioru admin"
 	chatIDs := h.notifier.ManagerChatIDs()
 	results := make([]TestResult, 0, len(chatIDs))

@@ -234,7 +234,7 @@ func TestIntegrationAdminTelegramMessagesPagination(t *testing.T) {
 	env := newAdminTelegramEnv(t)
 	// Seed 3 rows directly through the recorder.
 	for i := 0; i < 3; i++ {
-		_, _ = env.rec.RecordTelegramSend(context.Background(), nil, "123", "msg", "MarkdownV2")
+		_, _ = env.rec.RecordTelegramSend(context.Background(), nil, "123", "msg", "HTML")
 	}
 	rr := env.doAdminTelegramWithSession(t, env.tgH.Messages, http.MethodGet, "/api/admin/telegram/messages?page=2&per_page=2", nil)
 	if rr.Code != http.StatusOK {

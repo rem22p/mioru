@@ -60,6 +60,9 @@ func main() {
 	adminCustomerH := handler.NewAdminCustomerHandler(pgStore)
 	tgNotifier := telegram.NewNotifier(cfg.TelegramBotToken, cfg.TelegramManagerChatIDs, cfg.APIBaseURL, cfg.UploadDir, cfg.AdminURL, cfg.StoreURL)
 	tgNotifier.SetRecorder(pgStore)
+	// Start background PII purge: delete telegram_messages rows
+	// older than 90 days, every 24h (S1 data-minimization).
+	tgNotifier.StartPurge(context.Background(), 24*time.Hour, 90, pgStore.DeleteTelegramMessagesOlderThan)
 	adminTelegramH := handler.NewAdminTelegramHandler(pgStore, tgNotifier)
 	customerH := handler.NewCustomerHandler(pgStore, cfg.SecretKey, cfg.TokenExpiry, secureCookies, cfg.TelegramBotToken, cfg.CookieDomain,
 		cfg.UploadDir,
@@ -196,7 +199,7 @@ func main() {
 	// their own notifier without escalation.
 	mux.Handle("GET /api/admin/telegram/diagnose", adminOnly(http.HandlerFunc(adminTelegramH.Diagnose)))
 	mux.Handle("GET /api/admin/telegram/messages", adminOnly(http.HandlerFunc(adminTelegramH.Messages)))
-	mux.Handle("POST /api/admin/telegram/test", adminOnly(adminCSRF(http.HandlerFunc(adminTelegramH.Test))))
+	mux.Handle("POST /api/admin/telegram/test", adminOnly(http.HandlerFunc(adminTelegramH.Test)))
 
 	// Admin: Upload (admin only)
 	mux.Handle("POST /api/admin/upload", adminOnly(http.HandlerFunc(productH.Upload)))
