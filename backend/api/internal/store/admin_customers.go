@@ -2,8 +2,11 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // AdminCustomerRow is the projection used by the admin "Customers"
@@ -41,16 +44,31 @@ type AdminCustomerRow struct {
 // order stats and the Telegram link, if any.
 //
 // search is a free-text filter that matches email/first_name/last_name
-// case-insensitively. Empty string means "no filter".
+// **by substring** case-insensitively. Empty string means "no filter".
+// The search term is bounded (maxSearchLen) and wildcard-wrapped so a
+// manager searching for "an" finds "Anna", "Ivan", "Dan".
 //
 // Sort is fixed to id DESC (newest customers first) — the
 // storefront doesn't expose a sort parameter for this endpoint
 // because the only sensible order is "newest first", and adding a
 // sort picker would just be UI tax. If a manager asks for "oldest
 // first" or "highest spender", add a sort param then.
+//
+// page is clamped to maxPage (defence-in-depth) to prevent an
+// attacker from sending page=99999999 and forcing a seq-scan
+// OFFSET into nothing.
 func (s *PostgresStore) ListCustomers(ctx context.Context, search string, page, perPage int) ([]AdminCustomerRow, int, error) {
+	const maxSearchLen = 200
+	const maxPage = 1000
+
+	if len(search) > maxSearchLen {
+		search = search[:maxSearchLen]
+	}
 	if page < 1 {
 		page = 1
+	}
+	if page > maxPage {
+		page = maxPage
 	}
 	if perPage < 1 {
 		perPage = 20
@@ -59,14 +77,15 @@ func (s *PostgresStore) ListCustomers(ctx context.Context, search string, page, 
 		perPage = 100
 	}
 
-	// Use a parameter for the search pattern so an empty string
-	// works as "no filter" (the WHERE clause below short-circuits
-	// with $1 = '' rather than running LIKE '%' which would still
-	// match every row but is needlessly expensive on a full table
-	// scan). We keep the LIKE case-insensitive via LOWER() on both
-	// sides, and we apply LOWER() to the search argument here so
-	// the index (if any) can still be used.
-	_ = strings.ToLower(search)
+	// Build a case-insensitive substring pattern for the WHERE
+	// clause. An empty search string short-circuits via $1 = ''
+	// without touching the LIKE branches; a non-empty search is
+	// lower-cased and wrapped in % wildcards so a manager
+	// searching for "анн" finds "Анна".
+	searchPattern := ""
+	if search != "" {
+		searchPattern = "%" + strings.ToLower(search) + "%"
+	}
 
 	// Count first so the handler can build the pagination footer
 	// without a second round trip to compute total.
@@ -77,7 +96,7 @@ func (s *PostgresStore) ListCustomers(ctx context.Context, search string, page, 
 		   OR LOWER(c.email) LIKE $1
 		   OR LOWER(c.first_name) LIKE $1
 		   OR LOWER(c.last_name) LIKE $1`,
-		search,
+		searchPattern,
 	).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("count customers: %w", err)
@@ -115,7 +134,7 @@ func (s *PostgresStore) ListCustomers(ctx context.Context, search string, page, 
 		   OR LOWER(c.last_name) LIKE $1
 		ORDER BY c.id DESC
 		LIMIT $2 OFFSET $3`,
-		search, perPage, offset,
+		searchPattern, perPage, offset,
 	)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list customers: %w", err)
@@ -155,7 +174,7 @@ type AdminCustomerDetail struct {
 	AvatarColor       string `json:"avatar_color"`
 	CreatedAt         string `json:"created_at"`
 	UpdatedAt         string `json:"updated_at"`
-	PasswordChangedAt string `json:"password_changed_at"`
+	PasswordChangedAt string `json:"-"`
 	OrdersCount       int    `json:"orders_count"`
 	TotalSpentMinor   int64  `json:"total_spent_minor"`
 	FirstOrderAt      string `json:"first_order_at"`
@@ -179,21 +198,21 @@ type AdminOrderSummary struct {
 	ItemsCount int    `json:"items_count"`
 }
 
-// LinkCustomerTelegramForTest wires a customer_oauth row for
-// integration tests. It's a thin shim around the pgxpool.Exec
-// path that the production code would normally use via the
-// customer's /api/store/customers/me/oauth endpoint — we don't
-// call that here because it requires a customer session, CSRF
-// token, and Telegram bot signature verification, all of which
-// would just be noise in a test that wants to assert that the
-// admin detail endpoint surfaces the linked account correctly.
+// ⚠️ LinkCustomerTelegramForTest wires a customer_oauth row for
+// integration tests ONLY. It bypasses the Telegram bot signature
+// verification, CSRF token, and rate limiting that the production
+// route (/api/store/customers/me/oauth) enforces. CALLING THIS
+// FROM A PRODUCTION REQUEST PATH WOULD LET ANY AUTHENTICATED USER
+// CLAIM ANY TELEGRAM IDENTITY — IT IS A SECURITY FOOT-GUN.
 //
-// The "ForTest" suffix is a deliberate signal that this is a test
-// helper, not a public API — production code should always go
-// through the /api/store/customers/me/oauth route, which has the
-// real bot signature check, rate limiting, and audit trail. We
-// keep it in the production package so the test file (which lives
-// in `package handler_test`) can call it on the shared *PostgresStore.
+// The method is kept exported (not unexported) because the
+// integration test lives in package handler_test and needs access
+// through *store.PostgresStore. The "ForTest" suffix is the
+// contract that this is test-only.
+//
+// Re-review PR #52 finding MEDIUM #4 — originally considered
+// moving behind //go:build e2e, but the CI runs go test ./...
+// without -tags e2e and the handler_test caller has no build tag.
 func (s *PostgresStore) LinkCustomerTelegramForTest(ctx context.Context, customerID int64, chatID, username string) error {
 	profileData := []byte(`{"username": "` + username + `"}`)
 	_, err := s.pool.Exec(ctx, `
@@ -236,7 +255,7 @@ func (s *PostgresStore) GetCustomerFullDetail(ctx context.Context, id int64) (*A
 		&d.TelegramLinked, &d.TelegramUsername, &d.TelegramChatID,
 	)
 	if err != nil {
-		if strings.Contains(err.Error(), "no rows") {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("get customer detail: %w", err)
@@ -246,10 +265,23 @@ func (s *PostgresStore) GetCustomerFullDetail(ctx context.Context, id int64) (*A
 	// query keeps the main profile query simple and matches the
 	// shape of the customer /api/store/customers/me/orders endpoint
 	// (just without pagination — see the type comment above).
+	//
+	// The items_count is computed in a single LEFT JOIN sub-select
+	// (not a per-row correlated subquery) to avoid the N+1 that
+	// CLAUDE.md forbids. A typical mioru customer has <20 orders
+	// so the join is cheap, but a wholesale buyer with hundreds of
+	// orders would have triggered O(n) round-trips in the original
+	// `(SELECT COUNT(*) FROM order_items WHERE order_id = o.id)`
+	// pattern — re-review finding MEDIUM #3.
 	rows, err := s.pool.Query(ctx, `
 		SELECT o.id, o.type, o.total_minor, o.status, o.created_at::text,
-		       (SELECT COUNT(*) FROM order_items WHERE order_id = o.id)
+		       COALESCE(ic.cnt, 0)
 		FROM orders o
+		LEFT JOIN (
+			SELECT order_id, COUNT(*) AS cnt
+			FROM order_items
+			GROUP BY order_id
+		) ic ON ic.order_id = o.id
 		WHERE o.customer_id = $1
 		ORDER BY o.created_at DESC, o.id DESC`, id,
 	)

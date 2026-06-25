@@ -411,7 +411,7 @@ export default function CustomerDetail() {
                     <tr
                       key={o.id}
                       data-testid={`customer-order-row-${o.id}`}
-                      onClick={() => navigate("/orders")}
+                      onClick={() => navigate(`/orders/${o.id}`)}
                       className="hover:bg-[var(--color-bg-primary)]/50 transition-colors cursor-pointer"
                     >
                       <td className="px-6 py-4 text-lg font-bold text-[var(--color-text-primary)] font-mono whitespace-nowrap">

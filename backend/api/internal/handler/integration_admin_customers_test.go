@@ -69,24 +69,43 @@ func TestIntegrationAdminListCustomers(t *testing.T) {
 		t.Errorf("hashed_password leaked in admin list response — security regression")
 	}
 
-	// Search filter — only "alpha" should match.
+// Search filter — "alpha" should match by substring on first name
+	// (Alpha contains "alpha"). The old code used LIKE without wildcards
+	// and happened to match here because first_name was EXACTLY "Alpha",
+	// not because substring search worked. After the HIGH #1 fix (LIKE
+	// with %wildcards%), "alp" should ALSO match — pin it here.
 	rr2 := e.do(t, e.wrapAdmin(e.adminCustomerH.List), http.MethodGet,
-		"/api/admin/customers?search=alpha", reqOpts{sess: admin})
+		"/api/admin/customers?search=alp", reqOpts{sess: admin})
 	if rr2.Code != http.StatusOK {
-		t.Fatalf("List customers search: want 200, got %d", rr2.Code)
+		t.Fatalf("List customers search=alp: want 200, got %d", rr2.Code)
 	}
 	var resp2 struct {
 		Customers []map[string]any `json:"customers"`
 		Total     int              `json:"total"`
 	}
 	decode(t, rr2, &resp2)
-	if resp2.Total < 1 {
-		t.Errorf("search=alpha total = %d, want >= 1", resp2.Total)
+	if resp2.Total != 1 {
+		t.Errorf("search=alp total = %d, want 1 (Alpha matches 'alp' via substring)", resp2.Total)
 	}
 	for _, c := range resp2.Customers {
 		if email, _ := c["email"].(string); email != "alpha@example.com" {
-			t.Errorf("search returned non-matching email: %s", email)
+			t.Errorf("search=alp returned non-matching email: %s", email)
 		}
+	}
+
+	// "@example" should match both customers via email substring.
+	rr3 := e.do(t, e.wrapAdmin(e.adminCustomerH.List), http.MethodGet,
+		"/api/admin/customers?search=@example", reqOpts{sess: admin})
+	if rr3.Code != http.StatusOK {
+		t.Fatalf("List customers search=@example: want 200, got %d", rr3.Code)
+	}
+	var resp3 struct {
+		Customers []map[string]any `json:"customers"`
+		Total     int              `json:"total"`
+	}
+	decode(t, rr3, &resp3)
+	if resp3.Total != 2 {
+		t.Errorf("search=@example total = %d, want 2 (both emails contain @example)", resp3.Total)
 	}
 }
 
