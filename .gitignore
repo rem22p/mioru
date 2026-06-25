@@ -66,3 +66,4 @@ next-app/
 .mcp.json
 dist.tar.gz
 dump.rdb
+.envrc
