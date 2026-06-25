@@ -64,8 +64,8 @@ export default function CheckoutPage() {
       await createOrder(
         {
           type: "cart",
-          city: formData.city,
-          phone: formData.phone,
+          city: formData.city.trim(),
+          phone: formData.phone.trim(),
           delivery_method: formData.deliveryMethod,
           payment_method: formData.paymentMethod,
           street: formData.street || undefined,
