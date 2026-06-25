@@ -854,7 +854,14 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 			"парканы": true, "ближний хутор": true, "красное": true, "новотираспольский": true,
 			"терновка": true, "маяк": true, "суклея": true,
 		}
-		if pnrCities[strings.ToLower(req.City)] {
+		// Normalise for parity with apps/store/src/lib/deliveryRules.ts
+		// (normaliseCity): trim whitespace, lower-case, ё→е. Without
+		// trim, a city like " Тирасполь " (paste / IME padding) passes
+		// Go but is blocked by the frontend, diverging from the
+		// promised parity. Round-3 review D2.
+		normalised := strings.ToLower(strings.TrimSpace(req.City))
+		normalised = strings.ReplaceAll(normalised, "ё", "е")
+		if pnrCities[normalised] {
 			jsonErrorCode(w, "moldova post is not available for Transnistria cities", http.StatusBadRequest, "VALIDATION_FAILED")
 			return
 		}
