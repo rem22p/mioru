@@ -363,7 +363,7 @@ export default function CustomerDetail() {
         <h2 className="text-lg font-bold text-[var(--color-text-primary)] mb-4">
           История заказов
         </h2>
-        {data.orders.length === 0 ? (
+        {(data.orders ?? []).length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -412,7 +412,7 @@ export default function CustomerDetail() {
                   // page. When /orders/:id is added, link here to the
                   // specific order. See PR #52 re-review MEDIUM A.
                   }
-                  {data.orders.map((o) => (
+                  {(data.orders ?? []).map((o) => (
                     <tr
                       key={o.id}
                       data-testid={`customer-order-row-${o.id}`}

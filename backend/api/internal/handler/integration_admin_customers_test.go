@@ -160,6 +160,16 @@ func TestIntegrationAdminGetCustomerDetail(t *testing.T) {
 	if _, hasOrders := resp["orders"]; !hasOrders {
 		t.Errorf("orders field missing in detail response")
 	}
+	// B1 regression: a customer with no orders must get
+	// orders=[] (empty JSON array), NOT orders=null.
+	// JSON null breaks frontend data.orders.length.
+	orders, ok := resp["orders"].([]any)
+	if !ok {
+		t.Errorf("orders is not an array: %T (%v)", resp["orders"], resp["orders"])
+	}
+	if orders == nil {
+		t.Error("orders is null (Go nil slice → JSON null) — regression; want []")
+	}
 
 	// 404 path
 	rr404 := e.do(t, e.wrapAdmin(e.adminCustomerH.Detail), http.MethodGet,
