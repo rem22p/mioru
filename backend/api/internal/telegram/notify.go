@@ -566,7 +566,7 @@ func (n *Notifier) sendPhotoMultipart(chatID string, file *os.File, filename str
 
 	resp, err := n.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("send photo to %s: %w", chatID, err)
+		return fmt.Errorf("send photo to %s: %s", chatID, redactToken(err.Error(), n.botToken))
 	}
 	defer resp.Body.Close()
 
