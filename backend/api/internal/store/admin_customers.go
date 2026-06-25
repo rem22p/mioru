@@ -240,7 +240,7 @@ func (s *PostgresStore) LinkCustomerTelegramForTest(ctx context.Context, custome
 // late shipping?". If a single customer ever accumulates hundreds
 // of orders we can add pagination then.
 func (s *PostgresStore) GetCustomerFullDetail(ctx context.Context, id int64) (*AdminCustomerDetail, error) {
-	d := &AdminCustomerDetail{}
+	d := &AdminCustomerDetail{Orders: []AdminOrderSummary{}}
 	err := s.pool.QueryRow(ctx, `
 		SELECT c.id, c.email, c.first_name, c.last_name, c.phone,
 		       COALESCE(c.avatar_color, '') as avatar_color,
