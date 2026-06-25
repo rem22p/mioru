@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -124,6 +125,7 @@ func (s *PostgresStore) ListCustomers(ctx context.Context, search string, page, 
 			       SUM(total_minor) AS total_spent_minor,
 			       MAX(created_at) AS last_order_at
 			FROM orders
+			WHERE status != 'cancelled'
 			GROUP BY customer_id
 		) ord ON ord.customer_id = c.id
 		LEFT JOIN (
@@ -218,8 +220,11 @@ type AdminOrderSummary struct {
 // moving behind //go:build e2e, but the CI runs go test ./...
 // without -tags e2e and the handler_test caller has no build tag.
 func (s *PostgresStore) LinkCustomerTelegramForTest(ctx context.Context, customerID int64, chatID, username string) error {
-	profileData := []byte(`{"username": "` + username + `"}`)
-	_, err := s.pool.Exec(ctx, `
+	profileData, err := json.Marshal(map[string]string{"username": username})
+	if err != nil {
+		return fmt.Errorf("marshal profile_data: %w", err)
+	}
+	_, err = s.pool.Exec(ctx, `
 		INSERT INTO customer_oauth (customer_id, provider, oauth_id, profile_data)
 		VALUES ($1, 'telegram', $2, $3)`,
 		customerID, chatID, profileData)
@@ -240,16 +245,16 @@ func (s *PostgresStore) GetCustomerFullDetail(ctx context.Context, id int64) (*A
 		SELECT c.id, c.email, c.first_name, c.last_name, c.phone,
 		       COALESCE(c.avatar_color, '') as avatar_color,
 		       c.created_at::text, c.updated_at::text, c.password_changed_at::text,
-		       (SELECT COUNT(*) FROM orders WHERE customer_id = c.id),
-		       (SELECT COALESCE(SUM(total_minor), 0) FROM orders WHERE customer_id = c.id),
-		       COALESCE((SELECT MIN(created_at)::text FROM orders WHERE customer_id = c.id), ''),
-		       COALESCE((SELECT MAX(created_at)::text FROM orders WHERE customer_id = c.id), ''),
+		       (SELECT COUNT(*) FROM orders WHERE customer_id = c.id AND status != 'cancelled'),
+		       (SELECT COALESCE(SUM(total_minor), 0) FROM orders WHERE customer_id = c.id AND status != 'cancelled'),
+		       COALESCE((SELECT MIN(created_at)::text FROM orders WHERE customer_id = c.id AND status != 'cancelled'), ''),
+		       COALESCE((SELECT MAX(created_at)::text FROM orders WHERE customer_id = c.id AND status != 'cancelled'), ''),
 		       COALESCE((SELECT (oauth_id IS NOT NULL) FROM customer_oauth
-		                 WHERE customer_id = c.id AND provider = 'telegram' LIMIT 1), FALSE),
+		                 WHERE customer_id = c.id AND provider = 'telegram' ORDER BY id DESC LIMIT 1), FALSE),
 		       COALESCE((SELECT profile_data->>'username' FROM customer_oauth
-		                 WHERE customer_id = c.id AND provider = 'telegram' LIMIT 1), ''),
+		                 WHERE customer_id = c.id AND provider = 'telegram' ORDER BY id DESC LIMIT 1), ''),
 		       COALESCE((SELECT oauth_id FROM customer_oauth
-		                 WHERE customer_id = c.id AND provider = 'telegram' LIMIT 1), '')
+		                 WHERE customer_id = c.id AND provider = 'telegram' ORDER BY id DESC LIMIT 1), '')
 		FROM customers c
 		WHERE c.id = $1`, id,
 	).Scan(

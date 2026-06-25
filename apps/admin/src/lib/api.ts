@@ -302,7 +302,9 @@ export interface AdminCustomerDetail {
   avatar_color: string;
   created_at: string;
   updated_at: string;
-  password_changed_at: string;
+  // password_changed_at is scrubbed server-side (json:"-") — do
+  // not add it back. The field is PII-adjacent metadata and should
+  // never reach the admin frontend. PR #52 review LOW #8 / I1.
   orders_count: number;
   total_spent_minor: number;
   first_order_at: string;
