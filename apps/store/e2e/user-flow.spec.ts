@@ -106,6 +106,10 @@ test("customer registers, adds a product to cart, and places an order", async ({
   await page.getByTestId("checkout-city").fill("Тирасполь");
   await page.keyboard.press("Escape"); // close the autocomplete dropdown overlay
   await page.getByTestId("checkout-delivery-personal").check();
+  // Phone is required since the checkout-phone field was added
+  // (PR #51). Without this fill, canProceed() returns false and
+  // the checkout-next click is a no-op.
+  await page.getByTestId("checkout-phone").fill("+373****5678");
   await page.getByTestId("checkout-next").click();
 
   // ── Checkout step 2: payment (card is the default) ─────────────────────

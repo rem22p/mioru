@@ -145,7 +145,11 @@ func (n *Notifier) HealthCheck(ctx context.Context) (string, error) {
 	}
 	resp, err := n.client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("getMe: %w", err)
+		// The *url.Error returned by http.Client embeds the full
+		// request URL, which contains the bot token. Redact
+		// before returning so the caller (main.go) can log the
+		// error safely without needing the token itself.
+		return "", fmt.Errorf("getMe: %s", redactToken(err.Error(), n.botToken))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -272,7 +276,11 @@ func (n *Notifier) sendMessage(chatID, text string, orderID int64) error {
 			_ = n.rec.MarkTelegramFailed(context.Background(), rowID, nil,
 				redactToken(err.Error(), n.botToken), int(durationMs))
 		}
-		return fmt.Errorf("send to %s: %w", chatID, err)
+		// The *url.Error from http.Client embeds the request URL
+		// with the bot token. Redact the message before returning
+		// so callers (OrderCreated, admin test-send handler)
+		// never have to remember.
+		return fmt.Errorf("send to %s: %s", chatID, redactToken(err.Error(), n.botToken))
 	}
 	defer resp.Body.Close()
 
