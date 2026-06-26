@@ -496,7 +496,8 @@ func (s *PostgresStore) loadOrderItems(ctx context.Context, orderIDs []int64) (m
 	rows, err := s.pool.Query(ctx, `
 		SELECT oi.id, oi.order_id, oi.product_id,
 		       COALESCE(p.name, ''), COALESCE(p.slug, ''),
-		       oi.size_label, oi.quantity, oi.price_minor
+		       oi.size_label, oi.quantity, oi.price_minor,
+		       oi.height_cm, oi.weight_kg
 		FROM order_items oi
 		LEFT JOIN products p ON p.id = oi.product_id
 		WHERE oi.order_id = ANY($1)
@@ -512,7 +513,8 @@ func (s *PostgresStore) loadOrderItems(ctx context.Context, orderIDs []int64) (m
 		var item model.OrderItem
 		if err := rows.Scan(&item.ID, &item.OrderID, &item.ProductID,
 			&item.ProductName, &item.ProductSlug,
-			&item.SizeLabel, &item.Quantity, &item.PriceMinor); err != nil {
+			&item.SizeLabel, &item.Quantity, &item.PriceMinor,
+			&item.HeightCm, &item.WeightKg); err != nil {
 			return nil, fmt.Errorf("scan order item: %w", err)
 		}
 		m[item.OrderID] = append(m[item.OrderID], item)

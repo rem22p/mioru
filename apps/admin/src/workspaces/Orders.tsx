@@ -450,6 +450,11 @@ function OrderCard({
                           {item.size_label}
                         </span>
                       )}
+                      {item.height_cm != null && (
+                        <span className="text-[var(--color-text-muted)] ml-1.5 text-xs">
+                          {item.height_cm}см / {item.weight_kg}кг
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 shrink-0 ml-3">
                       <span className="text-[var(--color-text-muted)] text-xs">

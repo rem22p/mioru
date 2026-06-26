@@ -232,6 +232,8 @@ export interface AdminOrderItem {
   size_label: string;
   quantity: number;
   price_minor: number;
+  height_cm?: number;
+  weight_kg?: number;
 }
 
 export interface AdminOrdersResponse {
