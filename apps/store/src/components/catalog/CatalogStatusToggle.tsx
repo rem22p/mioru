@@ -14,35 +14,38 @@ export default function CatalogStatusToggle({ value, onChange }: Props) {
 
   return (
     <div className="mt-4">
-      <div className="relative inline-flex rounded-full bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-1 select-none">
-        {/* Sliding active background */}
+      <div className="relative inline-flex rounded-full bg-[var(--color-bg-secondary)] border-2 border-[var(--color-border-custom)] p-1.5 select-none shadow-inner">
+        {/* Sliding active background — white/green depending on side */}
         <motion.div
           layout
-          transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          className="absolute top-1 bottom-1 rounded-full bg-[#44944A] shadow-sm"
+          transition={{ type: "spring", stiffness: 350, damping: 28 }}
+          className="absolute top-1.5 bottom-1.5 rounded-full shadow-md"
           style={{
-            left: isInStock ? "0.25rem" : "50%",
-            right: isInStock ? "50%" : "0.25rem",
+            left: isInStock ? "0.375rem" : "50%",
+            right: isInStock ? "50%" : "0.375rem",
+            background: isInStock
+              ? "#44944A"
+              : "#ffffff",
           }}
         />
-        {/* Left segment */}
+        {/* В наличии */}
         <button
           onClick={() => onChange("in_stock")}
-          className={`relative z-10 px-8 py-3 text-sm font-semibold rounded-full transition-colors min-w-[140px] text-center uppercase tracking-wider ${
+          className={`relative z-10 px-10 py-3.5 text-2xl font-bold rounded-full transition-all duration-200 min-w-[170px] text-center ${
             isInStock
-              ? "text-black"
-              : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+              ? "text-white scale-[1.02]"
+              : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
           }`}
         >
           {t("catalog.toggle.inStock")}
         </button>
-        {/* Right segment */}
+        {/* Под заказ */}
         <button
           onClick={() => onChange("preorder")}
-          className={`relative z-10 px-8 py-3 text-sm font-semibold rounded-full transition-colors min-w-[140px] text-center uppercase tracking-wider ${
+          className={`relative z-10 px-10 py-3.5 text-2xl font-bold rounded-full transition-all duration-200 min-w-[170px] text-center ${
             !isInStock
-              ? "text-black"
-              : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+              ? "text-black scale-[1.02]"
+              : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
           }`}
         >
           {t("catalog.toggle.preorder")}
