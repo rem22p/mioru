@@ -36,18 +36,18 @@ const PREORDER_FIELDS: Record<string, PreorderField[]> = {
     { key: "height", label: "Рост", unit: "см", min: 100, max: 250, placeholder: "170" },
     { key: "weight", label: "Вес", unit: "кг", min: 30, max: 250, placeholder: "70" },
   ],
-  // Bottoms — height + waist
+  // Bottoms — height + weight (same as apparel)
   "shorts": [
     { key: "height", label: "Рост", unit: "см", min: 100, max: 250, placeholder: "170" },
-    { key: "waist", label: "Талия", unit: "см", min: 50, max: 150, placeholder: "80" },
+    { key: "weight", label: "Вес", unit: "кг", min: 30, max: 250, placeholder: "70" },
   ],
   "jeans": [
     { key: "height", label: "Рост", unit: "см", min: 100, max: 250, placeholder: "170" },
-    { key: "waist", label: "Талия", unit: "см", min: 50, max: 150, placeholder: "80" },
+    { key: "weight", label: "Вес", unit: "кг", min: 30, max: 250, placeholder: "70" },
   ],
   "pants": [
     { key: "height", label: "Рост", unit: "см", min: 100, max: 250, placeholder: "170" },
-    { key: "waist", label: "Талия", unit: "см", min: 50, max: 150, placeholder: "80" },
+    { key: "weight", label: "Вес", unit: "кг", min: 30, max: 250, placeholder: "70" },
   ],
   // Footwear — foot length
   "sneakers": [
