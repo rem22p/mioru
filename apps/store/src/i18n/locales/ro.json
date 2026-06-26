@@ -204,7 +204,27 @@
     "viewPhotos": "Foto",
     "pose": "Poză",
     "modelParams": "Parametrii modelului",
-    "allProducts": "Toate produsele"
+    "allProducts": "Toate produsele",
+    "preorder": {
+      "button": "La comandă",
+      "description": "Produsele la comandă sunt articole care nu sunt în stoc. Le comandăm special pentru tine.\n\nExistă trei niveluri:",
+      "tariffs": {
+        "express": {
+          "name": "EXPRESS",
+          "duration": "3-5 zile (cel mai rapid)"
+        },
+        "accelerated": {
+          "name": "ACCELERAT",
+          "duration": "8-10 zile (optim)"
+        },
+        "standard": {
+          "name": "STANDARD",
+          "duration": "30-35 zile (cel mai accesibil)"
+        }
+      },
+      "priceNote": "! prețul afișat este pentru nivelul STANDARD !",
+      "telegramInfo": "Prețurile pentru primele două niveluri îți vor fi trimise prin Telegram împreună cu detaliile complete ale comenzii. Prețul final depinde de termenul de livrare ales. Este posibil ca mărimea ta să nu fie disponibilă pentru anumite niveluri."
+    }
   },
   "cart": {
     "title": "Coș",

@@ -204,7 +204,27 @@
     "viewPhotos": "Photos",
     "pose": "Pose",
     "modelParams": "Model info",
-    "allProducts": "All products"
+    "allProducts": "All products",
+    "preorder": {
+      "button": "Pre-order",
+      "description": "Pre-order items are products that are not in stock. We order them specially for you.\n\nThere are three tiers:",
+      "tariffs": {
+        "express": {
+          "name": "EXPRESS",
+          "duration": "3-5 days (fastest)"
+        },
+        "accelerated": {
+          "name": "ACCELERATED",
+          "duration": "8-10 days (best value)"
+        },
+        "standard": {
+          "name": "STANDARD",
+          "duration": "30-35 days (most affordable)"
+        }
+      },
+      "priceNote": "! price shown is for STANDARD tier !",
+      "telegramInfo": "Pricing for the first two tiers will be sent to you via Telegram along with your full order details. The final price depends on the chosen delivery timeframe. Your size may not be available for certain tiers."
+    }
   },
   "cart": {
     "title": "Cart",
