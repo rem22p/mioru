@@ -27,7 +27,7 @@ interface ProductPreviewProps {
     brand: string;
     material: string;
     care: string[];
-    sizes: string[];
+    sizes: any[];
     color: string;
     fit: string;
     categoryName: string;
@@ -248,16 +248,16 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
                   <div className="flex flex-wrap gap-3">
                     {data.sizes.map((size) => (
                       <button
-                        key={size}
-                        onClick={() => setSelectedSize(size)}
+                        key={typeof size === "string" ? size : size.label}
+                        onClick={() => setSelectedSize(typeof size === "string" ? size : size.label)}
                         className={`relative rounded-xl border px-5 py-3 text-sm font-medium transition-all ${
-                          selectedSize === size
+                          selectedSize === (typeof size === "string" ? size : size.label)
                             ? `${accentBorder} ${accentBg} text-black`
                             : `${border} ${textSecondary} hover:border-gray-500 hover:${textPrimary}`
                         }`}
                       >
                         {size}
-                        {selectedSize === size && (
+                        {selectedSize === (typeof size === "string" ? size : size.label) && (
                           <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-black flex items-center justify-center">
                             <Check className="h-3 w-3 text-[#44944A]" />
                           </span>
