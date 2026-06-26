@@ -85,3 +85,15 @@ export function getPreorderFields(categoryName: string): PreorderField[] {
   const slug = CATEGORY_NAME_TO_SLUG[categoryName] || "";
   return PREORDER_FIELDS[slug] || [];
 }
+
+// All known measurement keys → human label (union across all categories)
+const ALL_LABELS: Record<string, string> = {};
+for (const fields of Object.values(PREORDER_FIELDS)) {
+  for (const f of fields) {
+    ALL_LABELS[f.key] = f.label;
+  }
+}
+
+export function getMeasurementLabel(key: string): string {
+  return ALL_LABELS[key] || key;
+}

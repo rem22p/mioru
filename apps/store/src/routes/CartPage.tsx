@@ -9,6 +9,7 @@ import { getThumbUrl, getImageUrl } from "@/lib/api";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "@dr.pogodin/react-helmet";
+import { getMeasurementLabel } from "@/lib/preorderFields";
 
 export default function CartPage() {
   const { t } = useTranslation();
@@ -233,7 +234,7 @@ function CartRow({
               Object.entries(item.measurements).map(([k, v], i) => (
                 <span key={k}>
                   {i > 0 && " · "}
-                  {k}: {v}
+                  {getMeasurementLabel(k)}: {v}
                 </span>
               ))}
           </p>

@@ -1,6 +1,7 @@
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { fetchStoreCustomerOrders, type StoreOrder, getImageUrl } from "@/lib/api";
+import { getMeasurementLabel } from "@/lib/preorderFields";
 import {
   User, Settings, ChevronRight, LogOut,
   MapPin, Truck, CreditCard, ShoppingBag, Phone,
@@ -312,7 +313,7 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
                         )}
                         {item.measurements && Object.keys(item.measurements).length > 0 && (
                           <span className="text-[var(--color-text-muted)] ml-1.5 text-xs">
-                            {Object.entries(item.measurements).map(([k, v]) => `${k}: ${v}`).join(" · ")}
+                            {Object.entries(item.measurements).map(([k, v]) => `${getMeasurementLabel(k)}: ${v}`).join(" · ")}
                           </span>
                         )}
                       </div>

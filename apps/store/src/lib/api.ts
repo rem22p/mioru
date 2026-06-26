@@ -241,8 +241,7 @@ export interface StoreOrderItem {
   quantity: number;
   price_minor: number;
   image_url?: string;
-  height_cm?: number;
-  weight_kg?: number;
+  measurements?: Record<string, number>;
 }
 
 export interface StoreOrder {
