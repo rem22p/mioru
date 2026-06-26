@@ -14,6 +14,9 @@ import {
   Heart,
   Share2,
   Package,
+  Zap,
+  Rocket,
+  Box,
   X,
 } from "lucide-react";
 import { useCurrencyStore } from "@/stores/currencyStore";
@@ -482,19 +485,19 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                 </p>
                 <div className="grid gap-3">
                   <TariffCard
-                    icon="⚡"
+                    icon={<Zap className="h-5 w-5 text-amber-400" />}
                     name={t("product.preorder.tariffs.express.name")}
                     duration={t("product.preorder.tariffs.express.duration")}
                     accent="border-[var(--color-border-custom)] bg-[var(--color-bg-secondary)]"
                   />
                   <TariffCard
-                    icon="🚀"
+                    icon={<Rocket className="h-5 w-5 text-[var(--color-text-muted)]" />}
                     name={t("product.preorder.tariffs.accelerated.name")}
                     duration={t("product.preorder.tariffs.accelerated.duration")}
                     accent="border-[var(--color-border-custom)] bg-[var(--color-bg-secondary)]"
                   />
                   <TariffCard
-                    icon="📦"
+                    icon={<Box className="h-5 w-5 text-[var(--color-text-muted)]" />}
                     name={t("product.preorder.tariffs.standard.name")}
                     duration={t("product.preorder.tariffs.standard.duration")}
                     accent="border-[var(--color-border-custom)] bg-[var(--color-bg-secondary)]"
@@ -521,7 +524,7 @@ function TariffCard({
   duration,
   accent,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   name: string;
   duration: string;
   accent: string;
@@ -530,7 +533,7 @@ function TariffCard({
     <div
       className={`flex items-center gap-4 px-4 py-3 rounded-lg border ${accent}`}
     >
-      <span className="text-xl">{icon}</span>
+      {icon}
       <div>
         <p className="text-sm font-semibold text-[var(--color-text-primary)]">
           {name}
