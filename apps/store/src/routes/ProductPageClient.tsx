@@ -46,6 +46,8 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   const [showPreorderInfo, setShowPreorderInfo] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [preorderHeight, setPreorderHeight] = useState("");
+  const [preorderWeight, setPreorderWeight] = useState("");
   const addItem = useCartStore((state) => state.addItem);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const cartItems = useCartStore((state) => state.items);
@@ -66,20 +68,42 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   const sizeChart = toSizeChart(product.size_chart);
 
   // How many of this product+size are already in the cart
-  const cartQty = selectedSize
+  const cartQty = isPreorder
     ? cartItems
-        .filter(
-          (item) =>
-            item.product.id === product.id && item.size === selectedSize,
-        )
+        .filter((item) => item.product.id === product.id)
         .reduce((sum, item) => sum + item.quantity, 0)
-    : 0;
+    : selectedSize
+      ? cartItems
+          .filter(
+            (item) =>
+              item.product.id === product.id && item.size === selectedSize,
+          )
+          .reduce((sum, item) => sum + item.quantity, 0)
+      : 0;
 
   const stock = product.stock_quantity || 0;
   const available = stock > 0 ? Math.max(0, stock - cartQty) : 999;
-  const soldOut = stock > 0 && available <= 0;
+  const soldOut = !isPreorder && stock > 0 && available <= 0;
+
+  const preorderValid =
+    isPreorder &&
+    preorderHeight !== "" &&
+    preorderWeight !== "" &&
+    Number(preorderHeight) >= 100 &&
+    Number(preorderHeight) <= 250 &&
+    Number(preorderWeight) >= 30 &&
+    Number(preorderWeight) <= 250;
 
   const handleIncrement = () => {
+    if (isPreorder) {
+      if (!preorderValid) return;
+      const h = Number(preorderHeight);
+      const w = Number(preorderWeight);
+      addItem(product, `h${h}w${w}`, 1, h, w);
+      setAddedToCart(true);
+      setTimeout(() => setAddedToCart(false), 800);
+      return;
+    }
     if (!selectedSize || soldOut) return;
     if (stock > 0 && cartQty >= stock) return;
     addItem(product, selectedSize, 1);
@@ -178,11 +202,11 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                 {product.description}
               </p>
 
-              {/* Size Selector */}
+              {/* Size Selector / Preorder Measurements */}
               <div className="mt-8">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-primary)]">
-                    {t("product.size")}
+                    {isPreorder ? t("product.preorder.measurements") : t("product.size")}
                   </h3>
                   {isPreorder ? (
                     <button
@@ -202,12 +226,42 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                     </button>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-3">
-                  {product.sizes.map((size) => (
-                    <button
-                      key={size}
-                      data-testid="product-size"
-                      data-size={size}
+                {isPreorder ? (
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <label className="block text-xs text-[var(--color-text-muted)] mb-1.5">{t("product.preorder.height")}</label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        value={preorderHeight}
+                        onChange={(e) => setPreorderHeight(e.target.value)}
+                        placeholder={t("product.preorder.heightPlaceholder")}
+                        min={100}
+                        max={250}
+                        className="w-full rounded-xl border border-[var(--color-border-custom)] bg-[var(--color-bg-card)] px-4 py-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#44944A] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs text-[var(--color-text-muted)] mb-1.5">{t("product.preorder.weight")}</label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        value={preorderWeight}
+                        onChange={(e) => setPreorderWeight(e.target.value)}
+                        placeholder={t("product.preorder.weightPlaceholder")}
+                        min={30}
+                        max={250}
+                        className="w-full rounded-xl border border-[var(--color-border-custom)] bg-[var(--color-bg-card)] px-4 py-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#44944A] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-3">
+                    {product.sizes.map((size) => (
+                      <button
+                        key={size}
+                        data-testid="product-size"
+                        data-size={size}
                       onClick={() => setSelectedSize(size)}
                       className={`relative rounded-xl border px-5 py-3 text-sm font-medium transition-all min-h-[44px] ${
                         selectedSize === size
@@ -224,6 +278,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                     </button>
                   ))}
                 </div>
+                )}
               </div>
 
               {/* Actions */}
@@ -241,7 +296,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   <button
                     data-testid="product-add-to-cart"
                     onClick={handleIncrement}
-                    disabled={!selectedSize || soldOut}
+                    disabled={isPreorder ? !preorderValid : (!selectedSize || soldOut)}
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-4 text-sm font-semibold transition-all min-h-[44px] ${
                       addedToCart
                         ? "bg-[#558b5c] text-[var(--color-text-primary)]"
@@ -258,9 +313,13 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                     ) : (
                       <>
                         <ShoppingBag className="h-4 w-4" />
-                        {selectedSize
-                          ? t("product.addToCart")
-                          : t("product.selectSize")}
+                        {isPreorder
+                          ? preorderValid
+                            ? t("product.preorder.order")
+                            : t("product.preorder.fillMeasurements")
+                          : selectedSize
+                            ? t("product.addToCart")
+                            : t("product.selectSize")}
                       </>
                     )}
                   </button>

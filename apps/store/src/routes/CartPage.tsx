@@ -4,7 +4,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useFavoritesStore } from "@/stores/favoritesStore";
 import { useCurrencyStore } from "@/stores/currencyStore";
 import { formatPrice } from "@/lib/currency";
-import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
+import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Package } from "lucide-react";
 import { getThumbUrl, getImageUrl } from "@/lib/api";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -20,6 +20,9 @@ export default function CartPage() {
   const totalPrice = useCartStore((state) => state.totalPrice());
   const clearCart = useCartStore((state) => state.clearCart);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  const inStockItems = items.filter((i) => i.product.status === "in_stock");
+  const preorderItems = items.filter((i) => i.product.status !== "in_stock");
 
   if (items.length === 0) {
     return (
@@ -71,87 +74,50 @@ export default function CartPage() {
           {t("cart.title")}
         </motion.h1>
 
-        <div className="mt-12 space-y-4">
-          {items.map((item) => (
-            <motion.div
-              key={`${item.product.id}-${item.size}`}
-              data-testid="cart-row"
-              data-product-id={item.product.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-start gap-3 sm:gap-4 rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-3 sm:p-4"
-            >
-              {/* Image */}
-              <Link to={`/product/${item.product.slug}`} className="relative aspect-[4/5] w-20 sm:w-24 shrink-0 rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)] overflow-hidden">
-                {item.product.images?.[0]?.url ? (
-                  <img
-                    src={getThumbUrl(item.product.images[0].url)}
-                    alt={item.product.name}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    onError={(e) => {
-                      const t = e.currentTarget;
-                      if (!t.dataset.fallback) {
-                        t.dataset.fallback = "1";
-                        t.src = getImageUrl(item.product.images[0].url);
-                      }
-                    }}
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-2xl">
-                    📦
-                  </div>
-                )}
-              </Link>
-
-              {/* Info + controls */}
-              <div className="flex flex-1 flex-col min-w-0 self-stretch">
-                <div className="flex items-start justify-between gap-2">
-                  <Link to={`/product/${item.product.slug}`} className="min-w-0">
-                    <h3 className="font-medium text-[var(--color-text-primary)] hover:text-[#44944A] transition-colors text-sm leading-snug line-clamp-2">
-                      {item.product.name}
-                    </h3>
-                  </Link>
-                  <span className="text-sm font-bold text-[var(--color-text-primary)] whitespace-nowrap shrink-0">
-                    {formatPrice(item.product.price * item.quantity, currency)}
+        <div className="mt-12 space-y-8">
+          {inStockItems.length > 0 && (
+            <div className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] overflow-hidden">
+              <div className="px-5 py-4 border-b border-[var(--color-border-custom)]">
+                <h2 className="text-base font-bold text-[var(--color-text-primary)] flex items-center gap-2.5">
+                  <span className="w-8 h-8 rounded-lg bg-[#44944A]/10 flex items-center justify-center">
+                    <ShoppingBag className="h-4 w-4 text-[#44944A]" />
                   </span>
-                </div>
-
-                <p className="text-xs font-mono text-[var(--color-text-muted)] mt-1">
-                  {t("cart.size")}: {item.size}
-                </p>
-
-                <div className="flex items-center justify-between mt-auto pt-2">
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => updateQuantity(item.product.id, item.size, item.quantity - 1)}
-                      className="rounded-lg border border-[var(--color-border-custom)] w-8 h-8 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
-                      aria-label="Уменьшить"
-                    >
-                      <Minus className="h-3.5 w-3.5" />
-                    </button>
-                    <span className="w-7 text-center text-sm font-medium text-[var(--color-text-primary)]">
-                      {item.quantity}
-                    </span>
-                    <button
-                      onClick={() => updateQuantity(item.product.id, item.size, item.quantity + 1)}
-                      disabled={item.product.stock_quantity > 0 && item.quantity >= item.product.stock_quantity}
-                      className="rounded-lg border border-[var(--color-border-custom)] w-8 h-8 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-30 transition-colors"
-                      aria-label="Увеличить"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => removeItem(item.product.id, item.size)}
-                    className="w-8 h-8 flex items-center justify-center text-[var(--color-text-muted)] hover:text-red-500 transition-colors rounded-lg"
-                    aria-label={t("common.delete")}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+                  {t("cart.section.inStock")}
+                  <span className="ml-auto text-xs font-normal text-[var(--color-text-muted)]">
+                    {inStockItems.length} {t("cart.items")}
+                  </span>
+                </h2>
               </div>
-            </motion.div>
-          ))}
+              <div className="p-4 space-y-3">
+                {inStockItems.map((item) => (
+                  <CartRow key={`${item.product.id}-${item.size}`} item={item} t={t} currency={currency} updateQuantity={updateQuantity} removeItem={removeItem} />
+                ))}
+              </div>
+            </div>
+          )}
+          {preorderItems.length > 0 && (
+            <div className="rounded-2xl border-2 border-dashed border-[var(--color-border-custom)] overflow-hidden">
+              <div className="px-5 py-4 border-b border-[var(--color-border-custom)] bg-[var(--color-bg-secondary)]">
+                <h2 className="text-base font-bold text-[var(--color-text-primary)] flex items-center gap-2.5">
+                  <span className="w-8 h-8 rounded-lg bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] flex items-center justify-center">
+                    <Package className="h-4 w-4 text-[var(--color-text-muted)]" />
+                  </span>
+                  {t("cart.section.preorder")}
+                  <span className="ml-auto text-xs font-normal text-[var(--color-text-muted)]">
+                    {preorderItems.length} {t("cart.items")}
+                  </span>
+                </h2>
+              </div>
+              <div className="px-5 py-3 text-xs text-[var(--color-text-muted)] leading-relaxed bg-[var(--color-bg-secondary)]">
+                {t("product.preorder.description")}
+              </div>
+              <div className="p-4 space-y-3 bg-[var(--color-bg-card)]">
+                {preorderItems.map((item) => (
+                  <CartRow key={`${item.product.id}-${item.size}`} item={item} t={t} currency={currency} updateQuantity={updateQuantity} removeItem={removeItem} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Summary */}
@@ -201,5 +167,96 @@ export default function CartPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function CartRow({
+  item, t, currency, updateQuantity, removeItem,
+}: {
+  item: import("@/types").CartItem;
+  t: (key: string) => string;
+  currency: string;
+  updateQuantity: (pid: number | string, size: string, qty: number) => void;
+  removeItem: (pid: number | string, size: string) => void;
+}) {
+  const isPreorder = item.product.status !== "in_stock";
+  return (
+    <motion.div
+      key={`${item.product.id}-${item.size}`}
+      data-testid="cart-row"
+      data-product-id={item.product.id}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex items-start gap-3 sm:gap-4 rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-3 sm:p-4"
+    >
+      <Link to={`/product/${item.product.slug}`} className="relative aspect-[4/5] w-20 sm:w-24 shrink-0 rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)] overflow-hidden">
+        {item.product.images?.[0]?.url ? (
+          <img
+            src={getThumbUrl(item.product.images[0].url)}
+            alt={item.product.name}
+            className="absolute inset-0 w-full h-full object-cover"
+            onError={(e) => {
+              const t = e.currentTarget;
+              if (!t.dataset.fallback) {
+                t.dataset.fallback = "1";
+                t.src = getImageUrl(item.product.images[0].url);
+              }
+            }}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-2xl">📦</div>
+        )}
+      </Link>
+      <div className="flex flex-1 flex-col min-w-0 self-stretch">
+        <div className="flex items-start justify-between gap-2">
+          <Link to={`/product/${item.product.slug}`} className="min-w-0">
+            <h3 className="font-medium text-[var(--color-text-primary)] hover:text-[#44944A] transition-colors text-sm leading-snug line-clamp-2">
+              {item.product.name}
+            </h3>
+          </Link>
+          <span className="text-sm font-bold text-[var(--color-text-primary)] whitespace-nowrap shrink-0">
+            {formatPrice(item.product.price * item.quantity, currency)}
+          </span>
+        </div>
+        {isPreorder ? (
+          <p className="text-xs text-[var(--color-text-muted)] mt-1">
+            {item.height != null && `${t("product.preorder.height")}: ${item.height} см`}
+            {item.height != null && item.weight != null && " · "}
+            {item.weight != null && `${t("product.preorder.weight")}: ${item.weight} кг`}
+          </p>
+        ) : (
+          <p className="text-xs font-mono text-[var(--color-text-muted)] mt-1">
+            {t("cart.size")}: {item.size}
+          </p>
+        )}
+        <div className="flex items-center justify-between mt-auto pt-2">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => updateQuantity(item.product.id, item.size, item.quantity - 1)}
+              className="rounded-lg border border-[var(--color-border-custom)] w-8 h-8 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+              aria-label="Уменьшить"
+            >
+              <Minus className="h-3.5 w-3.5" />
+            </button>
+            <span className="w-7 text-center text-sm font-medium text-[var(--color-text-primary)]">{item.quantity}</span>
+            <button
+              onClick={() => updateQuantity(item.product.id, item.size, item.quantity + 1)}
+              disabled={!isPreorder && item.product.stock_quantity > 0 && item.quantity >= item.product.stock_quantity}
+              className="rounded-lg border border-[var(--color-border-custom)] w-8 h-8 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-30 transition-colors"
+              aria-label="Увеличить"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <button
+            onClick={() => removeItem(item.product.id, item.size)}
+            className="w-8 h-8 flex items-center justify-center text-[var(--color-text-muted)] hover:text-red-500 transition-colors rounded-lg"
+            aria-label={t("common.delete")}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </motion.div>
   );
 }

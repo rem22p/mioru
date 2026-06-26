@@ -223,7 +223,14 @@
         }
       },
       "priceNote": "! price shown is for STANDARD tier !",
-      "telegramInfo": "Pricing for the first two tiers will be sent to you via Telegram along with your full order details. The final price depends on the chosen delivery timeframe. Your size may not be available for certain tiers."
+      "telegramInfo": "Pricing for the first two tiers will be sent to you via Telegram along with your full order details. The final price depends on the chosen delivery timeframe. Your size may not be available for certain tiers.",
+      "measurements": "Your measurements",
+      "height": "Height (cm)",
+      "heightPlaceholder": "170",
+      "weight": "Weight (kg)",
+      "weightPlaceholder": "70",
+      "order": "Pre-order",
+      "fillMeasurements": "Fill height & weight"
     }
   },
   "cart": {
@@ -237,7 +244,11 @@
     "shipping": "Shipping",
     "free": "Free",
     "checkout": "Checkout",
-    "clear": "Clear"
+    "clear": "Clear",
+    "section": {
+      "inStock": "In stock",
+      "preorder": "Pre-order"
+    }
   },
   "checkout": {
     "title": "Checkout",

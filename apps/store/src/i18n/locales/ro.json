@@ -223,7 +223,14 @@
         }
       },
       "priceNote": "! prețul afișat este pentru nivelul STANDARD !",
-      "telegramInfo": "Prețurile pentru primele două niveluri îți vor fi trimise prin Telegram împreună cu detaliile complete ale comenzii. Prețul final depinde de termenul de livrare ales. Este posibil ca mărimea ta să nu fie disponibilă pentru anumite niveluri."
+      "telegramInfo": "Prețurile pentru primele două niveluri îți vor fi trimise prin Telegram împreună cu detaliile complete ale comenzii. Prețul final depinde de termenul de livrare ales. Este posibil ca mărimea ta să nu fie disponibilă pentru anumite niveluri.",
+      "measurements": "Dimensiunile tale",
+      "height": "Înălțime (cm)",
+      "heightPlaceholder": "170",
+      "weight": "Greutate (kg)",
+      "weightPlaceholder": "70",
+      "order": "Comandă",
+      "fillMeasurements": "Completează înălțimea și greutatea"
     }
   },
   "cart": {
@@ -237,7 +244,11 @@
     "shipping": "Livrare",
     "free": "Gratuit",
     "checkout": "Finalizează comanda",
-    "clear": "Golește"
+    "clear": "Golește",
+    "section": {
+      "inStock": "În stoc",
+      "preorder": "La comandă"
+    }
   },
   "checkout": {
     "title": "Finalizare comandă",

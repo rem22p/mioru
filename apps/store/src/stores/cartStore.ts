@@ -5,7 +5,7 @@ import { saveCustomerCart, type CartSyncItem } from "@/lib/api";
 
 interface CartStore {
   items: CartItem[];
-  addItem: (product: Product, size: string, qty?: number) => void;
+  addItem: (product: Product, size: string, qty?: number, height?: number, weight?: number) => void;
   removeItem: (productId: number | string, size: string) => void;
   updateQuantity: (
     productId: number | string,
@@ -17,6 +17,16 @@ interface CartStore {
   totalPrice: () => number;
 }
 
+function itemToSyncPayload(i: CartItem): CartSyncItem {
+  return {
+    product_id: i.product.id,
+    size_label: i.size,
+    quantity: i.quantity,
+    ...(i.height != null ? { height_cm: i.height } : {}),
+    ...(i.weight != null ? { weight_kg: i.weight } : {}),
+  };
+}
+
 // Debounced sync to server when authenticated.
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
 function scheduleSyncToServer(items: CartItem[]) {
@@ -24,11 +34,7 @@ function scheduleSyncToServer(items: CartItem[]) {
   syncTimer = setTimeout(async () => {
     const { useAuthStore } = await import("@/stores/authStore");
     if (!useAuthStore.getState().isAuthenticated) return;
-    const payload: CartSyncItem[] = items.map((i) => ({
-      product_id: i.product.id,
-      size_label: i.size,
-      quantity: i.quantity,
-    }));
+    const payload: CartSyncItem[] = items.map(itemToSyncPayload);
     saveCustomerCart(payload).catch(() => {});
   }, 500);
 }
@@ -37,7 +43,7 @@ export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
-      addItem: (product, size, qty = 1) => {
+      addItem: (product, size, qty = 1, height, weight) => {
         const items = get().items;
         const existing = items.find(
           (item) => item.product.id === product.id && item.size === size,
@@ -50,7 +56,7 @@ export const useCartStore = create<CartStore>()(
               : item,
           );
         } else {
-          newItems = [...items, { product, size, quantity: qty }];
+          newItems = [...items, { product, size, quantity: qty, height, weight }];
         }
         set({ items: newItems });
         scheduleSyncToServer(newItems);
@@ -93,28 +99,13 @@ export const useCartStore = create<CartStore>()(
   ),
 );
 
-// Push local cart to server (called by authStore on login). Awaits the save so
-// callers can rely on the server reflecting the local cart once this resolves —
-// the previous fire-and-forget version let later reads race ahead of the write.
-//
-// There is deliberately no hydrate-from-server counterpart: the server cart
-// stores only {product_id, size_label, quantity} with no product data, so it
-// cannot reconstruct cart items on a fresh device. The earlier implementation
-// replaced the cart with the local∩server intersection, taking the server's
-// quantity — which silently dropped items and changed the checkout total right
-// after a forced login. The local cart (persisted to localStorage and pushed
-// here) is the source of truth. True cross-device hydration needs the server to
-// return product details for cart rows; tracked as a follow-up.
+// Push local cart to server (called by authStore on login).
 export async function pushCartToServer() {
   const { useAuthStore } = await import("@/stores/authStore");
   if (!useAuthStore.getState().isAuthenticated) return;
   const items = useCartStore.getState().items;
   if (items.length === 0) return;
-  const payload: CartSyncItem[] = items.map((i) => ({
-    product_id: i.product.id,
-    size_label: i.size,
-    quantity: i.quantity,
-  }));
+  const payload: CartSyncItem[] = items.map(itemToSyncPayload);
   try {
     await saveCustomerCart(payload);
   } catch {

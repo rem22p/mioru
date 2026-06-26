@@ -292,10 +292,11 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 		items[i].ProductName = pname
 		items[i].ProductSlug = pslug
 		err = tx.QueryRow(ctx, `
-			INSERT INTO order_items (order_id, product_id, product_name, product_slug, size_label, quantity, price_minor)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			INSERT INTO order_items (order_id, product_id, product_name, product_slug, size_label, quantity, price_minor, height_cm, weight_kg)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			RETURNING id`,
 			o.ID, items[i].ProductID, pname, pslug, items[i].SizeLabel, items[i].Quantity, items[i].PriceMinor,
+			items[i].HeightCm, items[i].WeightKg,
 		).Scan(&items[i].ID)
 		if err != nil {
 			return nil, fmt.Errorf("insert order item: %w", err)
