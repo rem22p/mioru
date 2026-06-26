@@ -5,7 +5,7 @@ import { saveCustomerCart, type CartSyncItem } from "@/lib/api";
 
 interface CartStore {
   items: CartItem[];
-  addItem: (product: Product, size: string, qty?: number, height?: number, weight?: number) => void;
+  addItem: (product: Product, size: string, qty?: number, measurements?: Record<string, number>) => void;
   removeItem: (productId: number | string, size: string) => void;
   updateQuantity: (
     productId: number | string,
@@ -22,8 +22,7 @@ function itemToSyncPayload(i: CartItem): CartSyncItem {
     product_id: i.product.id,
     size_label: i.size,
     quantity: i.quantity,
-    ...(i.height != null ? { height_cm: i.height } : {}),
-    ...(i.weight != null ? { weight_kg: i.weight } : {}),
+    ...(i.measurements ? { measurements: i.measurements } : {}),
   };
 }
 
@@ -43,7 +42,7 @@ export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
-      addItem: (product, size, qty = 1, height, weight) => {
+      addItem: (product, size, qty = 1, measurements) => {
         const items = get().items;
         const existing = items.find(
           (item) => item.product.id === product.id && item.size === size,
@@ -56,7 +55,7 @@ export const useCartStore = create<CartStore>()(
               : item,
           );
         } else {
-          newItems = [...items, { product, size, quantity: qty, height, weight }];
+          newItems = [...items, { product, size, quantity: qty, measurements }];
         }
         set({ items: newItems });
         scheduleSyncToServer(newItems);

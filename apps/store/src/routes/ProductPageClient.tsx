@@ -19,6 +19,7 @@ import {
 import { useCurrencyStore } from "@/stores/currencyStore";
 import { formatPrice } from "@/lib/currency";
 import { Helmet } from "@dr.pogodin/react-helmet";
+import PREORDER_FIELDS from "@/lib/preorderFields";
 
 // Lazy-load below-the-fold components
 const ProductGallery = lazy(
@@ -48,6 +49,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   const [copied, setCopied] = useState(false);
   const [preorderHeight, setPreorderHeight] = useState("");
   const [preorderWeight, setPreorderWeight] = useState("");
+  const [measurements, setMeasurements] = useState<Record<string, number>>({} as Record<string, number>);
   const addItem = useCartStore((state) => state.addItem);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const cartItems = useCartStore((state) => state.items);
@@ -88,21 +90,22 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   const available = stock > 0 ? Math.max(0, stock - cartQty) : 999;
   const soldOut = !isPreorder && stock > 0 && available <= 0;
 
+  const preorderFields = isPreorder
+    ? (PREORDER_FIELDS[product.category_name?.toLowerCase()] || PREORDER_FIELDS["tshirts-polo"])
+    : [];
+
   const preorderValid =
     isPreorder &&
-    preorderHeight !== "" &&
-    preorderWeight !== "" &&
-    Number(preorderHeight) >= 100 &&
-    Number(preorderHeight) <= 250 &&
-    Number(preorderWeight) >= 30 &&
-    Number(preorderWeight) <= 250;
+    preorderFields.length > 0 &&
+    preorderFields.every((f) => {
+      const v = measurements[f.key];
+      return v !== undefined && v >= f.min && v <= f.max;
+    });
 
   const handleIncrement = () => {
     if (isPreorder) {
       if (!preorderValid) return;
-      const h = Number(preorderHeight);
-      const w = Number(preorderWeight);
-      addItem(product, `h${h}w${w}`, 1, h, w);
+      addItem(product, "preorder", 1, { ...measurements });
       setAddedToCart(true);
       setTimeout(() => setAddedToCart(false), 800);
       return;
@@ -230,33 +233,35 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   )}
                 </div>
                 {isPreorder ? (
-                  <div className="flex gap-3">
-                    <div className="flex-1">
-                      <label className="block text-xs text-[var(--color-text-muted)] mb-1.5">{t("product.preorder.height")}</label>
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        value={preorderHeight}
-                        onChange={(e) => setPreorderHeight(e.target.value)}
-                        placeholder={t("product.preorder.heightPlaceholder")}
-                        min={100}
-                        max={250}
-                        className="w-full rounded-xl border border-[var(--color-border-custom)] bg-[var(--color-bg-card)] px-4 py-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#44944A] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-xs text-[var(--color-text-muted)] mb-1.5">{t("product.preorder.weight")}</label>
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        value={preorderWeight}
-                        onChange={(e) => setPreorderWeight(e.target.value)}
-                        placeholder={t("product.preorder.weightPlaceholder")}
-                        min={30}
-                        max={250}
-                        className="w-full rounded-xl border border-[var(--color-border-custom)] bg-[var(--color-bg-card)] px-4 py-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#44944A] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                    </div>
+                  <div className="flex gap-3 flex-wrap">
+                    {preorderFields.map((field) => (
+                      <div key={field.key} className={preorderFields.length > 2 ? "w-full" : "flex-1"}>
+                        <label className="block text-xs text-[var(--color-text-muted)] mb-1.5">
+                          {field.label} ({field.unit})
+                        </label>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={measurements[field.key] ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setMeasurements((prev) => {
+                              const next = { ...prev } as Record<string, number>;
+                              if (val === "") {
+                                delete next[field.key];
+                              } else {
+                                next[field.key] = Number(val);
+                              }
+                              return next;
+                            });
+                          }}
+                          placeholder={field.placeholder}
+                          min={field.min}
+                          max={field.max}
+                          className="w-full rounded-xl border border-[var(--color-border-custom)] bg-[var(--color-bg-card)] px-4 py-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#44944A] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-3">

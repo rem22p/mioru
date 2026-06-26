@@ -174,7 +174,6 @@ type OrderItem struct {
 	ImageURL    string `json:"image_url,omitempty"`
 	SizeLabel   string `json:"size_label"`
 	Quantity    int    `json:"quantity"`
-	PriceMinor  int64  `json:"price_minor"`
-	HeightCm    *int   `json:"height_cm,omitempty"`
-	WeightKg    *int   `json:"weight_kg,omitempty"`
+	PriceMinor   int64   `json:"price_minor"`
+	Measurements map[string]interface{} `json:"measurements,omitempty"`
 }

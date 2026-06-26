@@ -81,8 +81,7 @@ export interface CartItem {
   product: Product;
   size: string;
   quantity: number;
-  height?: number;
-  weight?: number;
+  measurements?: Record<string, number>;
 }
 
 export interface AvatarParams {

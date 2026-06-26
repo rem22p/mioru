@@ -381,8 +381,7 @@ export interface CartSyncItem {
   product_id: number;
   size_label: string;
   quantity: number;
-  height_cm?: number;
-  weight_kg?: number;
+  measurements?: Record<string, number>;
 }
 
 export const fetchCustomerCart = () =>

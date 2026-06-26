@@ -229,9 +229,13 @@ function CartRow({
         </div>
         {isPreorder ? (
           <p className="text-xs text-[var(--color-text-muted)] mt-1">
-            {item.height != null && `${t("product.preorder.height")}: ${item.height} см`}
-            {item.height != null && item.weight != null && " · "}
-            {item.weight != null && `${t("product.preorder.weight")}: ${item.weight} кг`}
+            {item.measurements &&
+              Object.entries(item.measurements).map(([k, v], i) => (
+                <span key={k}>
+                  {i > 0 && " · "}
+                  {k}: {v}
+                </span>
+              ))}
           </p>
         ) : (
           <p className="text-xs font-mono text-[var(--color-text-muted)] mt-1">

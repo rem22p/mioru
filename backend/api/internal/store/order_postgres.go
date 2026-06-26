@@ -292,11 +292,11 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 		items[i].ProductName = pname
 		items[i].ProductSlug = pslug
 		err = tx.QueryRow(ctx, `
-			INSERT INTO order_items (order_id, product_id, product_name, product_slug, size_label, quantity, price_minor, height_cm, weight_kg)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			INSERT INTO order_items (order_id, product_id, product_name, product_slug, size_label, quantity, price_minor, measurements)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			RETURNING id`,
 			o.ID, items[i].ProductID, pname, pslug, items[i].SizeLabel, items[i].Quantity, items[i].PriceMinor,
-			items[i].HeightCm, items[i].WeightKg,
+			items[i].Measurements,
 		).Scan(&items[i].ID)
 		if err != nil {
 			return nil, fmt.Errorf("insert order item: %w", err)
@@ -497,7 +497,7 @@ func (s *PostgresStore) loadOrderItems(ctx context.Context, orderIDs []int64) (m
 		SELECT oi.id, oi.order_id, oi.product_id,
 		       COALESCE(p.name, ''), COALESCE(p.slug, ''),
 		       oi.size_label, oi.quantity, oi.price_minor,
-		       oi.height_cm, oi.weight_kg
+		       oi.measurements
 		FROM order_items oi
 		LEFT JOIN products p ON p.id = oi.product_id
 		WHERE oi.order_id = ANY($1)
@@ -514,7 +514,7 @@ func (s *PostgresStore) loadOrderItems(ctx context.Context, orderIDs []int64) (m
 		if err := rows.Scan(&item.ID, &item.OrderID, &item.ProductID,
 			&item.ProductName, &item.ProductSlug,
 			&item.SizeLabel, &item.Quantity, &item.PriceMinor,
-			&item.HeightCm, &item.WeightKg); err != nil {
+			&item.Measurements); err != nil {
 			return nil, fmt.Errorf("scan order item: %w", err)
 		}
 		m[item.OrderID] = append(m[item.OrderID], item)
