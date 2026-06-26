@@ -23,6 +23,7 @@ export default function CartPage() {
 
   const inStockItems = items.filter((i) => i.product.status === "in_stock");
   const preorderItems = items.filter((i) => i.product.status !== "in_stock");
+  const hasMixed = inStockItems.length > 0 && preorderItems.length > 0;
 
   if (items.length === 0) {
     return (
@@ -149,11 +150,19 @@ export default function CartPage() {
             </div>
           </div>
 
+          {hasMixed && (
+            <div className="mt-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
+              <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
+                {t("checkout.mixedCart")}
+              </p>
+            </div>
+          )}
           <div className="mt-6 flex gap-4">
             <Link
               data-testid="cart-checkout"
-              to={isAuthenticated ? "/checkout" : "/profile?redirect=/checkout"}
-              className="flex-1 rounded-xl bg-[#44944A] px-6 py-4 text-center text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(192,254,57,0.3)]"
+              to={hasMixed ? "#" : (isAuthenticated ? "/checkout" : "/profile?redirect=/checkout")}
+              onClick={hasMixed ? (e) => e.preventDefault() : undefined}
+              className={`flex-1 rounded-xl px-6 py-4 text-center text-sm font-semibold transition-all ${hasMixed ? "bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)] text-[var(--color-text-muted)] cursor-not-allowed" : "bg-[#44944A] text-black hover:shadow-[0_0_30px_rgba(192,254,57,0.3)]"}`}
             >
               {t("cart.checkout")}
             </Link>

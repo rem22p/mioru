@@ -304,7 +304,8 @@
     "phone": "Telefon",
     "phonePlaceholder": "+373 ...",
     "phoneRequired": "Introduceți numărul de telefon",
-    "useMyPhone": "Folosește numărul meu"
+    "useMyPhone": "Folosește numărul meu",
+    "mixedCart": "Produsele din stoc și cele la comandă trebuie comandate separat. Eliminați un tip din coș."
   },
   "profile": {
     "title": "Contul meu",

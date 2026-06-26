@@ -154,6 +154,11 @@ export default function CheckoutPage() {
   }, [formData.deliveryMethod]);
 
   const canProceed = () => {
+    // Block checkout if cart has both in-stock and preorder items
+    const hasInStock = items.some((i) => i.product.status === "in_stock");
+    const hasPreorder = items.some((i) => i.product.status !== "in_stock");
+    if (hasInStock && hasPreorder) return false;
+
     switch (currentStep) {
       case 1:
         if (!formData.phone || !formData.city || !formData.deliveryMethod) return false;
@@ -528,6 +533,21 @@ export default function CheckoutPage() {
             {renderStepContent()}
           </motion.div>
         </AnimatePresence>
+
+        {(() => {
+          const hasInStock = items.some((i) => i.product.status === "in_stock");
+          const hasPreorder = items.some((i) => i.product.status !== "in_stock");
+          if (hasInStock && hasPreorder) {
+            return (
+              <div className="mt-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
+                <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
+                  {t("checkout.mixedCart")}
+                </p>
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         <div className="mt-10 flex justify-between">
           {currentStep > 1 && (

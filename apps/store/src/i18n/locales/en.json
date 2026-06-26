@@ -304,7 +304,8 @@
     "phone": "Phone",
     "phonePlaceholder": "+373 ...",
     "phoneRequired": "Enter your phone number",
-    "useMyPhone": "Use my number"
+    "useMyPhone": "Use my number",
+    "mixedCart": "In-stock and pre-order items must be ordered separately. Please remove one type from your cart."
   },
   "profile": {
     "title": "My account",
