@@ -247,7 +247,8 @@
     "clear": "Clear",
     "section": {
       "inStock": "In stock",
-      "preorder": "Pre-order"
+      "preorder": "Pre-order",
+      "preorderDesc": "Pre-order items are made specifically for you. Delivery time and final price depend on the chosen tariff — a manager will confirm details via Telegram after checkout."
     }
   },
   "checkout": {

@@ -110,7 +110,7 @@ export default function CartPage() {
                 </h2>
               </div>
               <div className="px-5 py-3 text-xs text-[var(--color-text-muted)] leading-relaxed bg-[var(--color-bg-secondary)]">
-                {t("product.preorder.description")}
+                {t("cart.section.preorderDesc")}
               </div>
               <div className="p-4 space-y-3 bg-[var(--color-bg-card)]">
                 {preorderItems.map((item) => (

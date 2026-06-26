@@ -247,7 +247,8 @@
     "clear": "Golește",
     "section": {
       "inStock": "În stoc",
-      "preorder": "La comandă"
+      "preorder": "La comandă",
+      "preorderDesc": "Produsele la comandă sunt fabricate special pentru tine. Termenul și prețul final depind de tariful ales — managerul va confirma detaliile prin Telegram după plasarea comenzii."
     }
   },
   "checkout": {
