@@ -47,11 +47,11 @@
     },
     "deliveryMethod": "Delivery method",
     "deliveryMethods": {
-      "personal": "In-person meeting (Tiraspol/Bender) — free",
-      "address": "To address (Tiraspol) — +10 RUB",
-      "bus": "Minibus (PMR + Chisinau) — 20 to 50 RUB",
-      "express": "Express postal delivery (PMR, except Tiraspol and Bender) — 20 to 50 RUB",
-      "moldovaPost": "Moldova Post (all cities in Moldova) — 20 to 50 RUB"
+      "personal": "Personal meeting",
+      "address": "Address delivery",
+      "bus": "Bus",
+      "express": "Express mail",
+      "moldovaPost": "Moldova Post"
     },
     "comment": "Comment",
     "commentPlaceholder": "Specify your preferences for size, color, material...",

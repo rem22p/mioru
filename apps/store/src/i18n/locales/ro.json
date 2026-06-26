@@ -47,11 +47,11 @@
     },
     "deliveryMethod": "Mod de livrare",
     "deliveryMethods": {
-      "personal": "Întâlnire personală (Tiraspol/Bender) — gratuit",
-      "address": "La adresă (Tiraspol) — +10 RUB",
-      "bus": "Rutieră (RMN + Chișinău) — de la 20 până la 50 RUB",
-      "express": "Livrare expres prin poștă (RMN, în afară de Tiraspol și Bender) — de la 20 până la 50 RUB",
-      "moldovaPost": "Poșta Moldovei (toate orașele din Moldova) — de la 20 până la 50 RUB"
+      "personal": "Întâlnire personală",
+      "address": "Livrare la adresă",
+      "bus": "Autobuz",
+      "express": "Poștă expres",
+      "moldovaPost": "Poșta Moldovei"
     },
     "comment": "Comentariu",
     "commentPlaceholder": "Specifică preferințele tale de mărime, culoare, material...",
