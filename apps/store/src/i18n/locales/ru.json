@@ -230,7 +230,7 @@
       "weight": "Вес (кг)",
       "weightPlaceholder": "70",
       "order": "Заказать",
-      "fillMeasurements": "Укажите рост и вес"
+      "fillMeasurements": "Заполните параметры"
     }
   },
   "cart": {
