@@ -250,7 +250,11 @@ function CartRow({
             <span className="w-7 text-center text-sm font-medium text-[var(--color-text-primary)]">{item.quantity}</span>
             <button
               onClick={() => updateQuantity(item.product.id, item.size, item.quantity + 1)}
-              disabled={!isPreorder && item.product.stock_quantity > 0 && item.quantity >= item.product.stock_quantity}
+              disabled={!isPreorder && (() => {
+                const sizeObj = item.product.sizes?.find((s: any) => s.label === item.size);
+                const maxStock = sizeObj ? sizeObj.stock_quantity : (item.product.stock_quantity || 0);
+                return maxStock > 0 && item.quantity >= maxStock;
+              })()}
               className="rounded-lg border border-[var(--color-border-custom)] w-8 h-8 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-30 transition-colors"
               aria-label="Увеличить"
             >
