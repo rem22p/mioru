@@ -19,7 +19,7 @@ import {
 import { useCurrencyStore } from "@/stores/currencyStore";
 import { formatPrice } from "@/lib/currency";
 import { Helmet } from "@dr.pogodin/react-helmet";
-import PREORDER_FIELDS from "@/lib/preorderFields";
+import { getPreorderFields } from "@/lib/preorderFields";
 
 // Lazy-load below-the-fold components
 const ProductGallery = lazy(
@@ -91,7 +91,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   const soldOut = !isPreorder && stock > 0 && available <= 0;
 
   const preorderFields = isPreorder
-    ? (PREORDER_FIELDS[product.category_name?.toLowerCase()] || PREORDER_FIELDS["tshirts-polo"])
+    ? getPreorderFields(product.category_name || "")
     : [];
 
   const preorderValid =

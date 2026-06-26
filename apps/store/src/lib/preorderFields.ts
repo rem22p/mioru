@@ -65,4 +65,23 @@ const PREORDER_FIELDS: Record<string, PreorderField[]> = {
   ],
 };
 
-export default PREORDER_FIELDS;
+const CATEGORY_NAME_TO_SLUG: Record<string, string> = {
+  "Футболки / поло": "tshirts-polo",
+  "Шорты": "shorts",
+  "Худи / зип-худи": "hoodies-zip",
+  "Свитшоты / свитера": "sweatshirts-sweaters",
+  "Джинсы": "jeans",
+  "Штаны": "pants",
+  "Куртки": "jackets",
+  "Жилетки": "vests",
+  "Нижнее бельё": "underwear",
+  "Кроссовки": "sneakers",
+  "Тапки": "slides",
+  "Ботинки": "boots",
+  "Головные уборы": "headwear",
+};
+
+export function getPreorderFields(categoryName: string): PreorderField[] {
+  const slug = CATEGORY_NAME_TO_SLUG[categoryName] || "";
+  return PREORDER_FIELDS[slug] || [];
+}
