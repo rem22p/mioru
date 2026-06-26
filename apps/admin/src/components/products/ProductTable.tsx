@@ -243,7 +243,7 @@ export default function ProductTable({
                     key={typeof size === "string" ? size : size.label}
                     className="text-[10px] font-medium text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)] px-1.5 py-0.5 rounded"
                   >
-                    {size}
+                    {typeof size === "string" ? size : size.label}
                   </span>
                 ))}
               </div>
