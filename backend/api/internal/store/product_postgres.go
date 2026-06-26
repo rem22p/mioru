@@ -303,7 +303,11 @@ func (s *PostgresStore) listProductsByIDs(ctx context.Context, ids []int64) ([]m
 // matching product. Ordered by (product_id, id) so each product's sizes keep
 // their insertion order.
 func (s *PostgresStore) attachSizes(ctx context.Context, byID map[int64]*model.Product, ids []int64) error {
-	rows, err := s.pool.Query(ctx, `SELECT product_id, size_label FROM product_sizes WHERE product_id = ANY($1) ORDER BY product_id, id`, ids)
+	rows, err := s.pool.Query(ctx, `SELECT product_id, size_label FROM product_sizes WHERE product_id = ANY($1)
+		ORDER BY product_id,
+			CASE WHEN size_label ~ '^[0-9]' THEN 0 ELSE 1 END,
+			CASE WHEN size_label ~ '^[0-9]' THEN NULLIF(regexp_replace(size_label, '[^0-9.]', '', 'g'), '')::numeric END,
+			size_label`, ids)
 	if err != nil {
 		return fmt.Errorf("query sizes: %w", err)
 	}
@@ -421,7 +425,11 @@ func (s *PostgresStore) queryProduct(ctx context.Context, whereClause string, ar
 }
 
 func (s *PostgresStore) getProductSizes(ctx context.Context, productID int64) ([]string, error) {
-	rows, err := s.pool.Query(ctx, `SELECT size_label FROM product_sizes WHERE product_id = $1 ORDER BY id`, productID)
+	rows, err := s.pool.Query(ctx, `SELECT size_label FROM product_sizes WHERE product_id = $1
+		ORDER BY
+			CASE WHEN size_label ~ '^[0-9]' THEN 0 ELSE 1 END,
+			CASE WHEN size_label ~ '^[0-9]' THEN NULLIF(regexp_replace(size_label, '[^0-9.]', '', 'g'), '')::numeric END,
+			size_label`, productID)
 	if err != nil {
 		return nil, fmt.Errorf("query sizes: %w", err)
 	}
@@ -598,7 +606,10 @@ func (s *PostgresStore) ListProductFacets(ctx context.Context, filter model.Prod
 		return facets, fmt.Errorf("color facets iteration: %w", err)
 	}
 
-	sizeQ := `SELECT DISTINCT ps.size_label FROM product_sizes ps JOIN products p ON p.id = ps.product_id ` + where + ` ORDER BY ps.size_label`
+	sizeQ := `SELECT DISTINCT ps.size_label FROM product_sizes ps JOIN products p ON p.id = ps.product_id ` + where + ` ORDER BY
+		CASE WHEN ps.size_label ~ '^[0-9]' THEN 0 ELSE 1 END,
+		CASE WHEN ps.size_label ~ '^[0-9]' THEN NULLIF(regexp_replace(ps.size_label, '[^0-9.]', '', 'g'), '')::numeric END,
+		ps.size_label`
 	rows, err = s.pool.Query(ctx, sizeQ, args...)
 	if err != nil {
 		return facets, fmt.Errorf("query size facets: %w", err)
