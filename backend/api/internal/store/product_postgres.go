@@ -37,8 +37,8 @@ func (s *PostgresStore) CreateProduct(ctx context.Context, p model.Product) (int
 	}
 
 	// Insert sizes
-	for _, size := range p.Sizes {
-		if _, err := tx.Exec(ctx, `INSERT INTO product_sizes (product_id, size_label) VALUES ($1, $2)`, productID, size); err != nil {
+	for _, sz := range p.Sizes {
+		if _, err := tx.Exec(ctx, `INSERT INTO product_sizes (product_id, size_label, stock_quantity) VALUES ($1, $2, $3)`, productID, sz.Label, sz.StockQuantity); err != nil {
 			return 0, fmt.Errorf("insert size: %w", err)
 		}
 	}
@@ -112,8 +112,8 @@ func (s *PostgresStore) UpdateProduct(ctx context.Context, slug string, p model.
 	}
 
 	// Re-insert sizes
-	for _, size := range p.Sizes {
-		if _, err := tx.Exec(ctx, `INSERT INTO product_sizes (product_id, size_label) VALUES ($1, $2)`, productID, size); err != nil {
+	for _, sz := range p.Sizes {
+		if _, err := tx.Exec(ctx, `INSERT INTO product_sizes (product_id, size_label, stock_quantity) VALUES ($1, $2, $3)`, productID, sz.Label, sz.StockQuantity); err != nil {
 			return fmt.Errorf("insert size: %w", err)
 		}
 	}

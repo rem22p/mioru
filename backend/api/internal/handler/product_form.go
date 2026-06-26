@@ -84,8 +84,15 @@ func parseProductFromForm(r *http.Request) (model.Product, error) {
 	// Sizes
 	if sizes := r.Form["sizes[]"]; sizes != nil {
 		p.Sizes = make([]model.ProductSize, len(sizes))
+		stocks := r.Form["size_stocks[]"]
 		for i, s := range sizes {
-			p.Sizes[i] = model.ProductSize{Label: s}
+			qty := 0
+			if i < len(stocks) {
+				if v, err := strconv.Atoi(stocks[i]); err == nil {
+					qty = v
+				}
+			}
+			p.Sizes[i] = model.ProductSize{Label: s, StockQuantity: qty}
 		}
 	} else if sizes := r.Form["sizes"]; sizes != nil {
 		p.Sizes = make([]model.ProductSize, len(sizes))

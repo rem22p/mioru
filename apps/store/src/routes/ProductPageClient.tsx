@@ -257,7 +257,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-3">
-                    {product.sizes.map((sz) => (
+                    {product.sizes.filter(sz => sz.stock_quantity > 0).map((sz) => (
                       <button
                         key={sz.label}
                         data-testid="product-size"
