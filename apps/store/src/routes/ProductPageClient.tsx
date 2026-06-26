@@ -81,7 +81,10 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
           .reduce((sum, item) => sum + item.quantity, 0)
       : 0;
 
-  const stock = product.stock_quantity || 0;
+  const selectedSizeObj = selectedSize
+    ? product.sizes.find((s) => s.label === selectedSize)
+    : undefined;
+  const stock = selectedSizeObj ? selectedSizeObj.stock_quantity : (product.stock_quantity || 0);
   const available = stock > 0 ? Math.max(0, stock - cartQty) : 999;
   const soldOut = !isPreorder && stock > 0 && available <= 0;
 
