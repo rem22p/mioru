@@ -59,7 +59,8 @@
     "afterSubmit": "În curând managerul nostru te va contacta pe Telegram cu informații despre comanda ta. Dacă acest format de comunicare nu este posibil pentru tine, te rugăm să ne scrii pe Instagram @mioru.store.",
     "delivery": {
       "disabledForCity": "Metoda de livrare «{{method}}» nu este disponibilă pentru «{{city}}»"
-    }
+    },
+    "description": "Dacă nu ați găsit articolul dorit în catalog, puteți completa acest formular. Managerii noștri vor verifica posibilitatea de a comanda acest articol individual pentru dvs."
   },
   "nav": {
     "inStock": "CATALOG",

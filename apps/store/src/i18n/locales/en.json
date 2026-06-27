@@ -59,7 +59,8 @@
     "afterSubmit": "Our manager will contact you soon on Telegram with information about your order. If this format of communication doesn't work for you, please reach out to us on Instagram @mioru.store.",
     "delivery": {
       "disabledForCity": "Delivery method «{{method}}» is not available for «{{city}}»"
-    }
+    },
+    "description": "If you didn't find the item you want in the catalog, you can fill out this form. Our managers will check if the item can be ordered individually for you."
   },
   "nav": {
     "inStock": "CATALOG",

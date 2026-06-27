@@ -182,6 +182,10 @@ export default function CustomOrderPage() {
           {t("customOrder.title")}
         </motion.h1>
 
+        <p className="mt-4 text-base text-[var(--color-text-muted)] max-w-2xl leading-relaxed">
+          {t("customOrder.description")}
+        </p>
+
         {!submitted ? (
           <motion.form
             initial={{ opacity: 0, y: 20 }}
