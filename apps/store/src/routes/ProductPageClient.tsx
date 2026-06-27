@@ -47,8 +47,6 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   const [showPreorderInfo, setShowPreorderInfo] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [preorderHeight, setPreorderHeight] = useState("");
-  const [preorderWeight, setPreorderWeight] = useState("");
   const [measurements, setMeasurements] = useState<Record<string, number>>({} as Record<string, number>);
   const addItem = useCartStore((state) => state.addItem);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
