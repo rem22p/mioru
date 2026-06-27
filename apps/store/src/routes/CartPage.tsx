@@ -225,7 +225,7 @@ function CartRow({
             </h3>
           </Link>
           <span className="text-sm font-bold text-[var(--color-text-primary)] whitespace-nowrap shrink-0">
-            {formatPrice(item.product.price * item.quantity, currency)}
+            {formatPrice(item.product.price * item.quantity, currency as "PMR" | "MDL")}
           </span>
         </div>
         {isPreorder ? (

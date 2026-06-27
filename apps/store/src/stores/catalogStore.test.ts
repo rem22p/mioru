@@ -23,7 +23,7 @@ const sampleProduct: Product = {
   created_by: "",
   created_at: "",
   updated_at: "",
-  sizes: ["S", "M"],
+  sizes: [{label: "S", stock_quantity: 5}, {label: "M", stock_quantity: 3}],
   size_chart: [],
   images: [],
 };
