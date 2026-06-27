@@ -606,11 +606,15 @@ func (s *PostgresStore) ListProductFacets(ctx context.Context, filter model.Prod
 		return facets, fmt.Errorf("color facets iteration: %w", err)
 	}
 
-	sizeQ := `SELECT DISTINCT ps.size_label FROM product_sizes ps JOIN products p ON p.id = ps.product_id ` + where + ` ORDER BY
-		CASE WHEN ps.size_label ~ '^[0-9]' THEN 0 ELSE 1 END,
-		CASE WHEN ps.size_label ~ '^[0-9]' THEN NULLIF(regexp_replace(ps.size_label, '[^0-9.]', '', 'g'), '')::numeric END,
-		ps.size_label`
-	rows, err = s.pool.Query(ctx, sizeQ, args...)
+	sq := `SELECT size_label FROM (
+		SELECT DISTINCT ps.size_label,
+			CASE WHEN ps.size_label ~ '^[0-9]' THEN 0 ELSE 1 END AS grp,
+			CASE WHEN ps.size_label ~ '^[0-9]' THEN NULLIF(regexp_replace(ps.size_label, '[^0-9.]', '', 'g'), '')::numeric END AS num
+		FROM product_sizes ps
+		JOIN products p ON p.id = ps.product_id ` + where + `
+	) sub
+	ORDER BY grp, num, size_label`
+	rows, err = s.pool.Query(ctx, sq, args...)
 	if err != nil {
 		return facets, fmt.Errorf("query size facets: %w", err)
 	}

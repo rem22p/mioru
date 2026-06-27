@@ -30,7 +30,7 @@ func facetProduct(t *testing.T, e *env, slug, brand, color string) {
 type facetsResponse struct {
 	Brands []string `json:"brands"`
 	Colors []string `json:"colors"`
-	Sizes  []model.ProductSize `json:"sizes"`
+	Sizes  []string `json:"sizes"`
 }
 
 func contains(xs []string, want string) bool {
