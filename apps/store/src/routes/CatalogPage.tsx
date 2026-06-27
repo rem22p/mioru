@@ -703,3 +703,11 @@ export default function CatalogPage() {
               ))}
             </div>
 
+
+          )}
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+}
