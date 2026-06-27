@@ -49,7 +49,9 @@ func TestSaveAndGetCustomerCartRoundTrip(t *testing.T) {
 
 	// ── Round-trip for customer A ──
 	itemsA := []CartItem{
-		{ProductID: int(pid1), SizeLabel: "M", Quantity: 2},
+		{ProductID: int(pid1), SizeLabel: "M", Quantity: 2,
+			Measurements: map[string]interface{}{"height": int(175), "weight": int(70)},
+		},
 		{ProductID: int(pid2), SizeLabel: "L", Quantity: 1},
 	}
 	if err := s.SaveCustomerCart(ctx, a.ID, itemsA); err != nil {
@@ -66,8 +68,23 @@ func TestSaveAndGetCustomerCartRoundTrip(t *testing.T) {
 	if got[0].ProductID != int(pid1) || got[0].SizeLabel != "M" || got[0].Quantity != 2 {
 		t.Errorf("round-trip A[0]: got %+v, want {%d M 2}", got[0], pid1)
 	}
+	// Verify measurements survived the JSONB round-trip.
+	if len(got[0].Measurements) != 2 {
+		t.Errorf("round-trip A[0] measurements: want 2 keys, got %d (%v)", len(got[0].Measurements), got[0].Measurements)
+	}
+	// json.Unmarshal produces float64 for JSON numbers.
+	if v, ok := got[0].Measurements["height"]; !ok || v != float64(175) {
+		t.Errorf("round-trip A[0] measurements.height = %v, want 175", v)
+	}
+	if v, ok := got[0].Measurements["weight"]; !ok || v != float64(70) {
+		t.Errorf("round-trip A[0] measurements.weight = %v, want 70", v)
+	}
 	if got[1].ProductID != int(pid2) || got[1].SizeLabel != "L" || got[1].Quantity != 1 {
 		t.Errorf("round-trip A[1]: got %+v, want {%d L 1}", got[1], pid2)
+	}
+	// Item without measurements should come back with Measurements=nil (not empty map).
+	if got[1].Measurements != nil {
+		t.Errorf("round-trip A[1] measurements = %v, want nil", got[1].Measurements)
 	}
 
 	// ── Replace semantics: save new set, old items vanish ──

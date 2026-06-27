@@ -380,6 +380,7 @@ export interface CartSyncItem {
   product_id: number;
   size_label: string;
   quantity: number;
+  product_slug?: string;
   measurements?: Record<string, number>;
 }
 

@@ -401,3 +401,64 @@ func TestIntegrationCreateOrderDoesNotResyncIdenticalPhone(t *testing.T) {
 		t.Errorf("customers.phone changed: got %q, want %q", cust.Phone, phone)
 	}
 }
+
+// TestIntegrationCreateOrderWithPreorderMeasurements verifies that
+// measurements submitted on a preorder cart-type order survive the
+// full handler chain: request → CreateOrder → INSERT → GetOrder → response.
+func TestIntegrationCreateOrderWithPreorderMeasurements(t *testing.T) {
+	e := newEnv(t)
+	sess, _ := e.customerSession(t, "prem@ex.com")
+	pid := seedProduct(t, e, "prem-1", 500, 10)
+
+	body := map[string]any{
+		"type":            "cart",
+		"phone":           "+37369123456",
+		"city":            "Tiraspol",
+		"delivery_method": "personal",
+		"payment_method":  "cash",
+		"items": []map[string]any{
+			{
+				"product_id": pid,
+				"size_label": "M",
+				"quantity":   1,
+				"measurements": map[string]any{
+					"height": float64(175),
+					"weight": float64(70),
+				},
+			},
+		},
+	}
+
+	rr := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: "key-prem-1", body: body})
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("CreateOrder preorder: want 201, got %d (%s)", rr.Code, rr.Body.String())
+	}
+
+	var created struct {
+		ID    int64 `json:"id"`
+		Items []struct {
+			ProductID    int64                  `json:"product_id"`
+			SizeLabel    string                 `json:"size_label"`
+			Measurements map[string]interface{} `json:"measurements"`
+		} `json:"items"`
+	}
+	decode(t, rr, &created)
+	if created.ID == 0 {
+		t.Fatal("created order has no ID")
+	}
+	if len(created.Items) != 1 {
+		t.Fatalf("want 1 item, got %d", len(created.Items))
+	}
+	m := created.Items[0].Measurements
+	if m == nil {
+		t.Fatal("measurements came back as nil — chain broke between handler and response")
+	}
+	// json.Unmarshal produces float64 for JSON numbers in map[string]interface{}.
+	if v, ok := m["height"]; !ok || v != float64(175) {
+		t.Errorf("measurements.height = %v, want 175", v)
+	}
+	if v, ok := m["weight"]; !ok || v != float64(70) {
+		t.Errorf("measurements.weight = %v, want 70", v)
+	}
+}

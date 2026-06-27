@@ -1,7 +1,12 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CartItem, Product } from "@/types";
-import { saveCustomerCart, type CartSyncItem } from "@/lib/api";
+import {
+  saveCustomerCart,
+  fetchCustomerCart,
+  fetchStoreProduct,
+  type CartSyncItem,
+} from "@/lib/api";
 
 interface CartStore {
   items: CartItem[];
@@ -109,5 +114,40 @@ export async function pushCartToServer() {
     await saveCustomerCart(payload);
   } catch {
     // best-effort: the local cart stays the source of truth
+  }
+}
+
+// Load cart from server on login if local cart is empty (cross-device scenario).
+// Fetches full product data for each cart item by slug so the local CartItem
+// can be fully hydrated. Called by authStore after login/register.
+export async function loadCartFromServer() {
+  const { useAuthStore } = await import("@/stores/authStore");
+  if (!useAuthStore.getState().isAuthenticated) return;
+  const store = useCartStore.getState();
+  // Don't overwrite a non-empty local cart — local wins on conflict.
+  if (store.items.length > 0) return;
+  try {
+    const res = await fetchCustomerCart();
+    if (!res || !res.items || res.items.length === 0) return;
+    const newItems: CartItem[] = [];
+    for (const ci of res.items) {
+      if (!ci.product_slug) continue;
+      try {
+        const product = await fetchStoreProduct(ci.product_slug);
+        newItems.push({
+          product,
+          size: ci.size_label,
+          quantity: ci.quantity,
+          measurements: ci.measurements,
+        });
+      } catch {
+        // Product may have been deleted — skip this cart item.
+      }
+    }
+    if (newItems.length > 0) {
+      useCartStore.setState({ items: newItems });
+    }
+  } catch {
+    // best-effort: server cart load can fail (network/server error)
   }
 }
