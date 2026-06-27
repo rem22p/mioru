@@ -1,6 +1,6 @@
 -- Deterministic catalog fixture for the storefront E2E + visual-regression
 -- suite (apps/store/e2e/*.spec.ts). Unlike scripts/seed-300.sh (random data,
--- unusable for pixel baselines) every value here is fixed, so screenshots are
+-- unsable for pixel baselines) every value here is fixed, so screenshots are
 -- reproducible across runs and environments.
 --
 -- Required by the specs:
@@ -36,20 +36,19 @@ VALUES
 
 SELECT setval(pg_get_serial_sequence('products', 'id'), 12, true);
 
--- Sizes. The shoe/boot products carry numeric sizes (midnight-runner MUST have
--- "42"); clothing carries letter sizes.
-INSERT INTO product_sizes (product_id, size_label) VALUES
-  (1, '41'), (1, '42'), (1, '43'),
-  (2, 'S'), (2, 'M'), (2, 'L'),
-  (3, 'M'), (3, 'L'), (3, 'XL'),
-  (4, 'S'), (4, 'M'), (4, 'L'),
-  (5, 'M'), (5, 'L'), (5, 'XL'),
-  (6, 'S'), (6, 'M'), (6, 'L'),
-  (7, '41'), (7, '42'), (7, '43'),
-  (8, '42'), (8, '43'), (8, '44'),
-  (9, 'M'), (9, 'L'), (9, 'XL'),
-  (10, 'S'), (10, 'M'), (10, 'L'),
-  (11, 'M'), (11, 'L'), (11, 'XL'),
-  (12, 'M'), (12, 'L'), (12, 'XL');
+-- Sizes with per-size stock_quantity. midnight-runner MUST have size "42".
+INSERT INTO product_sizes (product_id, size_label, stock_quantity) VALUES
+  (1,  '41', 5), (1,  '42', 5), (1,  '43', 5),
+  (2,  'S',  10), (2,  'M',  10), (2,  'L',  10),
+  (3,  'M',  8), (3,  'L',  8), (3,  'XL', 8),
+  (4,  'S',  8), (4,  'M',  8), (4,  'L',  8),
+  (5,  'M',  6), (5,  'L',  6), (5,  'XL', 6),
+  (6,  'S',  8), (6,  'M',  8), (6,  'L',  8),
+  (7,  '41', 4), (7,  '42', 4), (7,  '43', 4),
+  (8,  '42', 3), (8,  '43', 3), (8,  '44', 3),
+  (9,  'M',  5), (9,  'L',  5), (9,  'XL', 5),
+  (10, '30/32', 6), (10, '32/32', 6), (10, '34/32', 6),
+  (11, 'S', 5), (11, 'M', 5), (11, 'L', 5),
+  (12, 'M', 4), (12, 'L', 4), (12, 'XL', 4);
 
 COMMIT;

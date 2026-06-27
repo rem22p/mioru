@@ -1,13 +1,9 @@
 /**
  * Phone-number validation shared between Checkout and CustomOrder forms.
  *
- * Mirror of `backend/api/internal/handler/customer.go::phoneRE`
- * (`^\+?\d{7,15}$`). If you change the pattern here, change it
- * there too — and run `grep -rn "phoneRE\|PHONE_RE" backend/ apps/`
- * to confirm no stale copy survives. Frontend mirrors backend so
- * the user gets the same error message on submit that the API
- * would return; trimming before testing absorbs the common
- * paste-from-clipboard-with-leading-space case.
+ * Mirror of backend's phoneRE: accepts international numbers
+ * with optional + prefix followed by 7-15 digits.
+ * Keep both in sync.
  */
 export const PHONE_RE = /^\+?\d{7,15}$/;
 

@@ -28,7 +28,7 @@ func TestListProductsAttachesRelatedData(t *testing.T) {
 	mustCreateProduct(t, s, model.Product{
 		Slug: "alpha", CategoryID: 2, Brand: "ACME", Name: "Alpha", Price: 100,
 		Status: "in_stock", InStock: true,
-		Sizes:  []string{"S", "M", "L"},
+		Sizes: []model.ProductSize{model.ProductSize{Label: "S"}, model.ProductSize{Label: "M"}, model.ProductSize{Label: "L"}},
 		Images: []model.ProductImage{{URL: "/a1.jpg"}, {URL: "/a2.jpg"}},
 		SizeChart: []model.SizeChartRow{
 			{Label: "S"}, {Label: "M"},
@@ -37,7 +37,7 @@ func TestListProductsAttachesRelatedData(t *testing.T) {
 	mustCreateProduct(t, s, model.Product{
 		Slug: "bravo", CategoryID: 2, Brand: "ACME", Name: "Bravo", Price: 200,
 		Status: "in_stock", InStock: true,
-		Sizes: []string{"M"},
+		Sizes: []model.ProductSize{model.ProductSize{Label: "M"}},
 	})
 
 	got, total, err := s.ListProducts(ctx, model.ProductFilter{Sort: "name"})
@@ -57,7 +57,7 @@ func TestListProductsAttachesRelatedData(t *testing.T) {
 	}
 
 	alpha := got[0]
-	if want := []string{"S", "M", "L"}; !equalStrings(alpha.Sizes, want) {
+	if want := []model.ProductSize{{Label: "S"}, {Label: "M"}, {Label: "L"}}; !equalSizeLabels(alpha.Sizes, want) {
 		t.Errorf("alpha.Sizes = %v, want %v", alpha.Sizes, want)
 	}
 	if len(alpha.Images) != 2 || alpha.Images[0].URL != "/a1.jpg" || alpha.Images[1].URL != "/a2.jpg" {
@@ -151,10 +151,10 @@ func TestListProductsMultiFilters(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	mustCreateProduct(t, s, model.Product{Slug: "red-s", CategoryID: 2, Brand: "ACME", Name: "Red S", Color: "red", Price: 100, Status: "in_stock", InStock: true, Sizes: []string{"S"}})
-	mustCreateProduct(t, s, model.Product{Slug: "red-m", CategoryID: 2, Brand: "ACME", Name: "Red M", Color: "red", Price: 200, Status: "in_stock", InStock: true, Sizes: []string{"M"}})
-	mustCreateProduct(t, s, model.Product{Slug: "blue-m", CategoryID: 2, Brand: "Nike", Name: "Blue M", Color: "blue", Price: 300, Status: "in_stock", InStock: true, Sizes: []string{"M"}})
-	mustCreateProduct(t, s, model.Product{Slug: "green-l", CategoryID: 2, Brand: "Nike", Name: "Green L", Color: "green", Price: 400, Status: "in_stock", InStock: true, Sizes: []string{"L"}})
+	mustCreateProduct(t, s, model.Product{Slug: "red-s", CategoryID: 2, Brand: "ACME", Name: "Red S", Color: "red", Price: 100, Status: "in_stock", InStock: true, Sizes: []model.ProductSize{model.ProductSize{Label: "S"}}})
+	mustCreateProduct(t, s, model.Product{Slug: "red-m", CategoryID: 2, Brand: "ACME", Name: "Red M", Color: "red", Price: 200, Status: "in_stock", InStock: true, Sizes: []model.ProductSize{model.ProductSize{Label: "M"}}})
+	mustCreateProduct(t, s, model.Product{Slug: "blue-m", CategoryID: 2, Brand: "Nike", Name: "Blue M", Color: "blue", Price: 300, Status: "in_stock", InStock: true, Sizes: []model.ProductSize{model.ProductSize{Label: "M"}}})
+	mustCreateProduct(t, s, model.Product{Slug: "green-l", CategoryID: 2, Brand: "Nike", Name: "Green L", Color: "green", Price: 400, Status: "in_stock", InStock: true, Sizes: []model.ProductSize{model.ProductSize{Label: "L"}}})
 
 	tests := []struct {
 		name      string
@@ -209,9 +209,9 @@ func TestListProductFacets(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	mustCreateProduct(t, s, model.Product{Slug: "p1", CategoryID: 2, Brand: "ACME", Name: "P1", Color: "red", Price: 100, Status: "in_stock", InStock: true, Sizes: []string{"S", "M"}})
-	mustCreateProduct(t, s, model.Product{Slug: "p2", CategoryID: 2, Brand: "Nike", Name: "P2", Color: "blue", Price: 200, Status: "in_stock", InStock: true, Sizes: []string{"M", "L"}})
-	mustCreateProduct(t, s, model.Product{Slug: "p3", CategoryID: 12, Brand: "Puma", Name: "P3", Color: "", Price: 300, Status: "in_stock", InStock: true, Sizes: []string{"XL"}})
+	mustCreateProduct(t, s, model.Product{Slug: "p1", CategoryID: 2, Brand: "ACME", Name: "P1", Color: "red", Price: 100, Status: "in_stock", InStock: true, Sizes: []model.ProductSize{model.ProductSize{Label: "S"}, model.ProductSize{Label: "M"}}})
+	mustCreateProduct(t, s, model.Product{Slug: "p2", CategoryID: 2, Brand: "Nike", Name: "P2", Color: "blue", Price: 200, Status: "in_stock", InStock: true, Sizes: []model.ProductSize{model.ProductSize{Label: "M"}, model.ProductSize{Label: "L"}}})
+	mustCreateProduct(t, s, model.Product{Slug: "p3", CategoryID: 12, Brand: "Puma", Name: "P3", Color: "", Price: 300, Status: "in_stock", InStock: true, Sizes: []model.ProductSize{model.ProductSize{Label: "XL"}}})
 
 	// Without scope: brand/color/size from all categories, empty color dropped.
 	all, err := s.ListProductFacets(ctx, model.ProductFilter{})
@@ -247,6 +247,18 @@ func equalStrings(a, b []string) bool {
 	}
 	for i := range a {
 		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func equalSizeLabels(a, b []model.ProductSize) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Label != b[i].Label {
 			return false
 		}
 	}

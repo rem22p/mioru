@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 import CatalogStatusToggle from "@/components/catalog/CatalogStatusToggle";
 import { Helmet } from "@dr.pogodin/react-helmet";
 
-const PER_PAGE = 20;
+const PER_PAGE = 100;
 
 function categoryEmoji(slug: string): string {
   const map: Record<string, string> = {
@@ -613,10 +613,11 @@ export default function CatalogPage() {
                 </select>
                 <div className="flex items-center gap-1.5">
                   <input
+                    key={`min-${categoryIdsKey}`}
                     type="number"
                     placeholder="От"
-                    value={priceMin}
-                    onChange={(e) => {
+                    defaultValue={priceMin}
+                    onBlur={(e) => {
                       setPriceMin(e.target.value);
                       setPage(1);
                     }}
@@ -624,10 +625,11 @@ export default function CatalogPage() {
                   />
                   <span className="text-[var(--color-text-muted)] text-sm shrink-0">—</span>
                   <input
+                    key={`max-${categoryIdsKey}`}
                     type="number"
                     placeholder="До"
-                    value={priceMax}
-                    onChange={(e) => {
+                    defaultValue={priceMax}
+                    onBlur={(e) => {
                       setPriceMax(e.target.value);
                       setPage(1);
                     }}

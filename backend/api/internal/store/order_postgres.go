@@ -291,11 +291,19 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 		pname, pslug := meta.Name, meta.Slug
 		items[i].ProductName = pname
 		items[i].ProductSlug = pslug
+		var measurementsJSON []byte
+		if len(items[i].Measurements) > 0 {
+			measurementsJSON, err = json.Marshal(items[i].Measurements)
+			if err != nil {
+				return nil, fmt.Errorf("marshal measurements: %w", err)
+			}
+		}
 		err = tx.QueryRow(ctx, `
-			INSERT INTO order_items (order_id, product_id, product_name, product_slug, size_label, quantity, price_minor)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			INSERT INTO order_items (order_id, product_id, product_name, product_slug, size_label, quantity, price_minor, measurements)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			RETURNING id`,
 			o.ID, items[i].ProductID, pname, pslug, items[i].SizeLabel, items[i].Quantity, items[i].PriceMinor,
+			measurementsJSON,
 		).Scan(&items[i].ID)
 		if err != nil {
 			return nil, fmt.Errorf("insert order item: %w", err)
@@ -303,23 +311,31 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 	}
 	o.Items = items
 
-	// Decrement stock atomically — oversell fails the transaction
+	// Decrement per-size stock atomically — oversell fails the transaction
 	for _, it := range items {
 		tag, err := tx.Exec(ctx,
-			`UPDATE products SET stock_quantity = stock_quantity - $1
-			 WHERE id = $2 AND stock_quantity >= $1`,
-			it.Quantity, it.ProductID,
+			`UPDATE product_sizes SET stock_quantity = stock_quantity - $1
+			 WHERE product_id = $2 AND size_label = $3 AND stock_quantity >= $1`,
+			it.Quantity, it.ProductID, it.SizeLabel,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("decrement stock for product %d: %w", it.ProductID, err)
+			return nil, fmt.Errorf("decrement stock for product %d size %s: %w", it.ProductID, it.SizeLabel, err)
 		}
 		if tag.RowsAffected() == 0 {
-			return nil, fmt.Errorf("product %d: %w (requested %d)", it.ProductID, ErrInsufficientStock, it.Quantity)
+			return nil, fmt.Errorf("product %d size %s: %w (requested %d)", it.ProductID, it.SizeLabel, ErrInsufficientStock, it.Quantity)
 		}
 	}
 
 	// Store idempotency record
-	respBody, _ := json.Marshal(o)
+	respBody, err := json.Marshal(o)
+	if err != nil {
+		// model.Order should always be serializable, but if a future
+		// field breaks Marshal (e.g. channel, func), store a valid
+		// empty JSON object so the replay path doesn't crash on
+		// Unmarshal(nil). The business value is degraded (replay
+		// returns minimal body) but the idempotency guarantee holds.
+		respBody = []byte(`{}`)
+	}
 	now := s.clock()
 	_, err = tx.Exec(ctx, `
 		INSERT INTO order_idempotency (key, user_id, order_id, request_hash, status, response_body, expires_at)
@@ -495,7 +511,8 @@ func (s *PostgresStore) loadOrderItems(ctx context.Context, orderIDs []int64) (m
 	rows, err := s.pool.Query(ctx, `
 		SELECT oi.id, oi.order_id, oi.product_id,
 		       COALESCE(p.name, ''), COALESCE(p.slug, ''),
-		       oi.size_label, oi.quantity, oi.price_minor
+		       oi.size_label, oi.quantity, oi.price_minor,
+		       oi.measurements
 		FROM order_items oi
 		LEFT JOIN products p ON p.id = oi.product_id
 		WHERE oi.order_id = ANY($1)
@@ -509,10 +526,17 @@ func (s *PostgresStore) loadOrderItems(ctx context.Context, orderIDs []int64) (m
 	productIDs := make(map[int64]struct{})
 	for rows.Next() {
 		var item model.OrderItem
+		var measurementsRaw []byte
 		if err := rows.Scan(&item.ID, &item.OrderID, &item.ProductID,
 			&item.ProductName, &item.ProductSlug,
-			&item.SizeLabel, &item.Quantity, &item.PriceMinor); err != nil {
+			&item.SizeLabel, &item.Quantity, &item.PriceMinor,
+			&measurementsRaw); err != nil {
 			return nil, fmt.Errorf("scan order item: %w", err)
+		}
+		if len(measurementsRaw) > 0 {
+			if err := json.Unmarshal(measurementsRaw, &item.Measurements); err != nil {
+				return nil, fmt.Errorf("unmarshal measurements: %w", err)
+			}
 		}
 		m[item.OrderID] = append(m[item.OrderID], item)
 		productIDs[item.ProductID] = struct{}{}

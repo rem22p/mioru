@@ -340,3 +340,27 @@ func signTelegramDataForTest(t *testing.T, data auth.TelegramAuthData) string {
 func newCustomerHandlerForTestWithToken(fs customerStore, botToken string) *CustomerHandler {
 	return NewCustomerHandler(fs, "test-secret-key-at-least-32-chars-long!!", 60, false, botToken, "", "", nil)
 }
+
+func TestPhoneValidation(t *testing.T) {
+	tests := []struct {
+		phone string
+		valid bool
+	}{
+		{"+37369123456", true},
+		{"+373 69 123 456", false}, // spaces not allowed
+		{"+3736912345", true},      // 7 digits after + (valid: 7-15 digits total)
+		{"+1234567", true},         // minimal: + and 7 digits
+		{"+123456789012345", true}, // maximal: + and 15 digits
+		{"+1234567890123456", false}, // 16 digits — too many
+		{"069123456", true},        // no + prefix, 9 digits
+		{"abc", false},
+		{"", false},
+		{"+", false},
+	}
+	for _, tt := range tests {
+		got := phoneRE.MatchString(tt.phone)
+		if got != tt.valid {
+			t.Errorf("phoneRE.MatchString(%q) = %v, want %v", tt.phone, got, tt.valid)
+		}
+	}
+}

@@ -13,10 +13,13 @@ import {
   Check,
   Heart,
   Share2,
+  Package,
+  X,
 } from "lucide-react";
 import { useCurrencyStore } from "@/stores/currencyStore";
 import { formatPrice } from "@/lib/currency";
 import { Helmet } from "@dr.pogodin/react-helmet";
+import { getPreorderFields } from "@/lib/preorderFields";
 
 // Lazy-load below-the-fold components
 const ProductGallery = lazy(
@@ -41,13 +44,17 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   const { currency } = useCurrencyStore();
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [showSizeChart, setShowSizeChart] = useState(false);
+  const [showPreorderInfo, setShowPreorderInfo] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [measurements, setMeasurements] = useState<Record<string, number>>({} as Record<string, number>);
   const addItem = useCartStore((state) => state.addItem);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const cartItems = useCartStore((state) => state.items);
   const isFav = useFavoritesStore((s) => s.isFavorite(product.id));
   const toggleFav = useFavoritesStore((s) => s.toggleFavorite);
+
+  const isPreorder = product.status !== "in_stock";
 
   // Auto-select size if product is already in cart
   useEffect(() => {
@@ -61,20 +68,46 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   const sizeChart = toSizeChart(product.size_chart);
 
   // How many of this product+size are already in the cart
-  const cartQty = selectedSize
+  const cartQty = isPreorder
     ? cartItems
-        .filter(
-          (item) =>
-            item.product.id === product.id && item.size === selectedSize,
-        )
+        .filter((item) => item.product.id === product.id)
         .reduce((sum, item) => sum + item.quantity, 0)
-    : 0;
+    : selectedSize
+      ? cartItems
+          .filter(
+            (item) =>
+              item.product.id === product.id && item.size === selectedSize,
+          )
+          .reduce((sum, item) => sum + item.quantity, 0)
+      : 0;
 
-  const stock = product.stock_quantity || 0;
+  const selectedSizeObj = selectedSize
+    ? product.sizes.find((s) => s.label === selectedSize)
+    : undefined;
+  const stock = selectedSizeObj ? selectedSizeObj.stock_quantity : (product.stock_quantity || 0);
   const available = stock > 0 ? Math.max(0, stock - cartQty) : 999;
-  const soldOut = stock > 0 && available <= 0;
+  const soldOut = !isPreorder && stock > 0 && available <= 0;
+
+  const preorderFields = isPreorder
+    ? getPreorderFields(product.category_name || "")
+    : [];
+
+  const preorderValid =
+    isPreorder &&
+    preorderFields.length > 0 &&
+    preorderFields.every((f) => {
+      const v = measurements[f.key];
+      return v !== undefined && v >= f.min && v <= f.max;
+    });
 
   const handleIncrement = () => {
+    if (isPreorder) {
+      if (!preorderValid) return;
+      addItem(product, "preorder", 1, { ...measurements });
+      setAddedToCart(true);
+      setTimeout(() => setAddedToCart(false), 800);
+      return;
+    }
     if (!selectedSize || soldOut) return;
     if (stock > 0 && cartQty >= stock) return;
     addItem(product, selectedSize, 1);
@@ -173,35 +206,78 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                 {product.description}
               </p>
 
-              {/* Size Selector */}
+              {/* Size Selector / Preorder Measurements */}
               <div className="mt-8">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-primary)]">
-                    {t("product.size")}
+                    {isPreorder ? t("product.preorder.measurements") : t("product.size")}
                   </h3>
-                  <button
-                    onClick={() => sizeChart && setShowSizeChart(true)}
-                    className={`inline-flex items-center gap-1.5 text-xs transition-colors min-h-[44px] px-2 ${sizeChart ? "text-[var(--color-text-secondary)] hover:text-[#44944A]" : "text-[var(--color-text-muted)] cursor-default"}`}
-                  >
-                    <Ruler className="h-3.5 w-3.5" />
-                    {t("product.sizeChart")}
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {product.sizes.map((size) => (
+                  {isPreorder ? (
                     <button
-                      key={size}
-                      data-testid="product-size"
-                      data-size={size}
-                      onClick={() => setSelectedSize(size)}
-                      className={`relative rounded-xl border px-5 py-3 text-sm font-medium transition-all min-h-[44px] ${
-                        selectedSize === size
+                      onClick={() => setShowPreorderInfo(true)}
+                      className="inline-flex items-center gap-1.5 text-xs transition-colors min-h-[44px] px-2 text-[var(--color-text-secondary)] hover:text-[#44944A]"
+                    >
+                      <Package className="h-3.5 w-3.5" />
+                      {t("product.preorder.button")}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => sizeChart && setShowSizeChart(true)}
+                      className={`inline-flex items-center gap-1.5 text-xs transition-colors min-h-[44px] px-2 ${sizeChart ? "text-[var(--color-text-secondary)] hover:text-[#44944A]" : "text-[var(--color-text-muted)] cursor-default"}`}
+                    >
+                      <Ruler className="h-3.5 w-3.5" />
+                      {t("product.sizeChart")}
+                    </button>
+                  )}
+                </div>
+                {isPreorder ? (
+                  <div className="flex gap-3 flex-wrap">
+                    {preorderFields.map((field) => (
+                      <div key={field.key} className={preorderFields.length > 2 ? "w-full" : "flex-1"}>
+                        <label className="block text-xs text-[var(--color-text-muted)] mb-1.5">
+                          {field.label} ({field.unit})
+                        </label>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={measurements[field.key] ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setMeasurements((prev) => {
+                              const next = { ...prev } as Record<string, number>;
+                              if (val === "") {
+                                delete next[field.key];
+                              } else {
+                                next[field.key] = Number(val);
+                              }
+                              return next;
+                            });
+                          }}
+                          placeholder={field.placeholder}
+                          min={field.min}
+                          max={field.max}
+                          className="w-full rounded-xl border border-[var(--color-border-custom)] bg-[var(--color-bg-card)] px-4 py-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#44944A] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-3">
+                    {product.sizes.filter(sz => sz.stock_quantity > 0).map((sz) => (
+                      <button
+                        key={sz.label}
+                        data-testid="product-size"
+                        data-size={sz.label}
+                        onClick={() => setSelectedSize(sz.label)}
+                        disabled={sz.stock_quantity <= 0}
+                        className={`relative rounded-xl border px-5 py-3 text-sm font-medium transition-all min-h-[44px] ${
+                          selectedSize === sz.label
                           ? "border-[#44944A] bg-[#44944A] text-black"
                           : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                       }`}
                     >
-                      {size}
-                      {selectedSize === size && (
+                      {sz.label}
+                      {selectedSize === sz.label && (
                         <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-black flex items-center justify-center">
                           <Check className="h-3 w-3 text-[#44944A]" />
                         </span>
@@ -209,6 +285,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                     </button>
                   ))}
                 </div>
+                )}
               </div>
 
               {/* Actions */}
@@ -226,7 +303,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   <button
                     data-testid="product-add-to-cart"
                     onClick={handleIncrement}
-                    disabled={!selectedSize || soldOut}
+                    disabled={isPreorder ? !preorderValid : (!selectedSize || soldOut)}
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-4 text-sm font-semibold transition-all min-h-[44px] ${
                       addedToCart
                         ? "bg-[#558b5c] text-[var(--color-text-primary)]"
@@ -243,9 +320,13 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                     ) : (
                       <>
                         <ShoppingBag className="h-4 w-4" />
-                        {selectedSize
-                          ? t("product.addToCart")
-                          : t("product.selectSize")}
+                        {isPreorder
+                          ? preorderValid
+                            ? t("product.preorder.order")
+                            : t("product.preorder.fillMeasurements")
+                          : selectedSize
+                            ? t("product.addToCart")
+                            : t("product.selectSize")}
                       </>
                     )}
                   </button>
@@ -372,6 +453,94 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
           />
         </Suspense>
       )}
+
+      {/* Preorder Info Modal */}
+      {showPreorderInfo && (
+        <div className="fixed inset-0 z-50">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowPreorderInfo(false)}
+          />
+          <div className="relative min-h-full flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.2 }}
+              className="relative w-full max-w-md mx-auto rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] shadow-2xl overflow-hidden"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border-custom)]">
+                <h2 className="text-base font-semibold text-[var(--color-text-primary)] flex items-center gap-2">
+                  <Package className="h-4 w-4 text-[#44944A]" />
+                  {t("product.preorder.button")}
+                </h2>
+                <button
+                  onClick={() => setShowPreorderInfo(false)}
+                  className="p-2 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {/* Body */}
+              <div className="p-6 space-y-4">
+                <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+                  {t("product.preorder.description")}
+                </p>
+                <div className="grid gap-3">
+                  <TariffCard
+                    name={t("product.preorder.tariffs.express.name")}
+                    duration={t("product.preorder.tariffs.express.duration")}
+                    accent="border-[var(--color-border-custom)] bg-[var(--color-bg-secondary)]"
+                  />
+                  <TariffCard
+                    name={t("product.preorder.tariffs.accelerated.name")}
+                    duration={t("product.preorder.tariffs.accelerated.duration")}
+                    accent="border-[var(--color-border-custom)] bg-[var(--color-bg-secondary)]"
+                  />
+                  <TariffCard
+                    name={t("product.preorder.tariffs.standard.name")}
+                    duration={t("product.preorder.tariffs.standard.duration")}
+                    accent="border-[var(--color-border-custom)] bg-[var(--color-bg-secondary)]"
+                  />
+                </div>
+                <p className="text-xs font-semibold text-[#44944A] text-center">
+                  {t("product.preorder.priceNote")}
+                </p>
+                <p className="text-xs text-[var(--color-text-muted)] text-center leading-relaxed">
+                  {t("product.preorder.telegramInfo")}
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TariffCard({
+  icon,
+  name,
+  duration,
+  accent,
+}: {
+  icon?: React.ReactNode;
+  name: string;
+  duration: string;
+  accent: string;
+}) {
+  return (
+    <div
+      className={`flex items-center gap-4 px-4 py-3 rounded-lg border ${accent}`}
+    >
+      {icon && icon}
+      <div>
+        <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+          {name}
+        </p>
+        <p className="text-xs text-[var(--color-text-muted)]">{duration}</p>
+      </div>
     </div>
   );
 }

@@ -37,8 +37,8 @@ func (s *PostgresStore) CreateProduct(ctx context.Context, p model.Product) (int
 	}
 
 	// Insert sizes
-	for _, size := range p.Sizes {
-		if _, err := tx.Exec(ctx, `INSERT INTO product_sizes (product_id, size_label) VALUES ($1, $2)`, productID, size); err != nil {
+	for _, sz := range p.Sizes {
+		if _, err := tx.Exec(ctx, `INSERT INTO product_sizes (product_id, size_label, stock_quantity) VALUES ($1, $2, $3)`, productID, sz.Label, sz.StockQuantity); err != nil {
 			return 0, fmt.Errorf("insert size: %w", err)
 		}
 	}
@@ -112,8 +112,8 @@ func (s *PostgresStore) UpdateProduct(ctx context.Context, slug string, p model.
 	}
 
 	// Re-insert sizes
-	for _, size := range p.Sizes {
-		if _, err := tx.Exec(ctx, `INSERT INTO product_sizes (product_id, size_label) VALUES ($1, $2)`, productID, size); err != nil {
+	for _, sz := range p.Sizes {
+		if _, err := tx.Exec(ctx, `INSERT INTO product_sizes (product_id, size_label, stock_quantity) VALUES ($1, $2, $3)`, productID, sz.Label, sz.StockQuantity); err != nil {
 			return fmt.Errorf("insert size: %w", err)
 		}
 	}
@@ -271,7 +271,7 @@ func (s *PostgresStore) listProductsByIDs(ctx context.Context, ids []int64) ([]m
 			p.Care = []string{}
 		}
 		// Initialise related slices so absent rows serialise as [] not null.
-		p.Sizes = []string{}
+		p.Sizes = []model.ProductSize{}
 		p.SizeChart = []model.SizeChartRow{}
 		p.Images = []model.ProductImage{}
 		byID[p.ID] = &p
@@ -303,19 +303,20 @@ func (s *PostgresStore) listProductsByIDs(ctx context.Context, ids []int64) ([]m
 // matching product. Ordered by (product_id, id) so each product's sizes keep
 // their insertion order.
 func (s *PostgresStore) attachSizes(ctx context.Context, byID map[int64]*model.Product, ids []int64) error {
-	rows, err := s.pool.Query(ctx, `SELECT product_id, size_label FROM product_sizes WHERE product_id = ANY($1) ORDER BY product_id, id`, ids)
+	rows, err := s.pool.Query(ctx, `SELECT product_id, size_label, COALESCE(stock_quantity, 0) FROM product_sizes WHERE product_id = ANY($1)
+		ORDER BY product_id, id`, ids)
 	if err != nil {
 		return fmt.Errorf("query sizes: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var pid int64
-		var label string
-		if err := rows.Scan(&pid, &label); err != nil {
+		var sz model.ProductSize
+		if err := rows.Scan(&pid, &sz.Label, &sz.StockQuantity); err != nil {
 			return fmt.Errorf("scan size: %w", err)
 		}
 		if p, ok := byID[pid]; ok {
-			p.Sizes = append(p.Sizes, label)
+			p.Sizes = append(p.Sizes, sz)
 		}
 	}
 	return rows.Err()
@@ -420,23 +421,27 @@ func (s *PostgresStore) queryProduct(ctx context.Context, whereClause string, ar
 	return &p, nil
 }
 
-func (s *PostgresStore) getProductSizes(ctx context.Context, productID int64) ([]string, error) {
-	rows, err := s.pool.Query(ctx, `SELECT size_label FROM product_sizes WHERE product_id = $1 ORDER BY id`, productID)
+func (s *PostgresStore) getProductSizes(ctx context.Context, productID int64) ([]model.ProductSize, error) {
+	rows, err := s.pool.Query(ctx, `SELECT size_label, COALESCE(stock_quantity, 0) FROM product_sizes WHERE product_id = $1
+		ORDER BY
+			CASE WHEN size_label ~ '^[0-9]' THEN 0 ELSE 1 END,
+			CASE WHEN size_label ~ '^[0-9]' THEN NULLIF(regexp_replace(size_label, '[^0-9.]', '', 'g'), '')::numeric END,
+			size_label`, productID)
 	if err != nil {
 		return nil, fmt.Errorf("query sizes: %w", err)
 	}
 	defer rows.Close()
 
-	var sizes []string
+	var sizes []model.ProductSize
 	for rows.Next() {
-		var label string
-		if err := rows.Scan(&label); err != nil {
+		var s model.ProductSize
+		if err := rows.Scan(&s.Label, &s.StockQuantity); err != nil {
 			return nil, fmt.Errorf("scan size: %w", err)
 		}
-		sizes = append(sizes, label)
+		sizes = append(sizes, s)
 	}
 	if sizes == nil {
-		sizes = []string{}
+		sizes = []model.ProductSize{}
 	}
 	return sizes, rows.Err()
 }
@@ -598,8 +603,15 @@ func (s *PostgresStore) ListProductFacets(ctx context.Context, filter model.Prod
 		return facets, fmt.Errorf("color facets iteration: %w", err)
 	}
 
-	sizeQ := `SELECT DISTINCT ps.size_label FROM product_sizes ps JOIN products p ON p.id = ps.product_id ` + where + ` ORDER BY ps.size_label`
-	rows, err = s.pool.Query(ctx, sizeQ, args...)
+	sq := `SELECT size_label FROM (
+		SELECT DISTINCT ps.size_label,
+			CASE WHEN ps.size_label ~ '^[0-9]' THEN 0 ELSE 1 END AS grp,
+			CASE WHEN ps.size_label ~ '^[0-9]' THEN NULLIF(regexp_replace(ps.size_label, '[^0-9.]', '', 'g'), '')::numeric END AS num
+		FROM product_sizes ps
+		JOIN products p ON p.id = ps.product_id ` + where + `
+	) sub
+	ORDER BY grp, num, size_label`
+	rows, err = s.pool.Query(ctx, sq, args...)
 	if err != nil {
 		return facets, fmt.Errorf("query size facets: %w", err)
 	}

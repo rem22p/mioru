@@ -776,9 +776,10 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		DeliveryTime   []string `json:"delivery_time"`
 		Photos         []string `json:"photos"`
 		Items          []struct {
-			ProductID int64  `json:"product_id"`
-			SizeLabel string `json:"size_label"`
-			Quantity  int    `json:"quantity"`
+			ProductID    int64                  `json:"product_id"`
+			SizeLabel    string                 `json:"size_label"`
+			Quantity     int                    `json:"quantity"`
+			Measurements map[string]interface{} `json:"measurements,omitempty"`
 		} `json:"items"`
 	}
 	if err := json.Unmarshal(rawBody, &req); err != nil {
@@ -1008,9 +1009,10 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	items := make([]model.OrderItem, len(req.Items))
 	for i, it := range req.Items {
 		items[i] = model.OrderItem{
-			ProductID: it.ProductID,
-			SizeLabel: it.SizeLabel,
-			Quantity:  it.Quantity,
+			ProductID:    it.ProductID,
+			SizeLabel:    it.SizeLabel,
+			Quantity:     it.Quantity,
+			Measurements: it.Measurements,
 		}
 	}
 
@@ -1299,9 +1301,10 @@ const (
 )
 
 type cartItemReq struct {
-	ProductID int    `json:"product_id"`
-	SizeLabel string `json:"size_label"`
-	Quantity  int    `json:"quantity"`
+	ProductID    int                    `json:"product_id"`
+	SizeLabel    string                 `json:"size_label"`
+	Quantity     int                    `json:"quantity"`
+	Measurements map[string]interface{} `json:"measurements,omitempty"`
 }
 
 type cartSaveReq struct {
@@ -1355,9 +1358,10 @@ func (h *CustomerHandler) SaveCart(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		items = append(items, store.CartItem{
-			ProductID: it.ProductID,
-			SizeLabel: it.SizeLabel,
-			Quantity:  it.Quantity,
+			ProductID:    it.ProductID,
+			SizeLabel:    it.SizeLabel,
+			Quantity:     it.Quantity,
+			Measurements: it.Measurements,
 		})
 	}
 

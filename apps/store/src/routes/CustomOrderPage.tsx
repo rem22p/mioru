@@ -54,7 +54,7 @@ export default function CustomOrderPage() {
   const [weight, setWeight] = useState("");
   const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
-  const [deliveryTime, setDeliveryTime] = useState<string[]>([]);
+  const [deliveryTime, setDeliveryTime] = useState<string>("");
   const [deliveryMethod, setDeliveryMethod] = useState("");
 
   // Reset delivery method if the user changed the city and their
@@ -74,12 +74,6 @@ export default function CustomOrderPage() {
   const [submitError, setSubmitError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-
-  const toggleDeliveryTime = (key: string) => {
-    setDeliveryTime((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-    );
-  };
 
   const handlePhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -144,7 +138,7 @@ export default function CustomOrderPage() {
           total_minor: 0,
           height: height ? parseFloat(height) : undefined,
           weight: weight ? parseFloat(weight) : undefined,
-          delivery_time: deliveryTime,
+          delivery_time: deliveryTime ? [deliveryTime] : [],
           comment,
           photos: photoUrls,
         },
@@ -187,6 +181,10 @@ export default function CustomOrderPage() {
         >
           {t("customOrder.title")}
         </motion.h1>
+
+        <p className="mt-4 text-base text-[var(--color-text-muted)] max-w-2xl leading-relaxed">
+          {t("customOrder.description")}
+        </p>
 
         {!submitted ? (
           <motion.form
@@ -413,15 +411,17 @@ export default function CustomOrderPage() {
                   <label
                     key={key}
                     className={`flex items-center gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-all ${
-                      deliveryTime.includes(key)
+                      deliveryTime === key
                         ? "border-[#44944A] bg-[#44944A]/10"
                         : "border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)]"
                     }`}
                   >
                     <input
-                      type="checkbox"
-                      checked={deliveryTime.includes(key)}
-                      onChange={() => toggleDeliveryTime(key)}
+                      type="radio"
+                      name="deliveryTime"
+                      value={key}
+                      checked={deliveryTime === key}
+                      onChange={() => setDeliveryTime(key)}
                       className="accent-[#44944A]"
                     />
                     <span className="text-sm text-[var(--color-text-primary)]">

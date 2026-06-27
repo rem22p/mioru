@@ -238,12 +238,12 @@ export default function ProductTable({
             {/* Sizes */}
             {product.sizes && product.sizes.length > 0 && (
               <div className="flex items-center gap-1 flex-wrap pt-0.5">
-                {product.sizes.map((size) => (
+                {product.sizes.map((size: string | {label: string; stock_quantity: number}) => (
                   <span
-                    key={size}
+                    key={typeof size === "string" ? size : size.label}
                     className="text-[10px] font-medium text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] border border-[var(--color-border-custom)] px-1.5 py-0.5 rounded"
                   >
-                    {size}
+                    {typeof size === "string" ? size : size.label}
                   </span>
                 ))}
               </div>

@@ -16,7 +16,11 @@ func seedProduct(t *testing.T, e *env, slug string, priceMDL, stock int) int64 {
 	id, err := e.st.CreateProduct(context.Background(), model.Product{
 		Slug: slug, CategoryID: 1, Brand: "TestBrand", Name: "Test " + slug,
 		Price: priceMDL, Color: "red", Status: "in_stock", InStock: true,
-		StockQty: stock, CreatedBy: "test", Sizes: []string{"M", "L"},
+		StockQty: stock, CreatedBy: "test",
+		Sizes: []model.ProductSize{
+			{Label: "M", StockQuantity: stock},
+			{Label: "L", StockQuantity: stock},
+		},
 	})
 	if err != nil {
 		t.Fatalf("seedProduct %s: %v", slug, err)

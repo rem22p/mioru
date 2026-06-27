@@ -31,6 +31,10 @@ const PNR_CITIES = new Set([
 // their door.
 const TIRASPOL_BENDERY = new Set(["тирасполь", "бендеры"].map((s) => s.replace(/ё/g, "е")));
 
+
+// Non-PMR cities reachable by intercity bus from Tiraspol.
+const BUS_NON_PNR = new Set(["кишинев", "комрат", "чадыр-лунга"]);
+
 // normaliseCity trims whitespace, lower-cases, and strips ё→е so
 // that paste / IME / autofill variants of any Cyrillic city match
 // the canonical lookup sets above. Same-shape helper lives on the
@@ -59,14 +63,13 @@ export function isDeliveryBlocked(method: string, city: string): boolean {
   const lower = normaliseCity(city);
   const isPnr = PNR_CITIES.has(lower);
   const isTb = TIRASPOL_BENDERY.has(lower);
-  const isChisinau = lower === "кишинев";
   switch (method) {
     case "personal":
     case "address":
       return !isTb;
     case "bus":
-      // Bus only runs between (or to) PMR cities and Chisinau.
-      return !(isPnr || isChisinau);
+      // Bus runs between PMR cities, Chisinau, Comrat, Ceadir-Lunga.
+      return !(isPnr || BUS_NON_PNR.has(lower));
     case "express":
       // Express post is available across PMR, but the courier
       // doesn't go door-to-door in Tiraspol/Bendery — for those

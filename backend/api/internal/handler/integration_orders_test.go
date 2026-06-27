@@ -59,8 +59,20 @@ func TestIntegrationCreateOrderHappyAndDecrementsStock(t *testing.T) {
 	if err != nil || p == nil {
 		t.Fatalf("GetProduct: %v / %v", p, err)
 	}
-	if p.StockQty != 7 {
-		t.Errorf("stock after order = %d, want 7", p.StockQty)
+	// F1 fix decrements product_sizes.stock_quantity, not products.stock_quantity.
+	// Check per-size stock for size "M".
+	found := false
+	for _, sz := range p.Sizes {
+		if sz.Label == "M" {
+			if sz.StockQuantity != 7 {
+				t.Errorf("size M stock after order = %d, want 7", sz.StockQuantity)
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("size M not found in product sizes")
 	}
 }
 
@@ -114,8 +126,19 @@ func TestIntegrationCreateOrderIdempotentReplay(t *testing.T) {
 	if err != nil || p == nil {
 		t.Fatalf("GetProduct: %v / %v", p, err)
 	}
-	if p.StockQty != 8 {
-		t.Errorf("stock after replay = %d, want 8 (decremented once)", p.StockQty)
+	// Per-size stock check for size "M" (F1 fix decrements product_sizes, not products).
+	found := false
+	for _, sz := range p.Sizes {
+		if sz.Label == "M" {
+			if sz.StockQuantity != 8 {
+				t.Errorf("size M stock after replay = %d, want 8 (decremented once)", sz.StockQuantity)
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("size M not found in product sizes")
 	}
 }
 
@@ -161,8 +184,19 @@ func TestIntegrationCreateOrderOversell(t *testing.T) {
 	if err != nil || p == nil {
 		t.Fatalf("GetProduct: %v / %v", p, err)
 	}
-	if p.StockQty != 2 {
-		t.Errorf("stock after rejected oversell = %d, want 2 (unchanged)", p.StockQty)
+	// Per-size stock check for size "M" (F1 fix — oversell rejected, stock unchanged).
+	found := false
+	for _, sz := range p.Sizes {
+		if sz.Label == "M" {
+			if sz.StockQuantity != 2 {
+				t.Errorf("size M stock after rejected oversell = %d, want 2 (unchanged)", sz.StockQuantity)
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("size M not found in product sizes")
 	}
 }
 
@@ -365,5 +399,66 @@ func TestIntegrationCreateOrderDoesNotResyncIdenticalPhone(t *testing.T) {
 	cust, _ = e.st.GetCustomer(context.Background(), custID)
 	if cust.Phone != phone {
 		t.Errorf("customers.phone changed: got %q, want %q", cust.Phone, phone)
+	}
+}
+
+// TestIntegrationCreateOrderWithPreorderMeasurements verifies that
+// measurements submitted on a preorder cart-type order survive the
+// full handler chain: request → CreateOrder → INSERT → GetOrder → response.
+func TestIntegrationCreateOrderWithPreorderMeasurements(t *testing.T) {
+	e := newEnv(t)
+	sess, _ := e.customerSession(t, "prem@ex.com")
+	pid := seedProduct(t, e, "prem-1", 500, 10)
+
+	body := map[string]any{
+		"type":            "cart",
+		"phone":           "+37369123456",
+		"city":            "Tiraspol",
+		"delivery_method": "personal",
+		"payment_method":  "cash",
+		"items": []map[string]any{
+			{
+				"product_id": pid,
+				"size_label": "M",
+				"quantity":   1,
+				"measurements": map[string]any{
+					"height": float64(175),
+					"weight": float64(70),
+				},
+			},
+		},
+	}
+
+	rr := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: "key-prem-1", body: body})
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("CreateOrder preorder: want 201, got %d (%s)", rr.Code, rr.Body.String())
+	}
+
+	var created struct {
+		ID    int64 `json:"id"`
+		Items []struct {
+			ProductID    int64                  `json:"product_id"`
+			SizeLabel    string                 `json:"size_label"`
+			Measurements map[string]interface{} `json:"measurements"`
+		} `json:"items"`
+	}
+	decode(t, rr, &created)
+	if created.ID == 0 {
+		t.Fatal("created order has no ID")
+	}
+	if len(created.Items) != 1 {
+		t.Fatalf("want 1 item, got %d", len(created.Items))
+	}
+	m := created.Items[0].Measurements
+	if m == nil {
+		t.Fatal("measurements came back as nil — chain broke between handler and response")
+	}
+	// json.Unmarshal produces float64 for JSON numbers in map[string]interface{}.
+	if v, ok := m["height"]; !ok || v != float64(175) {
+		t.Errorf("measurements.height = %v, want 175", v)
+	}
+	if v, ok := m["weight"]; !ok || v != float64(70) {
+		t.Errorf("measurements.weight = %v, want 70", v)
 	}
 }

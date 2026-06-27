@@ -85,9 +85,12 @@ export default function ProductForm({
   const [fit, setFit] = useState(product?.fit || "");
   const [material, setMaterial] = useState(product?.material || "");
 
-  // Sizes
-  const [selectedSizes, setSelectedSizes] = useState<string[]>(
-    product?.sizes || [],
+  // Sizes — per-label with stock quantity
+  const [selectedSizes, setSelectedSizes] = useState<{label: string; stock: number}[]>(
+    (product?.sizes || []).map((s: string | {label: string; stock_quantity: number}) => ({
+      label: typeof s === "string" ? s : s.label,
+      stock: typeof s === "string" ? (product?.stock_quantity || 0) : (s.stock_quantity || 0),
+    })),
   );
 
   // Size chart
@@ -205,9 +208,17 @@ export default function ProductForm({
     setImages((prev) => prev.filter((img) => img.id !== id));
   };
 
-  const toggleSize = (size: string) => {
+  const toggleSize = (sizeLabel: string) => {
+    setSelectedSizes((prev) => {
+      const exists = prev.find((s) => s.label === sizeLabel);
+      if (exists) return prev.filter((s) => s.label !== sizeLabel);
+      return [...prev, { label: sizeLabel, stock: 0 }];
+    });
+  };
+
+  const updateSizeStock = (label: string, stock: number) => {
     setSelectedSizes((prev) =>
-      prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size],
+      prev.map((s) => (s.label === label ? { ...s, stock } : s)),
     );
   };
 
@@ -287,7 +298,8 @@ export default function ProductForm({
       if (material) fd.append("material", material);
 
       // Sizes
-      selectedSizes.forEach((s) => fd.append("sizes[]", s));
+      selectedSizes.forEach((s) => fd.append("sizes[]", s.label));
+      selectedSizes.forEach((s) => fd.append("size_stocks[]", String(s.stock)));
 
       // Size chart
       sizeChart
@@ -619,7 +631,8 @@ export default function ProductForm({
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {sizeOptions.map((size) => {
-                    const isSelected = selectedSizes.includes(size);
+                    const sz = selectedSizes.find((s) => s.label === size);
+                    const isSelected = !!sz;
                     return (
                       <button
                         key={size}
@@ -636,6 +649,24 @@ export default function ProductForm({
                     );
                   })}
                 </div>
+                {selectedSizes.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Количество на размер</h4>
+                    {selectedSizes.map((sz) => (
+                      <div key={sz.label} className="flex items-center gap-3">
+                        <span className="w-8 text-sm font-medium text-[var(--color-text-primary)]">{sz.label}</span>
+                        <input
+                          type="number"
+                          value={sz.stock}
+                          onChange={(e) => updateSizeStock(sz.label, parseInt(e.target.value) || 0)}
+                          min="0"
+                          placeholder="0"
+                          className={`${TEXT_FIELD_STYLE} w-24 font-mono`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -944,7 +975,7 @@ export default function ProductForm({
               brand,
               material,
               care: careInstructions,
-              sizes: selectedSizes,
+              sizes: selectedSizes.map(s => ({label: s.label, stock_quantity: s.stock})),
               color,
               fit,
               categoryName: selectedCategory?.name || "",

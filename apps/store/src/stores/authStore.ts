@@ -37,18 +37,15 @@ function toUser(c: CustomerProfile): User {
 }
 
 // On login/register, push the anonymous local cart and favorites up to the
-// account so they're saved server-side. We deliberately do NOT pull them back:
-// the server cart/favorites store only ids+quantity with no product data, so a
-// pull can't rebuild the local stores — the old "hydrate" replaced them with
-// the local∩server intersection, which silently dropped items and changed the
-// checkout total right after a forced login. The local stores (persisted to
-// localStorage) are the source of truth.
+// account so they're saved server-side. Then load any server cart items not
+// in local storage (cross-device: a fresh device picks up cart from server).
 async function syncOnAuth() {
   try {
-    const { pushCartToServer } = await import("@/stores/cartStore");
+    const { pushCartToServer, loadCartFromServer } = await import("@/stores/cartStore");
     const { pushFavoritesToServer } = await import("@/stores/favoritesStore");
     await pushCartToServer();
     await pushFavoritesToServer();
+    await loadCartFromServer();
   } catch {
     // best-effort
   }

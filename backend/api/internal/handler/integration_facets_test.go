@@ -17,7 +17,7 @@ func facetProduct(t *testing.T, e *env, slug, brand, color string) {
 	_, err := e.st.CreateProduct(context.Background(), model.Product{
 		Slug: slug, CategoryID: 1, Brand: brand, Name: "Test " + slug,
 		Price: 500, Color: color, Status: "in_stock", InStock: true,
-		StockQty: 5, CreatedBy: "test", Sizes: []string{"M"},
+		StockQty: 5, CreatedBy: "test", Sizes: []model.ProductSize{model.ProductSize{Label: "M"}},
 	})
 	if err != nil {
 		t.Fatalf("facetProduct %s: %v", slug, err)

@@ -241,6 +241,7 @@ export interface StoreOrderItem {
   quantity: number;
   price_minor: number;
   image_url?: string;
+  measurements?: Record<string, number>;
 }
 
 export interface StoreOrder {
@@ -379,6 +380,8 @@ export interface CartSyncItem {
   product_id: number;
   size_label: string;
   quantity: number;
+  product_slug?: string;
+  measurements?: Record<string, number>;
 }
 
 export const fetchCustomerCart = () =>

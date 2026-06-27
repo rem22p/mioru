@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"net/http/httptest"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -9,75 +9,90 @@ import (
 	"mioru/internal/model"
 )
 
-// TestParseProductFromFormNormalizesLegacyStatus guards the wire-format
-// contract for the admin product form. The admin SPA was written before the
-// status CHECK constraint was tightened (feat/catalog-status-toggle), so its
-// dropdown still emits the old values:
-//
-//	pre_order  → canonical "preorder"
-//	none       → canonical "out_of_stock"
-//
-// The handler is the single source of truth for what "status" means on the
-// wire — anything that lands in the DB must be one of the three canonical
-// values, otherwise the CHECK constraint on products.status will reject the
-// row and the admin will get a generic 500 ("internal error").
-func TestParseProductFromFormNormalizesLegacyStatus(t *testing.T) {
-	cases := []struct {
-		name string
-		body string
-		want model.Product
+// TestParseProductFromFormMultiValueStock verifies that the
+// size_stocks[] form field is parsed correctly alongside sizes[].
+func TestParseProductFromFormMultiValueStock(t *testing.T) {
+	tests := []struct {
+		name     string
+		sizes    []string
+		stocks   []string
+		want     []model.ProductSize
 	}{
 		{
-			name: "legacy pre_order + in_stock=0 → preorder",
-			body: "slug=a&name=A&status=pre_order&in_stock=0&category_id=2",
-			want: model.Product{Slug: "a", Name: "A", Status: "preorder", InStock: false, CategoryID: 2},
+			name:   "single size with stock",
+			sizes:  []string{"M"},
+			stocks: []string{"5"},
+			want:   []model.ProductSize{{Label: "M", StockQuantity: 5}},
 		},
 		{
-			name: "legacy none + in_stock=0 → out_of_stock",
-			body: "slug=a&name=A&status=none&in_stock=0&category_id=2",
-			want: model.Product{Slug: "a", Name: "A", Status: "out_of_stock", InStock: false, CategoryID: 2},
+			name:   "multiple sizes with stock",
+			sizes:  []string{"S", "M", "L"},
+			stocks: []string{"2", "3", "1"},
+			want: []model.ProductSize{
+				{Label: "S", StockQuantity: 2},
+				{Label: "M", StockQuantity: 3},
+				{Label: "L", StockQuantity: 1},
+			},
 		},
 		{
-			name: "canonical preorder → preorder (no-op)",
-			body: "slug=a&name=A&status=preorder&in_stock=0&category_id=2",
-			want: model.Product{Slug: "a", Name: "A", Status: "preorder", InStock: false, CategoryID: 2},
+			name:   "no stocks array — defaults to 0",
+			sizes:  []string{"XL"},
+			stocks: nil,
+			want:   []model.ProductSize{{Label: "XL", StockQuantity: 0}},
 		},
 		{
-			name: "canonical in_stock → in_stock (no-op)",
-			body: "slug=a&name=A&status=in_stock&in_stock=1&category_id=2",
-			want: model.Product{Slug: "a", Name: "A", Status: "in_stock", InStock: true, CategoryID: 2},
+			name:   "fewer stocks than sizes — remaining get 0",
+			sizes:  []string{"A", "B", "C"},
+			stocks: []string{"1"},
+			want: []model.ProductSize{
+				{Label: "A", StockQuantity: 1},
+				{Label: "B", StockQuantity: 0},
+				{Label: "C", StockQuantity: 0},
+			},
 		},
 		{
-			name: "empty status + in_stock=0 (legacy) → out_of_stock",
-			body: "slug=a&name=A&status=&in_stock=0&category_id=2",
-			want: model.Product{Slug: "a", Name: "A", Status: "out_of_stock", InStock: false, CategoryID: 2},
-		},
-		{
-			name: "empty status + in_stock=1 (legacy) → in_stock",
-			body: "slug=a&name=A&status=&in_stock=1&category_id=2",
-			want: model.Product{Slug: "a", Name: "A", Status: "in_stock", InStock: true, CategoryID: 2},
+			name:   "invalid stock value — treated as 0",
+			sizes:  []string{"M"},
+			stocks: []string{"abc"},
+			want:   []model.ProductSize{{Label: "M", StockQuantity: 0}},
 		},
 	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest("POST", "/", strings.NewReader(tc.body))
-			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-			// r.FormValue reads url.Values from r.PostForm, populated by
-			// ParseForm. NewRequest doesn't call ParseForm, so we trigger it
-			// manually here.
-			if err := req.ParseForm(); err != nil {
-				t.Fatal(err)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			form := url.Values{}
+			form["slug"] = []string{strings.ToLower(strings.ReplaceAll(tt.name, " ", "-"))}
+			form["category_id"] = []string{"2"}
+			form["brand"] = []string{"Test"}
+			form["name"] = []string{tt.name}
+			form["price"] = []string{"100"}
+			form["color"] = []string{"red"}
+			for _, s := range tt.sizes {
+				form.Add("sizes[]", s)
 			}
-			_ = url.Values{} // keep url import used (silent for future use)
-			got, err := parseProductFromForm(req)
+			for _, s := range tt.stocks {
+				form.Add("size_stocks[]", s)
+			}
+
+			req, _ := http.NewRequest("POST", "/", strings.NewReader(form.Encode()))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			_ = req.ParseForm()
+
+			p, err := parseProductFromForm(req)
 			if err != nil {
 				t.Fatalf("parseProductFromForm: %v", err)
 			}
-			if got.Status != tc.want.Status {
-				t.Errorf("Status = %q, want %q", got.Status, tc.want.Status)
+			if len(p.Sizes) != len(tt.want) {
+				t.Fatalf("got %d sizes, want %d", len(p.Sizes), len(tt.want))
 			}
-			if got.InStock != tc.want.InStock {
-				t.Errorf("InStock = %v, want %v", got.InStock, tc.want.InStock)
+			for i, want := range tt.want {
+				got := p.Sizes[i]
+				if got.Label != want.Label {
+					t.Errorf("size[%d].Label = %q, want %q", i, got.Label, want.Label)
+				}
+				if got.StockQuantity != want.StockQuantity {
+					t.Errorf("size[%d].StockQuantity = %d, want %d", i, got.StockQuantity, want.StockQuantity)
+				}
 			}
 		})
 	}

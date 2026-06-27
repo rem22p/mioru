@@ -47,11 +47,11 @@
     },
     "deliveryMethod": "Mod de livrare",
     "deliveryMethods": {
-      "personal": "Întâlnire personală (Tiraspol/Bender) — gratuit",
-      "address": "La adresă (Tiraspol) — +10 RUB",
-      "bus": "Rutieră (RMN + Chișinău) — de la 20 până la 50 RUB",
-      "express": "Livrare expres prin poștă (RMN, în afară de Tiraspol și Bender) — de la 20 până la 50 RUB",
-      "moldovaPost": "Poșta Moldovei (toate orașele din Moldova) — de la 20 până la 50 RUB"
+      "personal": "Întâlnire personală",
+      "address": "Livrare la adresă",
+      "bus": "Autobuz",
+      "express": "Poștă expres",
+      "moldovaPost": "Poșta Moldovei"
     },
     "comment": "Comentariu",
     "commentPlaceholder": "Specifică preferințele tale de mărime, culoare, material...",
@@ -59,7 +59,8 @@
     "afterSubmit": "În curând managerul nostru te va contacta pe Telegram cu informații despre comanda ta. Dacă acest format de comunicare nu este posibil pentru tine, te rugăm să ne scrii pe Instagram @mioru.store.",
     "delivery": {
       "disabledForCity": "Metoda de livrare «{{method}}» nu este disponibilă pentru «{{city}}»"
-    }
+    },
+    "description": "Dacă nu ați găsit articolul dorit în catalog, puteți completa acest formular. Managerii noștri vor verifica posibilitatea de a comanda acest articol individual pentru dvs."
   },
   "nav": {
     "inStock": "CATALOG",
@@ -77,8 +78,8 @@
   "home": {
     "hero": {
       "badge": "MIORU.STORE",
-      "title1": "CREEĂ-ȚI",
-      "title2": "ȚINUTA",
+      "title1": "CONSTRUIEȘTE-ȚI",
+      "title2": "STILUL",
       "description": "ARTICOLE ÎN STOC ȘI LA COMANDĂ",
       "cta1": "Vezi catalogul",
       "cta2": "Comandă personalizată",
@@ -204,7 +205,34 @@
     "viewPhotos": "Foto",
     "pose": "Poză",
     "modelParams": "Parametrii modelului",
-    "allProducts": "Toate produsele"
+    "allProducts": "Toate produsele",
+    "preorder": {
+      "button": "La comandă",
+      "description": "Produsele la comandă sunt articole care nu sunt în stoc. Le comandăm special pentru tine.\n\nExistă trei niveluri:",
+      "tariffs": {
+        "express": {
+          "name": "EXPRESS",
+          "duration": "3-5 zile (cel mai rapid)"
+        },
+        "accelerated": {
+          "name": "ACCELERAT",
+          "duration": "8-10 zile (optim)"
+        },
+        "standard": {
+          "name": "STANDARD",
+          "duration": "30-35 zile (cel mai accesibil)"
+        }
+      },
+      "priceNote": "! prețul afișat este pentru nivelul STANDARD !",
+      "telegramInfo": "Prețurile pentru primele două niveluri îți vor fi trimise prin Telegram împreună cu detaliile complete ale comenzii. Prețul final depinde de termenul de livrare ales. Este posibil ca mărimea ta să nu fie disponibilă pentru anumite niveluri.",
+      "measurements": "Dimensiunile tale",
+      "height": "Înălțime (cm)",
+      "heightPlaceholder": "170",
+      "weight": "Greutate (kg)",
+      "weightPlaceholder": "70",
+      "order": "Comandă",
+      "fillMeasurements": "Completează măsurătorile"
+    }
   },
   "cart": {
     "title": "Coș",
@@ -217,7 +245,12 @@
     "shipping": "Livrare",
     "free": "Gratuit",
     "checkout": "Finalizează comanda",
-    "clear": "Golește"
+    "clear": "Golește",
+    "section": {
+      "inStock": "În stoc",
+      "preorder": "La comandă",
+      "preorderDesc": "Produsele la comandă sunt fabricate special pentru tine. Termenul și prețul final depind de tariful ales — managerul va confirma detaliile prin Telegram după plasarea comenzii."
+    }
   },
   "checkout": {
     "title": "Finalizare comandă",
@@ -273,7 +306,8 @@
     "phone": "Telefon",
     "phonePlaceholder": "+373 ...",
     "phoneRequired": "Introduceți numărul de telefon",
-    "useMyPhone": "Folosește numărul meu"
+    "useMyPhone": "Folosește numărul meu",
+    "mixedCart": "Produsele din stoc și cele la comandă trebuie comandate separat. Eliminați un tip din coș."
   },
   "profile": {
     "title": "Contul meu",

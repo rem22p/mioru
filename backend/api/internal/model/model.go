@@ -50,12 +50,16 @@ type Product struct {
 	CreatedBy    string         `json:"created_by"`
 	CreatedAt    string         `json:"created_at"`
 	UpdatedAt    string         `json:"updated_at"`
-	Sizes        []string       `json:"sizes"`
+	Sizes        []ProductSize  `json:"sizes"`
 	SizeChart    []SizeChartRow `json:"size_chart"`
 	Images       []ProductImage `json:"images"`
 }
 
-// SizeChartRow represents a row in the product's size chart
+// ProductSize holds a single size variant with its stock level.
+type ProductSize struct {
+	Label         string `json:"label"`
+	StockQuantity int    `json:"stock_quantity"`
+}
 type SizeChartRow struct {
 	Label      string   `json:"label"`
 	Chest      *float64 `json:"chest,omitempty"`
@@ -170,5 +174,6 @@ type OrderItem struct {
 	ImageURL    string `json:"image_url,omitempty"`
 	SizeLabel   string `json:"size_label"`
 	Quantity    int    `json:"quantity"`
-	PriceMinor  int64  `json:"price_minor"`
+	PriceMinor   int64   `json:"price_minor"`
+	Measurements map[string]interface{} `json:"measurements,omitempty"` // PII (height/weight/foot_length etc). Stored with order indefinitely per financial retention requirements. Must NOT appear in logs. Admin access audit-logged.
 }

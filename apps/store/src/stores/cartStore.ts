@@ -1,11 +1,16 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CartItem, Product } from "@/types";
-import { saveCustomerCart, type CartSyncItem } from "@/lib/api";
+import {
+  saveCustomerCart,
+  fetchCustomerCart,
+  fetchStoreProduct,
+  type CartSyncItem,
+} from "@/lib/api";
 
 interface CartStore {
   items: CartItem[];
-  addItem: (product: Product, size: string, qty?: number) => void;
+  addItem: (product: Product, size: string, qty?: number, measurements?: Record<string, number>) => void;
   removeItem: (productId: number | string, size: string) => void;
   updateQuantity: (
     productId: number | string,
@@ -17,6 +22,15 @@ interface CartStore {
   totalPrice: () => number;
 }
 
+function itemToSyncPayload(i: CartItem): CartSyncItem {
+  return {
+    product_id: i.product.id,
+    size_label: i.size,
+    quantity: i.quantity,
+    ...(i.measurements ? { measurements: i.measurements } : {}),
+  };
+}
+
 // Debounced sync to server when authenticated.
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
 function scheduleSyncToServer(items: CartItem[]) {
@@ -24,11 +38,7 @@ function scheduleSyncToServer(items: CartItem[]) {
   syncTimer = setTimeout(async () => {
     const { useAuthStore } = await import("@/stores/authStore");
     if (!useAuthStore.getState().isAuthenticated) return;
-    const payload: CartSyncItem[] = items.map((i) => ({
-      product_id: i.product.id,
-      size_label: i.size,
-      quantity: i.quantity,
-    }));
+    const payload: CartSyncItem[] = items.map(itemToSyncPayload);
     saveCustomerCart(payload).catch(() => {});
   }, 500);
 }
@@ -37,7 +47,7 @@ export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
-      addItem: (product, size, qty = 1) => {
+      addItem: (product, size, qty = 1, measurements) => {
         const items = get().items;
         const existing = items.find(
           (item) => item.product.id === product.id && item.size === size,
@@ -50,7 +60,7 @@ export const useCartStore = create<CartStore>()(
               : item,
           );
         } else {
-          newItems = [...items, { product, size, quantity: qty }];
+          newItems = [...items, { product, size, quantity: qty, measurements }];
         }
         set({ items: newItems });
         scheduleSyncToServer(newItems);
@@ -93,31 +103,50 @@ export const useCartStore = create<CartStore>()(
   ),
 );
 
-// Push local cart to server (called by authStore on login). Awaits the save so
-// callers can rely on the server reflecting the local cart once this resolves —
-// the previous fire-and-forget version let later reads race ahead of the write.
-//
-// There is deliberately no hydrate-from-server counterpart: the server cart
-// stores only {product_id, size_label, quantity} with no product data, so it
-// cannot reconstruct cart items on a fresh device. The earlier implementation
-// replaced the cart with the local∩server intersection, taking the server's
-// quantity — which silently dropped items and changed the checkout total right
-// after a forced login. The local cart (persisted to localStorage and pushed
-// here) is the source of truth. True cross-device hydration needs the server to
-// return product details for cart rows; tracked as a follow-up.
+// Push local cart to server (called by authStore on login).
 export async function pushCartToServer() {
   const { useAuthStore } = await import("@/stores/authStore");
   if (!useAuthStore.getState().isAuthenticated) return;
   const items = useCartStore.getState().items;
   if (items.length === 0) return;
-  const payload: CartSyncItem[] = items.map((i) => ({
-    product_id: i.product.id,
-    size_label: i.size,
-    quantity: i.quantity,
-  }));
+  const payload: CartSyncItem[] = items.map(itemToSyncPayload);
   try {
     await saveCustomerCart(payload);
   } catch {
     // best-effort: the local cart stays the source of truth
+  }
+}
+
+// Load cart from server on login if local cart is empty (cross-device scenario).
+// Fetches full product data for each cart item by slug so the local CartItem
+// can be fully hydrated. Called by authStore after login/register.
+export async function loadCartFromServer() {
+  const { useAuthStore } = await import("@/stores/authStore");
+  if (!useAuthStore.getState().isAuthenticated) return;
+  const store = useCartStore.getState();
+  // Don't overwrite a non-empty local cart — local wins on conflict.
+  if (store.items.length > 0) return;
+  try {
+    const res = await fetchCustomerCart();
+    if (!res || !res.items || res.items.length === 0) return;
+    // Fetch all products in parallel — avoid N+1 sequential delays.
+    const settled = await Promise.allSettled(
+      res.items
+        .filter((ci) => ci.product_slug)
+        .map(async (ci) => {
+          const product = await fetchStoreProduct(ci.product_slug!);
+          return { product, size: ci.size_label, quantity: ci.quantity, measurements: ci.measurements } as CartItem;
+        }),
+    );
+    const newItems: CartItem[] = [];
+    for (const r of settled) {
+      if (r.status === "fulfilled") newItems.push(r.value);
+      // Rejected → product may have been deleted, skip silently.
+    }
+    if (newItems.length > 0) {
+      useCartStore.setState({ items: newItems });
+    }
+  } catch {
+    // best-effort: server cart load can fail (network/server error)
   }
 }

@@ -47,11 +47,11 @@
     },
     "deliveryMethod": "Delivery method",
     "deliveryMethods": {
-      "personal": "In-person meeting (Tiraspol/Bender) — free",
-      "address": "To address (Tiraspol) — +10 RUB",
-      "bus": "Minibus (PMR + Chisinau) — 20 to 50 RUB",
-      "express": "Express postal delivery (PMR, except Tiraspol and Bender) — 20 to 50 RUB",
-      "moldovaPost": "Moldova Post (all cities in Moldova) — 20 to 50 RUB"
+      "personal": "Personal meeting",
+      "address": "Address delivery",
+      "bus": "Bus",
+      "express": "Express mail",
+      "moldovaPost": "Moldova Post"
     },
     "comment": "Comment",
     "commentPlaceholder": "Specify your preferences for size, color, material...",
@@ -59,7 +59,8 @@
     "afterSubmit": "Our manager will contact you soon on Telegram with information about your order. If this format of communication doesn't work for you, please reach out to us on Instagram @mioru.store.",
     "delivery": {
       "disabledForCity": "Delivery method «{{method}}» is not available for «{{city}}»"
-    }
+    },
+    "description": "If you didn't find the item you want in the catalog, you can fill out this form. Our managers will check if the item can be ordered individually for you."
   },
   "nav": {
     "inStock": "CATALOG",
@@ -78,7 +79,7 @@
     "hero": {
       "badge": "MIORU.STORE",
       "title1": "BUILD YOUR",
-      "title2": "LOOK",
+      "title2": "STYLE",
       "description": "ITEMS IN STOCK AND ON PRE-ORDER",
       "cta1": "Browse catalog",
       "cta2": "Custom order",
@@ -204,7 +205,34 @@
     "viewPhotos": "Photos",
     "pose": "Pose",
     "modelParams": "Model info",
-    "allProducts": "All products"
+    "allProducts": "All products",
+    "preorder": {
+      "button": "Pre-order",
+      "description": "Pre-order items are products that are not in stock. We order them specially for you.\n\nThere are three tiers:",
+      "tariffs": {
+        "express": {
+          "name": "EXPRESS",
+          "duration": "3-5 days (fastest)"
+        },
+        "accelerated": {
+          "name": "ACCELERATED",
+          "duration": "8-10 days (best value)"
+        },
+        "standard": {
+          "name": "STANDARD",
+          "duration": "30-35 days (most affordable)"
+        }
+      },
+      "priceNote": "! price shown is for STANDARD tier !",
+      "telegramInfo": "Pricing for the first two tiers will be sent to you via Telegram along with your full order details. The final price depends on the chosen delivery timeframe. Your size may not be available for certain tiers.",
+      "measurements": "Your measurements",
+      "height": "Height (cm)",
+      "heightPlaceholder": "170",
+      "weight": "Weight (kg)",
+      "weightPlaceholder": "70",
+      "order": "Pre-order",
+      "fillMeasurements": "Fill measurements"
+    }
   },
   "cart": {
     "title": "Cart",
@@ -217,7 +245,12 @@
     "shipping": "Shipping",
     "free": "Free",
     "checkout": "Checkout",
-    "clear": "Clear"
+    "clear": "Clear",
+    "section": {
+      "inStock": "In stock",
+      "preorder": "Pre-order",
+      "preorderDesc": "Pre-order items are made specifically for you. Delivery time and final price depend on the chosen tariff — a manager will confirm details via Telegram after checkout."
+    }
   },
   "checkout": {
     "title": "Checkout",
@@ -273,7 +306,8 @@
     "phone": "Phone",
     "phonePlaceholder": "+373 ...",
     "phoneRequired": "Enter your phone number",
-    "useMyPhone": "Use my number"
+    "useMyPhone": "Use my number",
+    "mixedCart": "In-stock and pre-order items must be ordered separately. Please remove one type from your cart."
   },
   "profile": {
     "title": "My account",
