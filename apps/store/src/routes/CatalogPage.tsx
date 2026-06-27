@@ -625,6 +625,7 @@ export default function CatalogPage() {
                   />
                   <span className="text-[var(--color-text-muted)] text-sm shrink-0">—</span>
                   <input
+                    key={`max-${categoryIdsKey}`}
                     type="number"
                     placeholder="До"
                     defaultValue={priceMax}
