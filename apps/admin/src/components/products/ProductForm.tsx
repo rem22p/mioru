@@ -87,7 +87,7 @@ export default function ProductForm({
 
   // Sizes — per-label with stock quantity
   const [selectedSizes, setSelectedSizes] = useState<{label: string; stock: number}[]>(
-    (product?.sizes || []).map((s: any) => ({
+    (product?.sizes || []).map((s: string | {label: string; stock_quantity: number}) => ({
       label: typeof s === "string" ? s : s.label,
       stock: typeof s === "string" ? (product?.stock_quantity || 0) : (s.stock_quantity || 0),
     })),

@@ -27,7 +27,7 @@ interface ProductPreviewProps {
     brand: string;
     material: string;
     care: string[];
-    sizes: any[];
+    sizes: (string | {label: string; stock_quantity: number})[];
     color: string;
     fit: string;
     categoryName: string;

@@ -256,7 +256,7 @@ function CartRow({
             <button
               onClick={() => updateQuantity(item.product.id, item.size, item.quantity + 1)}
               disabled={!isPreorder && (() => {
-                const sizeObj = item.product.sizes?.find((s: any) => s.label === item.size);
+                const sizeObj = item.product.sizes?.find((s: {label: string; stock_quantity: number}) => s.label === item.size);
                 const maxStock = sizeObj ? sizeObj.stock_quantity : (item.product.stock_quantity || 0);
                 return maxStock > 0 && item.quantity >= maxStock;
               })()}
