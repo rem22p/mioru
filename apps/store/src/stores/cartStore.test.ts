@@ -175,4 +175,4 @@ describe('loadCartFromServer', () => {
     await expect(loadCartFromServer()).resolves.toBeUndefined();
     expect(useCartStore.getState().items).toHaveLength(0);
   });
-});
+});a

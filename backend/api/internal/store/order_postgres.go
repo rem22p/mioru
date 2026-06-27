@@ -327,7 +327,15 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 	}
 
 	// Store idempotency record
-	respBody, _ := json.Marshal(o)
+	respBody, err := json.Marshal(o)
+	if err != nil {
+		// model.Order should always be serializable, but if a future
+		// field breaks Marshal (e.g. channel, func), store a valid
+		// empty JSON object so the replay path doesn't crash on
+		// Unmarshal(nil). The business value is degraded (replay
+		// returns minimal body) but the idempotency guarantee holds.
+		respBody = []byte(`{}`)
+	}
 	now := s.clock()
 	_, err = tx.Exec(ctx, `
 		INSERT INTO order_idempotency (key, user_id, order_id, request_hash, status, response_body, expires_at)
