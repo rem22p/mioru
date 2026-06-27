@@ -291,12 +291,19 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 		pname, pslug := meta.Name, meta.Slug
 		items[i].ProductName = pname
 		items[i].ProductSlug = pslug
+		var measurementsJSON []byte
+		if len(items[i].Measurements) > 0 {
+			measurementsJSON, err = json.Marshal(items[i].Measurements)
+			if err != nil {
+				return nil, fmt.Errorf("marshal measurements: %w", err)
+			}
+		}
 		err = tx.QueryRow(ctx, `
 			INSERT INTO order_items (order_id, product_id, product_name, product_slug, size_label, quantity, price_minor, measurements)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			RETURNING id`,
 			o.ID, items[i].ProductID, pname, pslug, items[i].SizeLabel, items[i].Quantity, items[i].PriceMinor,
-			items[i].Measurements,
+			measurementsJSON,
 		).Scan(&items[i].ID)
 		if err != nil {
 			return nil, fmt.Errorf("insert order item: %w", err)
@@ -511,11 +518,17 @@ func (s *PostgresStore) loadOrderItems(ctx context.Context, orderIDs []int64) (m
 	productIDs := make(map[int64]struct{})
 	for rows.Next() {
 		var item model.OrderItem
+		var measurementsRaw []byte
 		if err := rows.Scan(&item.ID, &item.OrderID, &item.ProductID,
 			&item.ProductName, &item.ProductSlug,
 			&item.SizeLabel, &item.Quantity, &item.PriceMinor,
-			&item.Measurements); err != nil {
+			&measurementsRaw); err != nil {
 			return nil, fmt.Errorf("scan order item: %w", err)
+		}
+		if len(measurementsRaw) > 0 {
+			if err := json.Unmarshal(measurementsRaw, &item.Measurements); err != nil {
+				return nil, fmt.Errorf("unmarshal measurements: %w", err)
+			}
 		}
 		m[item.OrderID] = append(m[item.OrderID], item)
 		productIDs[item.ProductID] = struct{}{}
