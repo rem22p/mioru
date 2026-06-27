@@ -304,10 +304,7 @@ func (s *PostgresStore) listProductsByIDs(ctx context.Context, ids []int64) ([]m
 // their insertion order.
 func (s *PostgresStore) attachSizes(ctx context.Context, byID map[int64]*model.Product, ids []int64) error {
 	rows, err := s.pool.Query(ctx, `SELECT product_id, size_label, COALESCE(stock_quantity, 0) FROM product_sizes WHERE product_id = ANY($1)
-		ORDER BY product_id,
-			CASE WHEN size_label ~ '^[0-9]' THEN 0 ELSE 1 END,
-			CASE WHEN size_label ~ '^[0-9]' THEN NULLIF(regexp_replace(size_label, '[^0-9.]', '', 'g'), '')::numeric END,
-			size_label`, ids)
+		ORDER BY product_id, id`, ids)
 	if err != nil {
 		return fmt.Errorf("query sizes: %w", err)
 	}
