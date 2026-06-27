@@ -126,6 +126,23 @@ describe("isDeliveryBlocked", () => {
     });
   });
 
+
+  describe("Comrat and Ceadir-Lunga (Gagauzia, bus reachable)", () => {
+    it("allows bus in Comrat", () => {
+      expect(isDeliveryBlocked("bus", "Комрат")).toBe(false);
+    });
+    it("allows bus in Ceadir-Lunga", () => {
+      expect(isDeliveryBlocked("bus", "Чадыр-Лунга")).toBe(false);
+    });
+    it("blocks personal/address in Comrat", () => {
+      expect(isDeliveryBlocked("personal", "Комрат")).toBe(true);
+      expect(isDeliveryBlocked("address", "Комрат")).toBe(true);
+    });
+    it("blocks express in Comrat (PMR-only)", () => {
+      expect(isDeliveryBlocked("express", "Комрат")).toBe(true);
+    });
+  });
+
   describe("unknown method", () => {
     it("returns false (stale persisted value — let the server 400)", () => {
       expect(isDeliveryBlocked("drone", "Тирасполь")).toBe(false);
