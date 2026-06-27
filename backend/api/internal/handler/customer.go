@@ -154,7 +154,7 @@ func (h *CustomerHandler) Register(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "некорректный email", http.StatusBadRequest)
 		return
 	}
-	if req.Phone != "" && !phoneRE.MatchString(req.Phone) {
+	if req.Phone != "" && !phoneValid(req.Phone) {
 		jsonError(w, "некорректный номер телефона", http.StatusBadRequest)
 		return
 	}
@@ -806,8 +806,8 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		jsonErrorCode(w, "phone is required", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
-	if !phoneRE.MatchString(req.Phone) {
-		jsonErrorCode(w, "phone must be +<countrycode> followed by 7-15 digits", http.StatusBadRequest, "VALIDATION_FAILED")
+	if !phoneValid(req.Phone) {
+		jsonErrorCode(w, "phone must start with +373 followed by 8 digits", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
 	if len(req.City) == 0 || len(req.City) > 100 {
@@ -1276,11 +1276,24 @@ func (h *CustomerHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 
 // ── Cart & Favorites handlers ──
 
-// phoneRE matches a single optional leading '+' followed by 7-15
-// digits. Covers MDL (+373...), RUS (+7...), UA (+380...), EU
-// (+NN...) without being so loose it accepts nonsense like spaces,
-// letters or wildly long numbers.
-var phoneRE = regexp.MustCompile(`^\+?\d{7,15}$`)
+// phoneRE matches Moldovan phone numbers: +373 followed by exactly
+// 8 digits, with optional spaces between groups. Accepts:
+//   +373 69 123 456, +373 779 08 542, +37369123456
+var phoneRE = regexp.MustCompile(`^\+373[\d ]{8,12}$`)
+
+func phoneDigits(s string) int {
+	n := 0
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			n++
+		}
+	}
+	return n
+}
+
+func phoneValid(s string) bool {
+	return phoneRE.MatchString(s) && phoneDigits(s) == 11
+}
 
 const (
 	maxCartItems      = 200
