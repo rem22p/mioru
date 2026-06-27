@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import CatalogStatusToggle from "@/components/catalog/CatalogStatusToggle";
 import { Helmet } from "@dr.pogodin/react-helmet";
 
+const PER_PAGE = 100;
 
 function categoryEmoji(slug: string): string {
   const map: Record<string, string> = {
@@ -55,6 +56,7 @@ export default function CatalogPage() {
     brands: false,
     colors: false,
   });
+  const [page, setPage] = useState(1);
   // Catalog status toggle: "in_stock" (default) | "preorder". Two-state
   // (per the customer spec in JIRA) — no "All" option, the toggle is the
   // boundary the user commits to when they enter the catalog. State mirrors
@@ -71,6 +73,7 @@ export default function CatalogPage() {
   // (CLAUDE.md: "Reset page on filter change").
   const setStatus = (next: "in_stock" | "preorder") => {
     setStatusRaw(next);
+    setPage(1);
     const sp = new URLSearchParams(searchParams);
     if (next === "in_stock") {
       sp.delete("status");
@@ -89,6 +92,7 @@ export default function CatalogPage() {
     const fromURL: "in_stock" | "preorder" = raw === "preorder" ? "preorder" : "in_stock";
     if (fromURL !== status) {
       setStatusRaw(fromURL);
+      setPage(1);
     }
     // We intentionally exclude `status` from deps — this effect only fires on
     // URL changes, not on every local toggle click (which would cause a loop
@@ -110,6 +114,7 @@ export default function CatalogPage() {
     setSelectedSizes(new Set());
     setPriceMin("");
     setPriceMax("");
+    setPage(1);
   };
 
   const resetFilters = () => {
@@ -118,6 +123,7 @@ export default function CatalogPage() {
     setSelectedSizes(new Set());
     setPriceMin("");
     setPriceMax("");
+    setPage(1);
   };
 
   // Bootstrap: load category tree once. Products + facets are loaded by the
@@ -221,7 +227,7 @@ export default function CatalogPage() {
       price_max: priceMax || undefined,
       sort: sortParam,
       page: String(page),
-      per_page: "100",
+      per_page: String(PER_PAGE),
       status,
     });
   }, [
@@ -249,6 +255,10 @@ export default function CatalogPage() {
     });
   }, [fetchFacets, categoryIdsKey, categoryIds, priceMin, priceMax]);
 
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [totalPages, page]);
 
   const availableFilters = useMemo(
     () => ({
@@ -289,6 +299,7 @@ export default function CatalogPage() {
       else next.add(value);
       return next;
     });
+    setPage(1);
   };
 
   return (
@@ -588,6 +599,7 @@ export default function CatalogPage() {
                   value={sortBy}
                   onChange={(e) => {
                     setSortBy(e.target.value as typeof sortBy);
+                    setPage(1);
                   }}
                   className="rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-4 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] transition-colors"
                 >
@@ -607,6 +619,7 @@ export default function CatalogPage() {
                     defaultValue={priceMin}
                     onBlur={(e) => {
                       setPriceMin(e.target.value);
+                      setPage(1);
                     }}
                     className="flex-1 min-w-0 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
@@ -617,6 +630,7 @@ export default function CatalogPage() {
                     defaultValue={priceMax}
                     onBlur={(e) => {
                       setPriceMax(e.target.value);
+                      setPage(1);
                     }}
                     className="flex-1 min-w-0 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
@@ -702,6 +716,51 @@ export default function CatalogPage() {
               ))}
             </div>
 
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-8">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="px-3 py-2 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-40 transition-colors"
+                >
+                  ←
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => {
+                    if (totalPages <= 7) return true;
+                    if (p === 1 || p === totalPages) return true;
+                    if (Math.abs(p - page) <= 1) return true;
+                    return false;
+                  })
+                  .map((p, idx, arr) => (
+                    <span key={p}>
+                      {idx > 0 && p - (arr[idx - 1] ?? 0) > 1 && (
+                        <span className="px-1 text-[var(--color-text-muted)] text-sm">
+                          …
+                        </span>
+                      )}
+                      <button
+                        onClick={() => setPage(p)}
+                        className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
+                          p === page
+                            ? "bg-[#44944A] text-black"
+                            : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    </span>
+                  ))}
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="px-3 py-2 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-40 transition-colors"
+                >
+                  →
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
