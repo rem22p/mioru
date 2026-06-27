@@ -613,10 +613,11 @@ export default function CatalogPage() {
                 </select>
                 <div className="flex items-center gap-1.5">
                   <input
+                    key={`min-${categoryIdsKey}`}
                     type="number"
                     placeholder="От"
-                    value={priceMin}
-                    onChange={(e) => {
+                    defaultValue={priceMin}
+                    onBlur={(e) => {
                       setPriceMin(e.target.value);
                       setPage(1);
                     }}
@@ -626,8 +627,8 @@ export default function CatalogPage() {
                   <input
                     type="number"
                     placeholder="До"
-                    value={priceMax}
-                    onChange={(e) => {
+                    defaultValue={priceMax}
+                    onBlur={(e) => {
                       setPriceMax(e.target.value);
                       setPage(1);
                     }}
