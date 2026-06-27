@@ -249,7 +249,6 @@ export default function CatalogPage() {
     });
   }, [fetchFacets, categoryIdsKey, categoryIds, priceMin, priceMax]);
 
-  useEffect(() => {
 
   const availableFilters = useMemo(
     () => ({
@@ -703,11 +702,9 @@ export default function CatalogPage() {
               ))}
             </div>
 
-
-          )}
-        </div>
-      </main>
-      <Footer />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
