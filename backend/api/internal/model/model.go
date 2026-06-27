@@ -175,5 +175,5 @@ type OrderItem struct {
 	SizeLabel   string `json:"size_label"`
 	Quantity    int    `json:"quantity"`
 	PriceMinor   int64   `json:"price_minor"`
-	Measurements map[string]interface{} `json:"measurements,omitempty"`
+	Measurements map[string]interface{} `json:"measurements,omitempty"` // PII — height/weight/foot_length etc. Must not appear in logs. Retention per telegram_messages purge policy (90d). Admin access audit-logged.
 }
