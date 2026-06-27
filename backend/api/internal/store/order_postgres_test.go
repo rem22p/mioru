@@ -217,9 +217,9 @@ func TestCreateOrderDecrementsStock(t *testing.T) {
 		t.Fatalf("CreateOrder: %v", err)
 	}
 
-	// Verify stock decremented to 2
+	// Verify per-size stock decremented to 2
 	var stock int
-	err = s.pool.QueryRow(ctx, `SELECT stock_quantity FROM products WHERE id = $1`, pid).Scan(&stock)
+	err = s.pool.QueryRow(ctx, `SELECT stock_quantity FROM product_sizes WHERE product_id = $1 AND size_label = 'M'`, pid).Scan(&stock)
 	if err != nil {
 		t.Fatalf("query stock: %v", err)
 	}
@@ -256,9 +256,9 @@ func TestCreateOrderOversellFails(t *testing.T) {
 		t.Fatal("expected error for oversell, got nil")
 	}
 
-	// Verify stock was NOT decremented (transaction rolled back)
+	// Verify per-size stock was NOT decremented (transaction rolled back)
 	var stock int
-	err = s.pool.QueryRow(ctx, `SELECT stock_quantity FROM products WHERE id = $1`, pid).Scan(&stock)
+	err = s.pool.QueryRow(ctx, `SELECT stock_quantity FROM product_sizes WHERE product_id = $1 AND size_label = 'M'`, pid).Scan(&stock)
 	if err != nil {
 		t.Fatalf("query stock: %v", err)
 	}
@@ -320,9 +320,9 @@ func TestCreateOrderIdempotencyReplay(t *testing.T) {
 		t.Errorf("order count = %d, want 1 (replay must not create duplicate)", count)
 	}
 
-	// Stock decremented only once
+	// Per-size stock decremented only once
 	var stock int
-	err = s.pool.QueryRow(ctx, `SELECT stock_quantity FROM products WHERE id = $1`, pid).Scan(&stock)
+	err = s.pool.QueryRow(ctx, `SELECT stock_quantity FROM product_sizes WHERE product_id = $1 AND size_label = 'M'`, pid).Scan(&stock)
 	if err != nil {
 		t.Fatalf("query stock: %v", err)
 	}

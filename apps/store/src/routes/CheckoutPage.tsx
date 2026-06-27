@@ -60,6 +60,7 @@ export default function CheckoutPage() {
         size_label: item.size,
         quantity: item.quantity,
         price_minor: item.product.price * 100, // MDL → bani
+        ...(item.measurements ? { measurements: item.measurements } : {}),
       }));
       await createOrder(
         {

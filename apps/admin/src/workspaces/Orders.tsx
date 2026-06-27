@@ -3,6 +3,14 @@ import { Link } from "react-router-dom";
 import { fetchAdminOrders, updateOrderStatus, getImageUrl, type AdminOrder } from "@/lib/api";
 import { Package, RefreshCw, X, MapPin, Truck, CreditCard, User, Clock, ShoppingBag, Phone, Copy, Check } from "lucide-react";
 
+const MEASUREMENT_LABELS: Record<string, string> = {
+  height: "Рост",
+  weight: "Вес",
+  foot_length: "Длина стопы",
+  head_circumference: "Обхват головы",
+  waist: "Талия",
+};
+
 const STATUS_OPTIONS = ["pending", "processing", "shipped", "delivered"];
 const STATUS_LABELS: Record<string, string> = {
   pending: "Ожидает",
@@ -450,9 +458,9 @@ function OrderCard({
                           {item.size_label}
                         </span>
                       )}
-                      {item.height_cm != null && (
+                      {item.measurements && Object.keys(item.measurements).length > 0 && (
                         <span className="text-[var(--color-text-muted)] ml-1.5 text-xs">
-                          {item.height_cm}см / {item.weight_kg}кг
+                          {Object.entries(item.measurements).map(([k, v]) => `${MEASUREMENT_LABELS[k] || k}: ${v}`).join(" · ")}
                         </span>
                       )}
                     </div>

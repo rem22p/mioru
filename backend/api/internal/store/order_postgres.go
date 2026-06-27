@@ -311,18 +311,18 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 	}
 	o.Items = items
 
-	// Decrement stock atomically — oversell fails the transaction
+	// Decrement per-size stock atomically — oversell fails the transaction
 	for _, it := range items {
 		tag, err := tx.Exec(ctx,
-			`UPDATE products SET stock_quantity = stock_quantity - $1
-			 WHERE id = $2 AND stock_quantity >= $1`,
-			it.Quantity, it.ProductID,
+			`UPDATE product_sizes SET stock_quantity = stock_quantity - $1
+			 WHERE product_id = $2 AND size_label = $3 AND stock_quantity >= $1`,
+			it.Quantity, it.ProductID, it.SizeLabel,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("decrement stock for product %d: %w", it.ProductID, err)
+			return nil, fmt.Errorf("decrement stock for product %d size %s: %w", it.ProductID, it.SizeLabel, err)
 		}
 		if tag.RowsAffected() == 0 {
-			return nil, fmt.Errorf("product %d: %w (requested %d)", it.ProductID, ErrInsufficientStock, it.Quantity)
+			return nil, fmt.Errorf("product %d size %s: %w (requested %d)", it.ProductID, it.SizeLabel, ErrInsufficientStock, it.Quantity)
 		}
 	}
 
