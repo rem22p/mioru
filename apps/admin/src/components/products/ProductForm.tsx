@@ -975,7 +975,7 @@ export default function ProductForm({
               brand,
               material,
               care: careInstructions,
-              sizes: selectedSizes,
+              sizes: selectedSizes.map(s => ({label: s.label, stock_quantity: s.stock})),
               color,
               fit,
               categoryName: selectedCategory?.name || "",

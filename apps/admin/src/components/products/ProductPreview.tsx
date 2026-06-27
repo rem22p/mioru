@@ -256,7 +256,7 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
                             : `${border} ${textSecondary} hover:border-gray-500 hover:${textPrimary}`
                         }`}
                       >
-                        {size}
+                        {typeof size === "string" ? size : size.label}
                         {selectedSize === (typeof size === "string" ? size : size.label) && (
                           <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-black flex items-center justify-center">
                             <Check className="h-3 w-3 text-[#44944A]" />
