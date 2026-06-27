@@ -1,19 +1,12 @@
 /**
  * Phone-number validation shared between Checkout and CustomOrder forms.
  *
- * Moldova format: +373 XX XXX XXX (with optional spaces).
- * Mirror of backend's phoneRE — keep both in sync.
+ * Mirror of backend's phoneRE: accepts international numbers
+ * with optional + prefix followed by 7-15 digits.
+ * Keep both in sync.
  */
-const PHONE_RE = /^\+373[\d\s]{8,12}$/;
-
-function digitCount(s: string): number {
-  return s.replace(/\D/g, "").length;
-}
+const PHONE_RE = /^\+?\d{7,15}$/;
 
 export function isValidPhone(raw: string): boolean {
-  const trimmed = raw.trim();
-  if (!PHONE_RE.test(trimmed)) return false;
-  // After +373 prefix, expect 7-8 digits
-  const digits = trimmed.replace(/\D/g, "");
-  return digits.length >= 10 && digits.length <= 11;
+  return PHONE_RE.test(raw.trim());
 }
