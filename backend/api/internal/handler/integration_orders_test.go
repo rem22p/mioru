@@ -59,8 +59,20 @@ func TestIntegrationCreateOrderHappyAndDecrementsStock(t *testing.T) {
 	if err != nil || p == nil {
 		t.Fatalf("GetProduct: %v / %v", p, err)
 	}
-	if p.StockQty != 7 {
-		t.Errorf("stock after order = %d, want 7", p.StockQty)
+	// F1 fix decrements product_sizes.stock_quantity, not products.stock_quantity.
+	// Check per-size stock for size "M".
+	found := false
+	for _, sz := range p.Sizes {
+		if sz.Label == "M" {
+			if sz.StockQuantity != 7 {
+				t.Errorf("size M stock after order = %d, want 7", sz.StockQuantity)
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("size M not found in product sizes")
 	}
 }
 
@@ -114,8 +126,19 @@ func TestIntegrationCreateOrderIdempotentReplay(t *testing.T) {
 	if err != nil || p == nil {
 		t.Fatalf("GetProduct: %v / %v", p, err)
 	}
-	if p.StockQty != 8 {
-		t.Errorf("stock after replay = %d, want 8 (decremented once)", p.StockQty)
+	// Per-size stock check for size "M" (F1 fix decrements product_sizes, not products).
+	found := false
+	for _, sz := range p.Sizes {
+		if sz.Label == "M" {
+			if sz.StockQuantity != 8 {
+				t.Errorf("size M stock after replay = %d, want 8 (decremented once)", sz.StockQuantity)
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("size M not found in product sizes")
 	}
 }
 
@@ -161,8 +184,19 @@ func TestIntegrationCreateOrderOversell(t *testing.T) {
 	if err != nil || p == nil {
 		t.Fatalf("GetProduct: %v / %v", p, err)
 	}
-	if p.StockQty != 2 {
-		t.Errorf("stock after rejected oversell = %d, want 2 (unchanged)", p.StockQty)
+	// Per-size stock check for size "M" (F1 fix — oversell rejected, stock unchanged).
+	found := false
+	for _, sz := range p.Sizes {
+		if sz.Label == "M" {
+			if sz.StockQuantity != 2 {
+				t.Errorf("size M stock after rejected oversell = %d, want 2 (unchanged)", sz.StockQuantity)
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("size M not found in product sizes")
 	}
 }
 

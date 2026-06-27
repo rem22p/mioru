@@ -1301,9 +1301,10 @@ const (
 )
 
 type cartItemReq struct {
-	ProductID int    `json:"product_id"`
-	SizeLabel string `json:"size_label"`
-	Quantity  int    `json:"quantity"`
+	ProductID    int                    `json:"product_id"`
+	SizeLabel    string                 `json:"size_label"`
+	Quantity     int                    `json:"quantity"`
+	Measurements map[string]interface{} `json:"measurements,omitempty"`
 }
 
 type cartSaveReq struct {
@@ -1357,9 +1358,10 @@ func (h *CustomerHandler) SaveCart(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		items = append(items, store.CartItem{
-			ProductID: it.ProductID,
-			SizeLabel: it.SizeLabel,
-			Quantity:  it.Quantity,
+			ProductID:    it.ProductID,
+			SizeLabel:    it.SizeLabel,
+			Quantity:     it.Quantity,
+			Measurements: it.Measurements,
 		})
 	}
 

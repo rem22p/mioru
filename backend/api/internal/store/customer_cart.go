@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -11,16 +12,17 @@ import (
 
 // CartItem is a single row in customer_cart.
 type CartItem struct {
-	ProductID   int    `json:"product_id"`
-	SizeLabel   string `json:"size_label"`
-	Quantity    int    `json:"quantity"`
-	ProductSlug string `json:"product_slug"`
+	ProductID    int                    `json:"product_id"`
+	SizeLabel    string                 `json:"size_label"`
+	Quantity     int                    `json:"quantity"`
+	ProductSlug  string                 `json:"product_slug"`
+	Measurements map[string]interface{} `json:"measurements,omitempty"`
 }
 
 // GetCustomerCart returns all cart items for a customer.
 func (s *PostgresStore) GetCustomerCart(ctx context.Context, customerID int64) ([]CartItem, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT c.product_id, c.size_label, c.quantity, p.slug
+		SELECT c.product_id, c.size_label, c.quantity, p.slug, c.measurements
 		FROM customer_cart c
 		JOIN products p ON p.id = c.product_id
 		WHERE c.customer_id = $1
@@ -33,8 +35,14 @@ func (s *PostgresStore) GetCustomerCart(ctx context.Context, customerID int64) (
 	var items []CartItem
 	for rows.Next() {
 		var item CartItem
-		if err := rows.Scan(&item.ProductID, &item.SizeLabel, &item.Quantity, &item.ProductSlug); err != nil {
+		var measurementsRaw []byte
+		if err := rows.Scan(&item.ProductID, &item.SizeLabel, &item.Quantity, &item.ProductSlug, &measurementsRaw); err != nil {
 			return nil, fmt.Errorf("scan cart row: %w", err)
+		}
+		if len(measurementsRaw) > 0 {
+			if err := json.Unmarshal(measurementsRaw, &item.Measurements); err != nil {
+				return nil, fmt.Errorf("unmarshal cart measurements: %w", err)
+			}
 		}
 		items = append(items, item)
 	}
@@ -109,12 +117,20 @@ func (s *PostgresStore) SaveCustomerCart(ctx context.Context, customerID int64, 
 
 		batch := &pgx.Batch{}
 		for _, item := range items {
+			var measurementsJSON []byte
+			if len(item.Measurements) > 0 {
+				var err error
+				measurementsJSON, err = json.Marshal(item.Measurements)
+				if err != nil {
+					return fmt.Errorf("marshal cart measurements: %w", err)
+				}
+			}
 			batch.Queue(`
-				INSERT INTO customer_cart (customer_id, product_id, size_label, quantity)
-				VALUES ($1, $2, $3, $4)
+				INSERT INTO customer_cart (customer_id, product_id, size_label, quantity, measurements)
+				VALUES ($1, $2, $3, $4, $5)
 				ON CONFLICT (customer_id, product_id, size_label)
-				DO UPDATE SET quantity = EXCLUDED.quantity`,
-				customerID, item.ProductID, item.SizeLabel, item.Quantity)
+				DO UPDATE SET quantity = EXCLUDED.quantity, measurements = EXCLUDED.measurements`,
+				customerID, item.ProductID, item.SizeLabel, item.Quantity, measurementsJSON)
 		}
 		br := tx.SendBatch(ctx, batch)
 		// Close the batch result — errors surface on Close.

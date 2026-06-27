@@ -232,7 +232,7 @@ export interface AdminOrderItem {
   size_label: string;
   quantity: number;
   price_minor: number;
-  measurements?: Record<string, number>;
+  measurements?: Record<string, number | string>;
 }
 
 export interface AdminOrdersResponse {

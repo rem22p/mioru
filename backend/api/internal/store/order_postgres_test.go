@@ -137,12 +137,16 @@ func seedProduct(t *testing.T, s *PostgresStore, slug string, priceMDL int, stoc
 	if err != nil {
 		t.Fatalf("seedProduct: %v", err)
 	}
-	// Also create a product_sizes row so per-size stock decrement works
-	_, err = s.pool.Exec(context.Background(), `
-		INSERT INTO product_sizes (product_id, size_label, stock_quantity)
-		VALUES ($1, 'M', $2)`, id, stock)
-	if err != nil {
-		t.Fatalf("seedProduct sizes: %v", err)
+	// Also create product_sizes rows so per-size stock decrement works.
+	// Both 'M' and 'L' because tests reference both size labels (e.g.
+	// TestCreateOrderRecalculatesPrice uses size 'L' for product 2).
+	for _, label := range []string{"M", "L"} {
+		_, err = s.pool.Exec(context.Background(), `
+			INSERT INTO product_sizes (product_id, size_label, stock_quantity)
+			VALUES ($1, $2, $3)`, id, label, stock)
+		if err != nil {
+			t.Fatalf("seedProduct sizes (%s): %v", label, err)
+		}
 	}
 	return id
 }
