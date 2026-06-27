@@ -36,7 +36,7 @@ func TestHarnessCreateAndGetProduct(t *testing.T) {
 		Status:     "in_stock",
 		InStock:    true,
 		Care:       []string{"machine wash"},
-		Sizes:      []string{"M", "L"},
+		Sizes: []model.ProductSize{model.ProductSize{Label: "M"}, model.ProductSize{Label: "L"}},
 	})
 	if err != nil {
 		t.Fatalf("CreateProduct: %v", err)
