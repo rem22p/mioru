@@ -13,7 +13,7 @@ function digitCount(s: string): number {
 export function isValidPhone(raw: string): boolean {
   const trimmed = raw.trim();
   if (!PHONE_RE.test(trimmed)) return false;
-  // After +373 prefix, expect exactly 8 digits
+  // After +373 prefix, expect 7-8 digits
   const digits = trimmed.replace(/\D/g, "");
-  return digits.length === 11; // +373 = 3 digits + 8 = 11
+  return digits.length >= 10 && digits.length <= 11;
 }

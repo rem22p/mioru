@@ -1292,7 +1292,7 @@ func phoneDigits(s string) int {
 }
 
 func phoneValid(s string) bool {
-	return phoneRE.MatchString(s) && phoneDigits(s) == 11
+	return phoneRE.MatchString(s) && phoneDigits(s) >= 10 && phoneDigits(s) <= 11
 }
 
 const (
