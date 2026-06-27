@@ -17,7 +17,7 @@ export default function HeroSection() {
           <p className="mb-6 text-xs font-mono uppercase tracking-[0.3em] text-[#558b5c]">
             {t("home.hero.badge")}
           </p>
-          <h1 className="text-4xl font-bold tracking-wide leading-none text-[var(--color-text-primary)] sm:text-6xl lg:text-7xl">
+          <h1 className="text-5xl font-bold tracking-tighter text-[var(--color-text-primary)] sm:text-7xl lg:text-8xl">
             {t("home.hero.title1")}
             <br />
             <span className="text-[#44944A]">{t("home.hero.title2")}</span>
