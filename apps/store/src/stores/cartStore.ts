@@ -129,20 +129,19 @@ export async function loadCartFromServer() {
   try {
     const res = await fetchCustomerCart();
     if (!res || !res.items || res.items.length === 0) return;
+    // Fetch all products in parallel — avoid N+1 sequential delays.
+    const settled = await Promise.allSettled(
+      res.items
+        .filter((ci) => ci.product_slug)
+        .map(async (ci) => {
+          const product = await fetchStoreProduct(ci.product_slug!);
+          return { product, size: ci.size_label, quantity: ci.quantity, measurements: ci.measurements } as CartItem;
+        }),
+    );
     const newItems: CartItem[] = [];
-    for (const ci of res.items) {
-      if (!ci.product_slug) continue;
-      try {
-        const product = await fetchStoreProduct(ci.product_slug);
-        newItems.push({
-          product,
-          size: ci.size_label,
-          quantity: ci.quantity,
-          measurements: ci.measurements,
-        });
-      } catch {
-        // Product may have been deleted — skip this cart item.
-      }
+    for (const r of settled) {
+      if (r.status === "fulfilled") newItems.push(r.value);
+      // Rejected → product may have been deleted, skip silently.
     }
     if (newItems.length > 0) {
       useCartStore.setState({ items: newItems });
