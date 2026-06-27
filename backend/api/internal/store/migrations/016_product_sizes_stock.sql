@@ -4,16 +4,11 @@
 -- lived on the products table (one number for the whole
 -- SKU) — that doesn't work when a size variant sells out
 -- while other sizes are still available.
+--
+-- All sizes start at 0. Admin must set per-size stock
+-- manually via the product form. The old products.stock_quantity
+-- is intentionally NOT copied — copying K to N sizes would
+-- inflate available stock by N× (priority #1 violation).
 
 ALTER TABLE product_sizes
     ADD COLUMN IF NOT EXISTS stock_quantity INT NOT NULL DEFAULT 0;
-
--- Seed: copy existing product stock to all its sizes equally
--- where the product has stock > 0 and stock_quantity on sizes
--- hasn't been set yet.
-UPDATE product_sizes ps
-SET stock_quantity = p.stock_quantity
-FROM products p
-WHERE ps.product_id = p.id
-  AND p.stock_quantity > 0
-  AND ps.stock_quantity = 0;
