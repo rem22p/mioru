@@ -5,7 +5,7 @@
  * with optional + prefix followed by 7-15 digits.
  * Keep both in sync.
  */
-const PHONE_RE = /^\+?\d{7,15}$/;
+export const PHONE_RE = /^\+?\d{7,15}$/;
 
 export function isValidPhone(raw: string): boolean {
   return PHONE_RE.test(raw.trim());
