@@ -64,9 +64,11 @@ const FETCH_TIMEOUT_MS = 25_000;
 // ↔ api.mioru.store) via credentials: include. Mutations also echo the CSRF
 // cookie back in the X-CSRF-Token header.
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+  const headers: Record<string, string> = {};
+
+  if (!(options?.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
 
   const method = (options?.method || "GET").toUpperCase();
   if (MUTATING_METHODS.has(method)) {
@@ -81,9 +83,15 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
 
   try {
     const res = await fetch(`${API_URL}${path}`, {
-      signal: controller.signal,
       credentials: "include",
       ...options,
+      // Timeout signal must win over any caller-supplied signal so the
+      // 25s budget is never silently disabled by a composable wrapper
+      // (e.g. a future React useEffect cleanup-cancel). Merge via
+      // AbortSignal.any so both still cancel the request.
+      signal: options?.signal
+        ? AbortSignal.any([controller.signal, options.signal])
+        : controller.signal,
       headers: {
         ...headers,
         ...((options?.headers as Record<string, string>) || {}),
@@ -91,7 +99,9 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: "Network error" }));
-      throw new Error(`[${method} ${path}] ${(body as ApiError).error || "Request failed"}`);
+      // Throw without the [METHOD path] prefix — the catch below adds
+      // it once. Prefixing here would produce "[GET /x] [GET /x] …".
+      throw new Error((body as ApiError).error || "Request failed");
     }
     return res.json();
   } catch (err) {
@@ -100,13 +110,16 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
         `[${method} ${path}] Connection timed out — please check your internet and try again`,
       );
     }
-    // Surface the full error in the console so affected users can report
-    // the exact cause (DNS failure, reset, CORS, etc.) — the UI message
-    // is intentionally generic.
+    // Surface the diagnostic shape in the console so affected users can
+    // report the exact cause (DNS failure, reset, CORS, etc.) — the user-
+    // visible message is intentionally generic. We deliberately omit
+    // err.message because backend 4xx envelopes can echo user input
+    // ("email … already exists", "phone … invalid format"), which is PII
+    // in any support screen-share.
     console.error("[mioru] API request failed", {
       path,
       method: options?.method || "GET",
-      error: err instanceof Error ? err.message : String(err),
+      errorType: err instanceof Error ? err.name : typeof err,
     });
     // Prefix the user-visible error with the endpoint so mobile
     // users can screenshot exactly what failed without DevTools.
@@ -339,23 +352,14 @@ export const createOrder = (data: CreateOrderData, idempotencyKey: string) =>
 export const uploadOrderPhoto = async (file: File): Promise<string> => {
   const formData = new FormData();
   formData.append("file", file);
-
-  const method = "POST";
-  const headers: Record<string, string> = {};
-  const csrf = readCookie(CSRF_COOKIE);
-  if (csrf) headers["X-CSRF-Token"] = csrf;
-
-  const res = await fetch(`${API_URL}/api/store/orders/upload-photo`, {
-    method,
-    credentials: "include",
+  // Route through `api()` so we get the same timeout, [METHOD path]
+  // error prefix and console.error diagnostics as every other call.
+  // The wrapper recognises FormData and omits Content-Type so the
+  // browser can set the multipart boundary correctly.
+  const data = await api<{ url: string }>("/api/store/orders/upload-photo", {
+    method: "POST",
     body: formData,
-    headers,
   });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Upload failed" }));
-    throw new Error((body as ApiError).error || "Upload failed");
-  }
-  const data = await res.json();
   return data.url;
 };
 

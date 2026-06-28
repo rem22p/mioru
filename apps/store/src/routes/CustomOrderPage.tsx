@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Helmet } from "@dr.pogodin/react-helmet";
 import { Link, useNavigate } from "react-router-dom";
@@ -74,6 +74,10 @@ export default function CustomOrderPage() {
   const [submitError, setSubmitError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  // Same persistence rule as CheckoutPage — see comment there. PR #56's 25s
+  // timeout can abort a committed order, so the retry MUST reuse the key for
+  // the backend to dedupe (priority #1: no double-counted orders).
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   const handlePhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -127,7 +131,8 @@ export default function CustomOrderPage() {
         photoUrls.push(url);
       }
 
-      const idempotencyKey = crypto.randomUUID();
+      const idempotencyKey =
+        idempotencyKeyRef.current ?? (idempotencyKeyRef.current = crypto.randomUUID());
       await createOrder(
         {
           type: "individual",
@@ -145,6 +150,8 @@ export default function CustomOrderPage() {
         idempotencyKey,
       );
       setSubmitted(true);
+      // Release the key — see comment on idempotencyKeyRef.
+      idempotencyKeyRef.current = null;
     } catch (e: unknown) {
       setSubmitError(e instanceof Error ? e.message : "Ошибка при отправке");
     } finally {

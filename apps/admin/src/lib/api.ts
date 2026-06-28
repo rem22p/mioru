@@ -77,9 +77,15 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
 
   try {
     const res = await fetch(`${API_URL}${path}`, {
-      signal: controller.signal,
       credentials: "include",
       ...options,
+      // Timeout signal must win over any caller-supplied signal so the
+      // 25s budget is never silently disabled by a composable wrapper
+      // (e.g. a future React useEffect cleanup-cancel). Merge via
+      // AbortSignal.any so both still cancel the request.
+      signal: options?.signal
+        ? AbortSignal.any([controller.signal, options.signal])
+        : controller.signal,
       headers: {
         ...headers,
         ...((options?.headers as Record<string, string>) || {}),
@@ -88,7 +94,9 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: "Network error" }));
-      throw new Error(`[${method} ${path}] ${(body as ApiError).error || "Request failed"}`);
+      // Throw without the [METHOD path] prefix — the catch below adds
+      // it once. Prefixing here would produce "[GET /x] [GET /x] …".
+      throw new Error((body as ApiError).error || "Request failed");
     }
     if (res.status === 204) return null as T;
     return res.json();
@@ -98,10 +106,16 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
         `[${method} ${path}] Connection timed out — please check your internet and try again`,
       );
     }
+    // Surface the diagnostic shape in the console so affected users can
+    // report the exact cause (DNS failure, reset, CORS, etc.) — the user-
+    // visible message is intentionally generic. We deliberately omit
+    // err.message because backend 4xx envelopes can echo user input
+    // ("email … already exists", "phone … invalid format"), which is PII
+    // in any support screen-share.
     console.error("[mioru-admin] API request failed", {
       path,
       method: options?.method || "GET",
-      error: err instanceof Error ? err.message : String(err),
+      errorType: err instanceof Error ? err.name : typeof err,
     });
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`[${method} ${path}] ${msg}`);
