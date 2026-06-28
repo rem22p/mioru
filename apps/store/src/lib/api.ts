@@ -100,6 +100,14 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
         "Connection timed out — please check your internet and try again",
       );
     }
+    // Surface the full error in the console so affected users can report
+    // the exact cause (DNS failure, reset, CORS, etc.) — the UI message
+    // is intentionally generic.
+    console.error("[mioru] API request failed", {
+      path,
+      method: options?.method || "GET",
+      error: err instanceof Error ? err.message : String(err),
+    });
     throw err;
   } finally {
     clearTimeout(timeout);

@@ -98,6 +98,11 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
         "Connection timed out — please check your internet and try again",
       );
     }
+    console.error("[mioru-admin] API request failed", {
+      path,
+      method: options?.method || "GET",
+      error: err instanceof Error ? err.message : String(err),
+    });
     throw err;
   } finally {
     clearTimeout(timeout);
