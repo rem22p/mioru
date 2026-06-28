@@ -51,6 +51,13 @@ function readCookie(name: string): string | null {
 // sync with middleware/csrf.go (anything not in the safe-list).
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+// FETCH_TIMEOUT_MS bounds every API call so a slow/lossy connection
+// (e.g. Moldovan ISP with poor peering to the Russian VPS) fails fast
+// instead of hanging the SPA for minutes. 25s is generous enough for
+// a cold 3G connection + backend response, but short enough that the
+// user doesn't walk away.
+const FETCH_TIMEOUT_MS = 25_000;
+
 // api drives both unauthenticated public catalog requests and authenticated
 // customer requests. Cookie-only auth: AuthMW reads the JWT from an HttpOnly
 // cookie; the SPA opts in to sending cookies cross-origin (store.mioru.store
@@ -69,19 +76,34 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
     }
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
-    credentials: "include",
-    ...options,
-    headers: {
-      ...headers,
-      ...((options?.headers as Record<string, string>) || {}),
-    },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Network error" }));
-    throw new Error((body as ApiError).error || "Request failed");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(`${API_URL}${path}`, {
+      signal: controller.signal,
+      credentials: "include",
+      ...options,
+      headers: {
+        ...headers,
+        ...((options?.headers as Record<string, string>) || {}),
+      },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: "Network error" }));
+      throw new Error((body as ApiError).error || "Request failed");
+    }
+    return res.json();
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error(
+        "Connection timed out — please check your internet and try again",
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
   }
-  return res.json();
 }
 
 // ── Public catalog ──
