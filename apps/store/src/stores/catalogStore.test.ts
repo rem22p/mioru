@@ -143,8 +143,12 @@ describe("catalogStore", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: "boom" }, false));
     await useCatalogStore.getState().fetchProducts();
     const state = useCatalogStore.getState();
-    expect(state.error).toBe("boom");
+    // The api wrapper prefixes every thrown error with "[METHOD path]"
+    // (PR #56 round 1). catalogStore stores err.message verbatim, so the
+    // user-visible value — and the assertion — must include the prefix.
+    expect(state.error).toBe("[GET /api/products] boom");
     expect(state.loading).toBe(false);
     expect(state.products).toEqual([]);
   });
 });
+

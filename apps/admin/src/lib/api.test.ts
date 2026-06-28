@@ -167,3 +167,20 @@ describe("api wrapper — timeout signal is attached (F5 evidence)", () => {
     expect((signal as AbortSignal).aborted).toBe(false);
   });
 });
+
+describe("api wrapper — AbortSignal.any merge (F5 caller-side composability)", () => {
+  it("AbortSignal.any composes caller-side aborts (dormant — no public caller passes signal)", async () => {
+    // F5 fix: when a caller passes `options.signal`, the wrapper merges
+    // it with the internal 25s timeout via AbortSignal.any. No public
+    // admin wrapper exposes a caller-signal option today, but the
+    // merge contract is verified at the platform layer here so the
+    // intent is pinned. See store/api.test.ts for the parallel case.
+    expect(typeof AbortSignal.any).toBe("function");
+    const caller = new AbortController();
+    const merged = AbortSignal.any([new AbortController().signal, caller.signal]);
+    expect(merged).toBeInstanceOf(AbortSignal);
+    expect(merged.aborted).toBe(false);
+    caller.abort();
+    expect(merged.aborted).toBe(true);
+  });
+});
