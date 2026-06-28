@@ -88,14 +88,14 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: "Network error" }));
-      throw new Error((body as ApiError).error || "Request failed");
+      throw new Error(`[${method} ${path}] ${(body as ApiError).error || "Request failed"}`);
     }
     if (res.status === 204) return null as T;
     return res.json();
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
       throw new Error(
-        "Connection timed out — please check your internet and try again",
+        `[${method} ${path}] Connection timed out — please check your internet and try again`,
       );
     }
     console.error("[mioru-admin] API request failed", {
@@ -103,7 +103,8 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
       method: options?.method || "GET",
       error: err instanceof Error ? err.message : String(err),
     });
-    throw err;
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`[${method} ${path}] ${msg}`);
   } finally {
     clearTimeout(timeout);
   }

@@ -91,13 +91,13 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: "Network error" }));
-      throw new Error((body as ApiError).error || "Request failed");
+      throw new Error(`[${method} ${path}] ${(body as ApiError).error || "Request failed"}`);
     }
     return res.json();
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
       throw new Error(
-        "Connection timed out — please check your internet and try again",
+        `[${method} ${path}] Connection timed out — please check your internet and try again`,
       );
     }
     // Surface the full error in the console so affected users can report
@@ -108,7 +108,10 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
       method: options?.method || "GET",
       error: err instanceof Error ? err.message : String(err),
     });
-    throw err;
+    // Prefix the user-visible error with the endpoint so mobile
+    // users can screenshot exactly what failed without DevTools.
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`[${method} ${path}] ${msg}`);
   } finally {
     clearTimeout(timeout);
   }
