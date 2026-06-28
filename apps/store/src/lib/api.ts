@@ -51,15 +51,24 @@ function readCookie(name: string): string | null {
 // sync with middleware/csrf.go (anything not in the safe-list).
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+// FETCH_TIMEOUT_MS bounds every API call so a slow/lossy connection
+// (e.g. Moldovan ISP with poor peering to the Russian VPS) fails fast
+// instead of hanging the SPA for minutes. 25s is generous enough for
+// a cold 3G connection + backend response, but short enough that the
+// user doesn't walk away.
+const FETCH_TIMEOUT_MS = 25_000;
+
 // api drives both unauthenticated public catalog requests and authenticated
 // customer requests. Cookie-only auth: AuthMW reads the JWT from an HttpOnly
 // cookie; the SPA opts in to sending cookies cross-origin (store.mioru.store
 // ↔ api.mioru.store) via credentials: include. Mutations also echo the CSRF
 // cookie back in the X-CSRF-Token header.
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+  const headers: Record<string, string> = {};
+
+  if (!(options?.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
 
   const method = (options?.method || "GET").toUpperCase();
   if (MUTATING_METHODS.has(method)) {
@@ -69,19 +78,56 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
     }
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
-    credentials: "include",
-    ...options,
-    headers: {
-      ...headers,
-      ...((options?.headers as Record<string, string>) || {}),
-    },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Network error" }));
-    throw new Error((body as ApiError).error || "Request failed");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(`${API_URL}${path}`, {
+      credentials: "include",
+      ...options,
+      // Timeout signal must win over any caller-supplied signal so the
+      // 25s budget is never silently disabled by a composable wrapper
+      // (e.g. a future React useEffect cleanup-cancel). Merge via
+      // AbortSignal.any so both still cancel the request.
+      signal: options?.signal
+        ? AbortSignal.any([controller.signal, options.signal])
+        : controller.signal,
+      headers: {
+        ...headers,
+        ...((options?.headers as Record<string, string>) || {}),
+      },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: "Network error" }));
+      // Throw without the [METHOD path] prefix — the catch below adds
+      // it once. Prefixing here would produce "[GET /x] [GET /x] …".
+      throw new Error((body as ApiError).error || "Request failed");
+    }
+    return res.json();
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error(
+        `[${method} ${path}] Connection timed out — please check your internet and try again`,
+      );
+    }
+    // Surface the diagnostic shape in the console so affected users can
+    // report the exact cause (DNS failure, reset, CORS, etc.) — the user-
+    // visible message is intentionally generic. We deliberately omit
+    // err.message because backend 4xx envelopes can echo user input
+    // ("email … already exists", "phone … invalid format"), which is PII
+    // in any support screen-share.
+    console.error("[mioru] API request failed", {
+      path,
+      method: options?.method || "GET",
+      errorType: err instanceof Error ? err.name : typeof err,
+    });
+    // Prefix the user-visible error with the endpoint so mobile
+    // users can screenshot exactly what failed without DevTools.
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`[${method} ${path}] ${msg}`);
+  } finally {
+    clearTimeout(timeout);
   }
-  return res.json();
 }
 
 // ── Public catalog ──
@@ -306,23 +352,14 @@ export const createOrder = (data: CreateOrderData, idempotencyKey: string) =>
 export const uploadOrderPhoto = async (file: File): Promise<string> => {
   const formData = new FormData();
   formData.append("file", file);
-
-  const method = "POST";
-  const headers: Record<string, string> = {};
-  const csrf = readCookie(CSRF_COOKIE);
-  if (csrf) headers["X-CSRF-Token"] = csrf;
-
-  const res = await fetch(`${API_URL}/api/store/orders/upload-photo`, {
-    method,
-    credentials: "include",
+  // Route through `api()` so we get the same timeout, [METHOD path]
+  // error prefix and console.error diagnostics as every other call.
+  // The wrapper recognises FormData and omits Content-Type so the
+  // browser can set the multipart boundary correctly.
+  const data = await api<{ url: string }>("/api/store/orders/upload-photo", {
+    method: "POST",
     body: formData,
-    headers,
   });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Upload failed" }));
-    throw new Error((body as ApiError).error || "Upload failed");
-  }
-  const data = await res.json();
   return data.url;
 };
 

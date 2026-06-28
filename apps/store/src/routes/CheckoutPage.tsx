@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useCartStore } from "@/stores/cartStore";
@@ -49,12 +49,20 @@ export default function CheckoutPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [orderError, setOrderError] = useState("");
+  // Idempotency-Key must persist across retries — backend uses the same key
+  // to dedupe a request (priority #1: orders must never double-count). The
+  // PR #56 25s AbortController timeout can abort an in-flight POST that the
+  // backend has already committed, leaving the SPA to think the order
+  // failed when it actually succeeded; reusing the same key on retry makes
+  // the backend replay the stored response instead of creating a second order.
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   const submitOrder = async () => {
     setSubmitting(true);
     setOrderError("");
     try {
-      const idempotencyKey = crypto.randomUUID();
+      const idempotencyKey =
+        idempotencyKeyRef.current ?? (idempotencyKeyRef.current = crypto.randomUUID());
       const itemsData = items.map((item) => ({
         product_id: item.product.id,
         size_label: item.size,
@@ -71,7 +79,7 @@ export default function CheckoutPage() {
           // (^\+?\d{7,15}$). Raw "  +373...  " from a paste/IME
           // passes the gate but would 400 on the server — see
           // PR #51 round-3 review (mmx003) for the full discussion.
-          // CustomOrderPage.tsx:140 applies the same trim for parity.
+          // CustomOrderPage.tsx applies the same trim for parity.
           city: formData.city.trim(),
           phone: formData.phone.trim(),
           delivery_method: formData.deliveryMethod,
@@ -86,6 +94,9 @@ export default function CheckoutPage() {
       );
       clearCart();
       setSubmitted(true);
+      // Order persisted — release the key so the next checkout flow gets
+      // a fresh UUID. Keeping it would dedupe a legitimate new order.
+      idempotencyKeyRef.current = null;
     } catch (e: unknown) {
       setOrderError(e instanceof Error ? e.message : "Ошибка при создании заказа");
     } finally {

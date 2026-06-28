@@ -50,6 +50,10 @@ function readCookie(name: string): string | null {
 // in sync with middleware/csrf.go (anything not in the safe-list).
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+// FETCH_TIMEOUT_MS mirrors apps/store/src/lib/api.ts — bounds every API
+// call so a slow/lossy connection fails fast instead of hanging the SPA.
+const FETCH_TIMEOUT_MS = 25_000;
+
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {};
 
@@ -68,21 +72,56 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
     }
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
-    credentials: "include",
-    ...options,
-    headers: {
-      ...headers,
-      ...((options?.headers as Record<string, string>) || {}),
-    },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Network error" }));
-    throw new Error((body as ApiError).error || "Request failed");
+  try {
+    const res = await fetch(`${API_URL}${path}`, {
+      credentials: "include",
+      ...options,
+      // Timeout signal must win over any caller-supplied signal so the
+      // 25s budget is never silently disabled by a composable wrapper
+      // (e.g. a future React useEffect cleanup-cancel). Merge via
+      // AbortSignal.any so both still cancel the request.
+      signal: options?.signal
+        ? AbortSignal.any([controller.signal, options.signal])
+        : controller.signal,
+      headers: {
+        ...headers,
+        ...((options?.headers as Record<string, string>) || {}),
+      },
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: "Network error" }));
+      // Throw without the [METHOD path] prefix — the catch below adds
+      // it once. Prefixing here would produce "[GET /x] [GET /x] …".
+      throw new Error((body as ApiError).error || "Request failed");
+    }
+    if (res.status === 204) return null as T;
+    return res.json();
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error(
+        `[${method} ${path}] Connection timed out — please check your internet and try again`,
+      );
+    }
+    // Surface the diagnostic shape in the console so affected users can
+    // report the exact cause (DNS failure, reset, CORS, etc.) — the user-
+    // visible message is intentionally generic. We deliberately omit
+    // err.message because backend 4xx envelopes can echo user input
+    // ("email … already exists", "phone … invalid format"), which is PII
+    // in any support screen-share.
+    console.error("[mioru-admin] API request failed", {
+      path,
+      method: options?.method || "GET",
+      errorType: err instanceof Error ? err.name : typeof err,
+    });
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`[${method} ${path}] ${msg}`);
+  } finally {
+    clearTimeout(timeout);
   }
-  if (res.status === 204) return null as T;
-  return res.json();
 }
 
 // ── Auth ──
