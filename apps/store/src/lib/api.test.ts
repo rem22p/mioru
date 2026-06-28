@@ -102,6 +102,58 @@ describe("api wrapper — happy path", () => {
     // Idempotency-Key must still travel — backend requires it.
     expect(headers["Idempotency-Key"]).toBeDefined();
   });
+
+  it("createOrder sends the SAME Idempotency-Key when the caller passes the same key twice", async () => {
+    // The F1 fix in CheckoutPage/CustomOrderPage uses a useRef to pass
+    // the same key to a second submitOrder() call after a 25s abort.
+    // That useRef persistence is a React idiom — what we verify HERE is
+    // the api wrapper's half of the contract: whatever key the caller
+    // gives us, we send verbatim. The two halves together make the
+    // backend dedupe work.
+    fetchMock.mockResolvedValueOnce(okJsonResponse({ id: 1, status: "pending", created_at: "2026-06-28T00:00:00Z" }));
+    fetchMock.mockResolvedValueOnce(okJsonResponse({ id: 1, status: "pending", created_at: "2026-06-28T00:00:00Z" }));
+
+    const sharedKey = crypto.randomUUID();
+    await createOrder(
+      { type: "cart", phone: "+37300000000", city: "Chisinau", delivery_method: "personal", payment_method: "cod", total_minor: 100, items: [] },
+      sharedKey,
+    );
+    await createOrder(
+      { type: "cart", phone: "+37300000000", city: "Chisinau", delivery_method: "personal", payment_method: "cod", total_minor: 100, items: [] },
+      sharedKey,
+    );
+
+    const headers1 = (fetchMock.mock.calls[0][1] as RequestInit).headers as Record<string, string>;
+    const headers2 = (fetchMock.mock.calls[1][1] as RequestInit).headers as Record<string, string>;
+    expect(headers1["Idempotency-Key"]).toBe(sharedKey);
+    expect(headers2["Idempotency-Key"]).toBe(sharedKey);
+  });
+
+  it("createOrder sends DIFFERENT Idempotency-Key when the caller rotates the key", async () => {
+    // Mirror of the above: a fresh key per submit must produce a fresh
+    // header. If the wrapper secretly cached the first one, the SPA's
+    // "release ref on success" pattern (CheckoutPage.tsx setSubmitted
+    // branch) would silently dedupe a legitimate new order.
+    fetchMock.mockResolvedValueOnce(okJsonResponse({ id: 1, status: "pending", created_at: "2026-06-28T00:00:00Z" }));
+    fetchMock.mockResolvedValueOnce(okJsonResponse({ id: 2, status: "pending", created_at: "2026-06-28T00:00:00Z" }));
+
+    const keyA = crypto.randomUUID();
+    const keyB = crypto.randomUUID();
+    await createOrder(
+      { type: "cart", phone: "+37300000000", city: "Chisinau", delivery_method: "personal", payment_method: "cod", total_minor: 100, items: [] },
+      keyA,
+    );
+    await createOrder(
+      { type: "cart", phone: "+37300000000", city: "Chisinau", delivery_method: "personal", payment_method: "cod", total_minor: 200, items: [] },
+      keyB,
+    );
+
+    const headers1 = (fetchMock.mock.calls[0][1] as RequestInit).headers as Record<string, string>;
+    const headers2 = (fetchMock.mock.calls[1][1] as RequestInit).headers as Record<string, string>;
+    expect(headers1["Idempotency-Key"]).toBe(keyA);
+    expect(headers2["Idempotency-Key"]).toBe(keyB);
+    expect(headers1["Idempotency-Key"]).not.toBe(headers2["Idempotency-Key"]);
+  });
 });
 
 describe("api wrapper — error envelope contract", () => {
