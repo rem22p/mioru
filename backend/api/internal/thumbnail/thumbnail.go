@@ -1,5 +1,5 @@
 // Package thumbnail is the single source of truth for the
-// PNG-thumbnail generation pipeline used both by the live upload
+// image-thumbnail generation pipeline used both by the live upload
 // handler (internal/handler/upload.go, customer.go) and by the
 // standalone regen-thumbs migration tool (cmd/regen-thumbs).
 //
@@ -9,10 +9,18 @@
 // source of truth so drift becomes structurally impossible.
 //
 // Behaviour:
-//   - Reads a PNG from srcPath, validates against the decompression-
-//     bomb guard (MaxPixels), decodes, fits-with-aspect into the
-//     (maxWidth, maxHeight) box via Catmull-Rom scaling on a zeroed
-//     RGBA canvas (preserves alpha), encodes back to PNG at dstPath.
+//   - Reads an image (PNG / JPEG / WebP) from srcPath, validates against
+//     the decompression-bomb guard (MaxPixels), decodes, fits-with-aspect
+//     into the (maxWidth, maxHeight) box via Catmull-Rom scaling on a
+//     zeroed RGBA canvas (preserves alpha), encodes back to PNG at dstPath.
+//   - WebP decoding requires importing golang.org/x/image/webp for its
+//     init() side-effect to register with image.Decode. Same for JPEG
+//     using stdlib image/jpeg.
+//   - The output format is intentionally pinned to PNG: thumbnails are a
+//     fixed-size thumbnail table rendered by the storefront, and PNG
+//     keeps alpha + lossless quality at the cost of a slightly bigger
+//     file. Switching the output to JPEG would require updating the
+//     size_chart response and the frontend <img> type assumptions.
 //   - Returns wrapped errors so callers can distinguish failure modes
 //     (bad config vs decode vs encode vs io).
 package thumbnail
@@ -24,6 +32,12 @@ import (
 	"os"
 
 	"golang.org/x/image/draw"
+	// Decoder registrations: each blank import has an init() that registers
+	// a format with image.Decode / image.DecodeConfig. Without these, source
+	// files in those formats return image.ErrFormat or "image: unknown format"
+	// even when their magic bytes are valid.
+	_ "image/jpeg"
+	_ "golang.org/x/image/webp"
 )
 
 // MaxPixels is the maximum allowed source image size in pixels
@@ -37,9 +51,9 @@ import (
 // same number so they cannot drift apart silently.
 var MaxPixels = 50_000_000
 
-// Generate reads a PNG from srcPath, resizes it to fit within the
-// (maxWidth, maxHeight) box while preserving aspect ratio, and
-// writes the result to dstPath. Both width and height are maximum
+// Generate reads an image (PNG/JPEG/WebP) from srcPath, resizes it to fit
+// within the (maxWidth, maxHeight) box while preserving aspect ratio, and
+// writes the result to dstPath as PNG. Both width and height are maximum
 // bounds — the image is scaled to fit, never cropped.
 //
 // Errors are wrapped so the caller can errors.Is / errors.As on
@@ -52,8 +66,11 @@ func Generate(srcPath, dstPath string, maxWidth, maxHeight int) error {
 	defer src.Close()
 
 	// Decompression-bomb guard: read dimensions without allocating
-	// pixels, then rewind for full decode.
-	cfg, err := png.DecodeConfig(src)
+	// pixels, then rewind for full decode. image.DecodeConfig picks the
+	// correct decoder based on file magic (PNG/JPEG/WebP, with the
+	// golang.org/x/image/webp init side-effect in this package's imports
+	// providing the WebP registration).
+	cfg, _, err := image.DecodeConfig(src)
 	if err != nil {
 		return fmt.Errorf("decode config: %w", err)
 	}
@@ -64,7 +81,7 @@ func Generate(srcPath, dstPath string, maxWidth, maxHeight int) error {
 		return fmt.Errorf("seek: %w", err)
 	}
 
-	img, err := png.Decode(src)
+	img, _, err := image.Decode(src)
 	if err != nil {
 		return fmt.Errorf("decode: %w", err)
 	}

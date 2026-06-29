@@ -1180,11 +1180,11 @@ func (h *CustomerHandler) UploadOrderPhoto(w http.ResponseWriter, r *http.Reques
 
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	if !allowedImageExt(ext) {
-		jsonError(w, "only image files allowed (png)", http.StatusBadRequest)
+		jsonError(w, "only image files allowed (png, jpg, webp)", http.StatusBadRequest)
 		return
 	}
 	if err := validateImageContent(file); err != nil {
-		jsonError(w, "file content is not a supported image", http.StatusBadRequest)
+		jsonError(w, "file content is not a supported image (png, jpg, webp)", http.StatusBadRequest)
 		return
 	}
 	if _, err := file.Seek(0, io.SeekStart); err != nil {

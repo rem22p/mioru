@@ -13,13 +13,17 @@ func TestAllowedImageExt(t *testing.T) {
 	}{
 		{".png", true},
 		{".PNG", true}, // case-insensitive
-		{".jpg", false},
-		{".jpeg", false},
-		{".gif", false},
-		{".webp", false},
-		{".svg", false},
+		{".jpg", true},
+		{".JPG", true}, // case-insensitive
+		{".jpeg", true},
+		{".JPEG", true},
+		{".webp", true},
+		{".WEBP", true},
+		{".gif", false}, // not in allowlist (no decoder here either)
+		{".svg", false}, // SVG excluded — stored XSS vector
 		{".html", false},
 		{".exe", false},
+		{".heic", false}, // no Go stdlib decoder; would 400 on content sniff
 		{"", false},
 	}
 	for _, tt := range tests {
@@ -36,9 +40,9 @@ func TestValidateImageContent(t *testing.T) {
 		wantErr bool
 	}{
 		{"png", []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR"), false},
-		{"jpeg", []byte("\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01"), true},                      // jpeg rejected
-		{"gif", []byte("GIF89a\x01\x00\x01\x00"), true},                                     // gif rejected
-		{"webp", append([]byte("RIFF\x00\x00\x00\x00WEBPVP8 "), make([]byte, 16)...), true}, // webp rejected
+		{"jpeg", []byte("\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01"), false},                      // accepted
+		{"webp", append([]byte("RIFF\x00\x00\x00\x00WEBPVP8 "), make([]byte, 16)...), false}, // accepted
+		{"gif", []byte("GIF89a\x01\x00\x01\x00"), true},                                       // no decoder registered here
 		{"svg with script", []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`), true},
 		{"xml svg", []byte(`<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"></svg>`), true},
 		{"html", []byte("<!DOCTYPE html><html><body>x</body></html>"), true},

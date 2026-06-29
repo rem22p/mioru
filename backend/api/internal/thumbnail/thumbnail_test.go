@@ -2,7 +2,10 @@ package thumbnail_test
 
 import (
 	"bytes"
+	"encoding/base64"
 	"image"
+	"image/color"
+	"image/jpeg"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -87,6 +90,60 @@ func TestGenerateSourceNotFound(t *testing.T) {
 	}
 }
 
+// TestGenerateDecodesJPEG: an image/jpeg source decodes correctly via the
+// image.Decode path (registers via _ "image/jpeg" in the package). Output
+// must still be PNG, and dimensions must match the JPEG source aspect ratio.
+func TestGenerateDecodesJPEG(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src.jpg")
+	dst := filepath.Join(dir, "thumb.png")
+
+	createTestJPEG(t, src, 200, 100) // 2:1 aspect
+
+	if err := thumbnail.Generate(src, dst, 50, 50); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+
+	cfg, err := decodeConfig(t, dst)
+	if err != nil {
+		t.Fatalf("decode config: %v", err)
+	}
+	// 200×100 in a 50×50 box → width-limited: 50×25.
+	if cfg.Width != 50 {
+		t.Errorf("width = %d, want 50", cfg.Width)
+	}
+	if cfg.Height != 25 {
+		t.Errorf("height = %d, want 25", cfg.Height)
+	}
+}
+
+// TestGenerateDecodesWebP: an image/webp source decodes correctly via the
+// image.Decode path (registered via _ "golang.org/x/image/webp" in the
+// package — its init() side-effect registers the format). Covers PR #57 F2
+// (WebP end-to-end was missing).
+func TestGenerateDecodesWebP(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src.webp")
+	dst := filepath.Join(dir, "thumb.png")
+
+	createTestWebP(t, src, 200, 100) // 2:1 aspect
+
+	if err := thumbnail.Generate(src, dst, 50, 50); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+
+	cfg, err := decodeConfig(t, dst)
+	if err != nil {
+		t.Fatalf("decode config: %v", err)
+	}
+	if cfg.Width != 50 {
+		t.Errorf("width = %d, want 50", cfg.Width)
+	}
+	if cfg.Height != 25 {
+		t.Errorf("height = %d, want 25", cfg.Height)
+	}
+}
+
 func createTestPNG(t *testing.T, path string, w, h int) {
 	t.Helper()
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
@@ -97,6 +154,41 @@ func createTestPNG(t *testing.T, path string, w, h int) {
 	defer f.Close()
 	if err := png.Encode(f, img); err != nil {
 		t.Fatalf("encode test PNG: %v", err)
+	}
+}
+
+func createTestJPEG(t *testing.T, path string, w, h int) {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	// Fill with a non-zero color so JPEG's lossy encoder still produces
+	// readable bytes (all-zero RGBA gets compressed to almost nothing).
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			img.Set(x, y, color.RGBA{R: uint8(x), G: uint8(y), B: 128, A: 255})
+		}
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("create test JPEG: %v", err)
+	}
+	defer f.Close()
+	if err := jpeg.Encode(f, img, &jpeg.Options{Quality: 80}); err != nil {
+		t.Fatalf("encode test JPEG: %v", err)
+	}
+}
+
+func createTestWebP(t *testing.T, path string, w, h int) {
+	t.Helper()
+	// Hardcoded valid 100×50 WebP (RIFF/WEBP/VP8L, lossless). Encoded once
+	// via Pillow; embedded here because golang.org/x/image/webp is decode-
+	// only (no Go encoder exists). Tests only need the bytes on disk.
+	const b64 = "UklGRjgAAABXRUJQVlA4TCsAAAAvY0AMALkyRPQ/dhHR/4DCtm2Q0f+fMypI24CF7c4AxgTAQ2goAGj4/itgAA=="
+	data, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		t.Fatalf("decode test WebP: %v", err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatalf("write test WebP: %v", err)
 	}
 }
 
