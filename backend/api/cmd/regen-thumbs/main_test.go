@@ -132,8 +132,8 @@ func TestWalkDoesNotPickUpThumbPrefixForAnyExt(t *testing.T) {
 	dir := t.TempDir()
 	for _, name := range []string{
 		"thumb_a.png", "thumb_b.jpg", "thumb_c.jpeg", "thumb_d.webp",
-		"thumb.png" /* NOT skipped — char 6 is ".", not "_" */,
-		"thumbnail.png" /* NOT skipped — prefix is "thumb", not "thumb_" */,
+		"thumb.png",     /* NOT skipped — char 6 is ".", not "_" */
+		"thumbnail.png", /* NOT skipped — prefix is "thumb", not "thumb_" */
 		"thumb_no_ext",
 	} {
 		writeEmpty(t, dir, name)
