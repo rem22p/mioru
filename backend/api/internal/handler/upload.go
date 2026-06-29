@@ -41,7 +41,7 @@ func (h *ProductHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := validateImageContent(file); err != nil {
-		jsonError(w, "file content is not a supported image", http.StatusBadRequest)
+		jsonError(w, "file content is not a supported image (png, jpg, webp)", http.StatusBadRequest)
 		return
 	}
 	if _, err := file.Seek(0, io.SeekStart); err != nil {

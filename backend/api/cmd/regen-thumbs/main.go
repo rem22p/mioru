@@ -12,8 +12,8 @@
 // by construction.
 //
 // Usage: regen-thumbs <uploads-dir>
-//   - Reads every *.png in the directory (excluding names starting with
-//     "thumb_").
+//   - Reads every *.png/*.jpg/*.jpeg/*.webp in the directory (excluding
+//     names starting with "thumb_").
 //   - Writes thumb_<name>.png next to it, 400x300 max bounds, Catmull-Rom
 //     scaling with alpha preserved (draw.Over on a zeroed RGBA canvas).
 //
@@ -38,8 +38,22 @@ const (
 	maxHeight = 300
 )
 
+// regenSourceExts lists which upload extensions the regen-thumbs tool
+// should walk. Mirrors allowedImageExts in handler/image.go so the tool
+// doesn't silently skip JPEG/WebP files after that allowlist is expanded
+// (PR #57 L2 finding). Kept here as a local const rather than imported
+// from the handler package — regen-thumbs is intentionally a standalone
+// cmd with a narrow surface and should not pull in the whole handler
+// stack just for the extension list.
+var regenSourceExts = map[string]bool{
+	".png":  true,
+	".jpg":  true,
+	".jpeg": true,
+	".webp": true,
+}
+
 func main() {
-	dir := flag.String("dir", "", "uploads directory containing full-size *.png")
+	dir := flag.String("dir", "", "uploads directory containing full-size *.png/*.jpg/*.jpeg/*.webp")
 	force := flag.Bool("force", false, "regenerate even if thumb_<name>.png already exists")
 	dryRun := flag.Bool("dry-run", false, "list what would be processed, do not write")
 	flag.Parse()
@@ -49,10 +63,28 @@ func main() {
 		os.Exit(2)
 	}
 
-	files, err := filepath.Glob(filepath.Join(*dir, "*.png"))
+	// filepath.Glob does not support {a,b,c} brace expansion, so list the
+	// directory and filter by the regen source extensions. ReadDir returns
+	// names sorted (matches the previous filepath.Glob ordering), so the
+	// output here is deterministic.
+	entries, err := os.ReadDir(*dir)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "glob: %v\n", err)
+		fmt.Fprintf(os.Stderr, "read %s: %v\n", *dir, err)
 		os.Exit(1)
+	}
+	var files []string
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if strings.HasPrefix(name, "thumb_") {
+			continue // never process thumb_*.png as source
+		}
+		if !regenSourceExts[strings.ToLower(filepath.Ext(name))] {
+			continue
+		}
+		files = append(files, filepath.Join(*dir, name))
 	}
 
 	var processed, skipped, failed int
