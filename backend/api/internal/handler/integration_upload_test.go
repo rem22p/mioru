@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"bytes"
+	"encoding/base64"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -76,6 +77,19 @@ func jpegBytes(t *testing.T) []byte {
 	return buf.Bytes()
 }
 
+// webpBytes returns a hardcoded valid 1×1 WebP (RIFF/WEBP/VP8L). The
+// golang.org/x/image/webp package only DECODES — no encoder — so tests
+// embed the bytes captured once from a real encoder (Pillow, lossless).
+// Covers PR #57 F2: WebP upload end-to-end coverage.
+func webpBytes(t *testing.T) []byte {
+	t.Helper()
+	const b64 = "UklGRh4AAABXRUJQVlA4TBEAAAAvAAAAAAdQoAIWuf+BiOh/AAA="
+	data, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		t.Fatalf("decode test WebP: %v", err)
+	}
+	return data
+}
 // TestIntegrationUploadOrderPhotoPNG: a valid PNG uploads → 200 with a
 // /uploads/<name>.png url.
 func TestIntegrationUploadOrderPhotoPNG(t *testing.T) {
@@ -127,6 +141,31 @@ func TestIntegrationUploadOrderPhotoJPEG(t *testing.T) {
 	// handler's safeName rebuild — we accept jpeg too, but the test uses .jpg.
 	if !strings.HasSuffix(resp.URL, ".jpg") && !strings.HasSuffix(resp.URL, ".jpeg") {
 		t.Fatalf("jpeg upload: url %q missing .jpg/.jpeg suffix", resp.URL)
+	}
+}
+
+// TestIntegrationUploadOrderPhotoWebP: a real WebP uploads successfully and
+// returns a /uploads/<name>.webp url. Covers PR #57 F2 (WebP end-to-end).
+func TestIntegrationUploadOrderPhotoWebP(t *testing.T) {
+	e := newEnv(t)
+	sess, _ := e.customerSession(t, "uploader-webp@ex.com")
+
+	rr := e.doMultipartFile(t, e.wrapCustomer(e.customerH.UploadOrderPhoto), http.MethodPost,
+		"/api/store/orders/upload-photo",
+		reqOpts{sess: sess, csrfCookieName: cookieauth.StoreCSRFCookie},
+		"file", "photo.webp", webpBytes(t))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("webp upload: want 200, got %d (body %q)", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		URL string `json:"url"`
+	}
+	decode(t, rr, &resp)
+	if !strings.HasPrefix(resp.URL, "/uploads/") {
+		t.Fatalf("webp upload: url %q missing /uploads/ prefix", resp.URL)
+	}
+	if !strings.HasSuffix(resp.URL, ".webp") {
+		t.Fatalf("webp upload: url %q missing .webp suffix", resp.URL)
 	}
 }
 

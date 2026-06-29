@@ -37,7 +37,7 @@ func (h *ProductHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	// SVG excluded as a stored-XSS vector). Rewind before saving.
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	if !allowedImageExt(ext) {
-		jsonError(w, "only image files allowed (jpg, jpeg, png, gif, webp)", http.StatusBadRequest)
+		jsonError(w, "only image files allowed (png, jpg, webp)", http.StatusBadRequest)
 		return
 	}
 	if err := validateImageContent(file); err != nil {
