@@ -15,7 +15,11 @@ import {
   uploadImage,
   getImageUrl,
 } from "@/lib/api";
-import { useProductDraft, type DraftImageRef } from "@/hooks/useProductDraft";
+import {
+  useProductDraft,
+  type DraftImageRef,
+  type DraftPayload,
+} from "@/hooks/useProductDraft";
 import UnsavedChangesDialog from "./UnsavedChangesDialog";
 import {
   X,
@@ -74,6 +78,11 @@ export default function ProductForm({
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
   const [isDirty, setIsDirty] = useState(false);
   const justSavedRef = useRef(false);
+  // Serialized snapshot of the pristine form, captured once after hydration.
+  // The form is "dirty" iff the live payload differs from this — so merely
+  // opening a form never marks it dirty (and never autosaves a spurious
+  // draft), while typing always does.
+  const baselineRef = useRef<string | null>(null);
   // Tracks whether the restore-prompt has already been shown for this mount
   // — autosave updates `draft` reference object internally, so a naive
   // `[hasHydrated, draft]` effect pops the dialog on every keystroke.
@@ -147,23 +156,37 @@ export default function ProductForm({
   const [error, setError] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<Map<string, string>>(new Map());
+  const previewUrlsRef = useRef<Map<string, string>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Memoize + revoke `URL.createObjectURL` per `img.id` so re-renders don't
-  // create a fresh blob URL each pass (which would force `<img>` reloads and
-  // leak memory). When an image leaves the list, revoke its old URL.
+  // One blob URL per `img.id`, reused across re-renders so we don't leak a
+  // fresh `URL.createObjectURL` every pass. When an image leaves the list its
+  // URL is revoked; on unmount every remaining URL is revoked (createObjectURL
+  // allocations outlive GC of the Map).
   useEffect(() => {
+    const prev = previewUrlsRef.current;
     const next = new Map<string, string>();
     for (const img of images) {
-      if (img.file) next.set(img.id, URL.createObjectURL(img.file));
+      if (!img.file) continue;
+      // Reuse the existing URL for this id — a given id always wraps the same
+      // File, so re-creating would leak the old one.
+      next.set(img.id, prev.get(img.id) ?? URL.createObjectURL(img.file));
     }
-    setPreviewUrls((prev) => {
-      for (const [id, url] of prev) {
-        if (!next.has(id)) URL.revokeObjectURL(url);
-      }
-      return next;
-    });
+    for (const [id, url] of prev) {
+      if (!next.has(id)) URL.revokeObjectURL(url);
+    }
+    previewUrlsRef.current = next;
+    setPreviewUrls(next);
   }, [images]);
+
+  useEffect(
+    () => () => {
+      for (const url of previewUrlsRef.current.values()) {
+        URL.revokeObjectURL(url);
+      }
+    },
+    [],
+  );
 
   // Derive which criteria to show
   const selectedCategory =
@@ -205,7 +228,7 @@ export default function ProductForm({
       id: img.id,
       url: img.url,
     }));
-    saveDraft({
+    const payload: DraftPayload = {
       name,
       slug,
       description,
@@ -224,7 +247,19 @@ export default function ProductForm({
       sizeChart,
       careInstructions,
       images: imageRefs,
-    });
+    };
+    const serialized = JSON.stringify(payload);
+    // First post-hydration run establishes the pristine baseline and writes
+    // nothing — opening a form must not persist a draft or arm the close-guard.
+    if (baselineRef.current === null) {
+      baselineRef.current = serialized;
+      return;
+    }
+    const dirty = serialized !== baselineRef.current;
+    setIsDirty(dirty);
+    // Persist only a real change: a form reverted to baseline stops
+    // autosaving and won't pop a spurious restore prompt next open.
+    if (dirty) saveDraft(payload);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     hasHydrated,
@@ -480,9 +515,9 @@ export default function ProductForm({
 
   // ── Close / restore handlers ──
   const askToClose = useCallback(() => {
-    if (isDirty || draft) setCloseDialogOpen(true);
+    if (isDirty) setCloseDialogOpen(true);
     else onClose();
-  }, [isDirty, draft, onClose]);
+  }, [isDirty, onClose]);
 
   const handleCloseConfirm = useCallback(() => {
     clearDraft();
@@ -530,16 +565,21 @@ export default function ProductForm({
   }, [clearDraft]);
 
   // Esc always asks (matches the click-outside contract) — Radix Dialog handles
-  // its own Esc when the dialog is open.
+  // its own Esc when a dialog is open, and the preview overlay owns Esc while
+  // it is up (closing the preview, not the whole form).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (closeDialogOpen || restoreDialogOpen) return;
+      if (previewOpen) {
+        setPreviewOpen(false);
+        return;
+      }
       askToClose();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [askToClose, closeDialogOpen, restoreDialogOpen]);
+  }, [askToClose, closeDialogOpen, restoreDialogOpen, previewOpen]);
 
   // Build category tree for select
   const parentCats = cats.filter((c) => c.parent_id === null);
@@ -573,6 +613,7 @@ export default function ProductForm({
               <button
                 type="button"
                 onClick={() => setPreviewOpen(true)}
+                data-testid="pf-preview-open"
                 className="flex items-center gap-1.5 h-9 px-3 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-bg-secondary)] transition-colors text-sm"
               >
                 <Eye className="h-4 w-4" />
@@ -581,6 +622,7 @@ export default function ProductForm({
               <button
                 type="button"
                 onClick={askToClose}
+                data-testid="pf-close-x"
                 className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
               >
                 <X className="h-5 w-5" />
@@ -1155,6 +1197,7 @@ export default function ProductForm({
               <button
                 type="button"
                 onClick={askToClose}
+                data-testid="pf-cancel"
                 className="rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-5 py-2.5 text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
               >
                 Отмена

@@ -16,7 +16,6 @@ import {
   type StoredDraft,
   clearStoredDraft,
   readStoredDraft,
-  restorePromptText,
   writeStoredDraft,
 } from "./useProductDraft.storage";
 
@@ -38,12 +37,6 @@ export interface UseProductDraftApi {
   hasHydrated: boolean;
   saveDraft: (payload: DraftPayload) => void;
   clearDraft: () => void;
-  /**
-   * If a draft exists, asks the user via `window.confirm` and returns whether
-   * they want to restore. Returns `null` when there is no draft — callers use
-   * this to skip the dialog entirely.
-   */
-  promptRestore: () => boolean | null;
 }
 
 export function useProductDraft(
@@ -63,7 +56,8 @@ export function useProductDraft(
     setHasHydrated(true);
   }, [slot]);
 
-  // Cancel any pending debounced write when we unmount or the slot changes.
+  // Cancel any pending debounced write when we unmount or the slot changes —
+  // a write queued for the old slot must not land after we've switched.
   useEffect(() => {
     return () => {
       if (timerRef.current !== null) {
@@ -71,7 +65,7 @@ export function useProductDraft(
         timerRef.current = null;
       }
     };
-  }, []);
+  }, [slot]);
 
   const saveDraft = useCallback(
     (payload: DraftPayload) => {
@@ -100,10 +94,5 @@ export function useProductDraft(
     setDraft(null);
   }, [slot]);
 
-  const promptRestore = useCallback((): boolean | null => {
-    if (!draft) return null;
-    return window.confirm(restorePromptText(draft.savedAt));
-  }, [draft]);
-
-  return { draft, hasHydrated, saveDraft, clearDraft, promptRestore };
+  return { draft, hasHydrated, saveDraft, clearDraft };
 }
