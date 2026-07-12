@@ -37,7 +37,9 @@ describe('Sidebar', () => {
       </BrowserRouter>
     );
     expect(screen.getByText('Товары')).toBeDefined();
-    expect(screen.getByText('Бухгалтерия')).toBeDefined();
+    // Placeholder workspaces with active=false are hidden by Sidebar.
+    expect(screen.queryByText('Бухгалтерия')).toBeNull();
+    expect(screen.queryByText('Аналитика')).toBeNull();
   });
 
   it('renders user info', () => {
