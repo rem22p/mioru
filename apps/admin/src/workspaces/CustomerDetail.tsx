@@ -420,7 +420,7 @@ export default function CustomerDetail() {
                       className="hover:bg-[var(--color-bg-primary)]/50 transition-colors cursor-pointer"
                     >
                       <td className="px-6 py-4 text-lg font-bold text-[var(--color-text-primary)] font-mono whitespace-nowrap">
-                        #{o.id}
+                        {o.order_code || `#${o.id}`}
                       </td>
                       <td className="px-6 py-4 text-sm text-[var(--color-text-secondary)] whitespace-nowrap">
                         {o.type === "cart"

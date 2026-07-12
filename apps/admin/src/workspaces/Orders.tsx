@@ -313,7 +313,7 @@ function OrderCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1.5">
             <span className="text-lg font-bold text-[var(--color-text-primary)] font-mono">
-              #{o.id}
+              {o.order_code || `#${o.id}`}
             </span>
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
               o.type === "individual"

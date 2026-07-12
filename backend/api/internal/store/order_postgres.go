@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"time"
 
 	pgx "github.com/jackc/pgx/v5"
@@ -61,7 +62,7 @@ func (s *PostgresStore) ListCustomerOrders(ctx context.Context, customerID int64
 
 	offset := (page - 1) * perPage
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, customer_id, type, total_minor, status,
+		SELECT id, order_code, customer_id, type, total_minor, status,
 		       phone,
 		       city, delivery_method, payment_method,
 		       street, house, apartment, comment,
@@ -80,7 +81,7 @@ func (s *PostgresStore) ListCustomerOrders(ctx context.Context, customerID int64
 	var orderIDs []int64
 	for rows.Next() {
 		var o model.Order
-		if err := rows.Scan(&o.ID, &o.CustomerID, &o.Type, &o.TotalMinor, &o.Status,
+		if err := rows.Scan(&o.ID, &o.OrderCode, &o.CustomerID, &o.Type, &o.TotalMinor, &o.Status,
 			&o.Phone,
 			&o.City, &o.DeliveryMethod, &o.PaymentMethod,
 			&o.Street, &o.House, &o.Apartment, &o.Comment,
@@ -200,169 +201,197 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 	o.TotalMinor = totalMinor
 
 	// ── Step 2: Transaction — order + items + stock + idempotency ──
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	// Clean expired idempotency records
-	_, _ = tx.Exec(ctx, `DELETE FROM order_idempotency WHERE expires_at < NOW()`)
-
-	// Default nil slices to empty arrays (NOT NULL columns)
-	if o.DeliveryTime == nil {
-		o.DeliveryTime = []string{}
-	}
-	if o.Photos == nil {
-		o.Photos = []string{}
-	}
-
-	// Insert order
-	err = tx.QueryRow(ctx, `
-		INSERT INTO orders (customer_id, type, total_minor, status,
-		                    phone,
-		                    city, delivery_method, payment_method,
-		                    street, house, apartment, comment,
-		                    height, weight, delivery_time, photos)
-		VALUES ($1, $2, $3, 'pending',
-		        $4,
-		        $5, $6, $7,
-		        $8, $9, $10, $11,
-		        $12, $13, $14, $15)
-		RETURNING id, created_at`,
-		customerID, o.Type, o.TotalMinor,
-		o.Phone,
-		o.City, o.DeliveryMethod, o.PaymentMethod,
-		o.Street, o.House, o.Apartment, o.Comment,
-		o.Height, o.Weight, o.DeliveryTime, o.Photos,
-	).Scan(&o.ID, &o.CreatedAt)
-	if err != nil {
-		return nil, fmt.Errorf("insert order: %w", err)
-	}
-	o.CustomerID = customerID
-	o.Status = "pending"
-
-	// Insert line items. We also denormalise product_name
-	// and product_slug from the products table into
-	// order_items (see migration 014) so the Telegram
-	// "new order" notification can render a clickable
-	// "<a href="...">Product Name</a>" link even if the
-	// product gets renamed or deleted later. The lookup is
-	// batched once before the loop (not N+1) and a missing
-	// product causes the transaction to roll back (the FK
-	// constraint on order_items.product_id is the second
-	// line of defence). Once the order is committed, the
-	// denormalised name/slug survive any future product
-	// change.
-	productIDs := make([]int64, 0, len(items))
-	seen := make(map[int64]bool, len(items))
-	for _, it := range items {
-		if !seen[it.ProductID] {
-			productIDs = append(productIDs, it.ProductID)
-			seen[it.ProductID] = true
+	//
+	// The retry loop handles the rare case where two concurrent
+	// CreateOrder calls generate the same order_code.  The partial
+	// unique index (migration 019) guarantees at most one row wins;
+	// the loser gets a 23505 (duplicate key) and we regenerate +
+	// retry the whole transaction.  Boundary: max 10 attempts.
+	const maxCodeAttempts = 10
+	for codeAttempt := 0; codeAttempt < maxCodeAttempts; codeAttempt++ {
+		orderCode, err := s.generateOrderCode(ctx, nil)
+		if err != nil {
+			return nil, fmt.Errorf("generate order code: %w", err)
 		}
-	}
-	productMeta := make(map[int64]struct{ Name, Slug string }, len(productIDs))
-	rows, err := tx.Query(ctx,
-		`SELECT id, name, slug FROM products WHERE id = ANY($1)`, productIDs)
-	if err != nil {
-		return nil, fmt.Errorf("batch lookup products: %w", err)
-	}
-	for rows.Next() {
-		var id int64
-		var name, slug string
-		if err := rows.Scan(&id, &name, &slug); err != nil {
-			rows.Close()
-			return nil, fmt.Errorf("scan product meta: %w", err)
-		}
-		productMeta[id] = struct{ Name, Slug string }{name, slug}
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate product meta: %w", err)
-	}
 
-	for i := range items {
-		items[i].OrderID = o.ID
-		meta, ok := productMeta[items[i].ProductID]
-		if !ok {
-			return nil, fmt.Errorf("product %d not found during order insert", items[i].ProductID)
+		tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("begin tx: %w", err)
 		}
-		pname, pslug := meta.Name, meta.Slug
-		items[i].ProductName = pname
-		items[i].ProductSlug = pslug
-		var measurementsJSON []byte
-		if len(items[i].Measurements) > 0 {
-			measurementsJSON, err = json.Marshal(items[i].Measurements)
-			if err != nil {
-				return nil, fmt.Errorf("marshal measurements: %w", err)
+
+		// Clean expired idempotency records
+		_, _ = tx.Exec(ctx, `DELETE FROM order_idempotency WHERE expires_at < NOW()`)
+
+		// Default nil slices to empty arrays (NOT NULL columns)
+		if o.DeliveryTime == nil {
+			o.DeliveryTime = []string{}
+		}
+		if o.Photos == nil {
+			o.Photos = []string{}
+		}
+
+		// Insert order
+		err = tx.QueryRow(ctx, `
+			INSERT INTO orders (customer_id, type, total_minor, status,
+			                    order_code,
+			                    phone,
+			                    city, delivery_method, payment_method,
+			                    street, house, apartment, comment,
+			                    height, weight, delivery_time, photos)
+			VALUES ($1, $2, $3, 'pending',
+			        $4,
+			        $5,
+			        $6, $7, $8,
+			        $9, $10, $11, $12,
+			        $13, $14, $15, $16)
+			RETURNING id, created_at`,
+			customerID, o.Type, o.TotalMinor,
+			orderCode,
+			o.Phone,
+			o.City, o.DeliveryMethod, o.PaymentMethod,
+			o.Street, o.House, o.Apartment, o.Comment,
+			o.Height, o.Weight, o.DeliveryTime, o.Photos,
+		).Scan(&o.ID, &o.CreatedAt)
+
+		// Duplicate order_code — rollback, regenerate, retry.
+		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" &&
+				pgErr.ConstraintName == "orders_order_code_unique" {
+				tx.Rollback(ctx)
+				continue
+			}
+			tx.Rollback(ctx)
+			return nil, fmt.Errorf("insert order: %w", err)
+		}
+
+		o.OrderCode = orderCode
+		o.CustomerID = customerID
+		o.Status = "pending"
+
+		// Insert line items. We also denormalise product_name
+		// and product_slug from the products table into
+		// order_items (see migration 014) so the Telegram
+		// "new order" notification can render a clickable
+		// "<a href=\"...\">Product Name</a>" link even if the
+		// product gets renamed or deleted later. The lookup is
+		// batched once before the loop (not N+1) and a missing
+		// product causes the transaction to roll back (the FK
+		// constraint on order_items.product_id is the second
+		// line of defence). Once the order is committed, the
+		// denormalised name/slug survive any future product
+		// change.
+		productIDs := make([]int64, 0, len(items))
+		seen := make(map[int64]bool, len(items))
+		for _, it := range items {
+			if !seen[it.ProductID] {
+				productIDs = append(productIDs, it.ProductID)
+				seen[it.ProductID] = true
 			}
 		}
-		err = tx.QueryRow(ctx, `
-			INSERT INTO order_items (order_id, product_id, product_name, product_slug, size_label, quantity, price_minor, measurements)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-			RETURNING id`,
-			o.ID, items[i].ProductID, pname, pslug, items[i].SizeLabel, items[i].Quantity, items[i].PriceMinor,
-			measurementsJSON,
-		).Scan(&items[i].ID)
+		productMeta := make(map[int64]struct{ Name, Slug string }, len(productIDs))
+		rows, err := tx.Query(ctx,
+			`SELECT id, name, slug FROM products WHERE id = ANY($1)`, productIDs)
 		if err != nil {
-			return nil, fmt.Errorf("insert order item: %w", err)
+			tx.Rollback(ctx)
+			return nil, fmt.Errorf("batch lookup products: %w", err)
 		}
-	}
-	o.Items = items
+		for rows.Next() {
+			var id int64
+			var name, slug string
+			if err := rows.Scan(&id, &name, &slug); err != nil {
+				rows.Close()
+				tx.Rollback(ctx)
+				return nil, fmt.Errorf("scan product meta: %w", err)
+			}
+			productMeta[id] = struct{ Name, Slug string }{name, slug}
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			tx.Rollback(ctx)
+			return nil, fmt.Errorf("iterate product meta: %w", err)
+		}
 
-	// Decrement per-size stock atomically — oversell fails the transaction
-	for _, it := range items {
-		tag, err := tx.Exec(ctx,
-			`UPDATE product_sizes SET stock_quantity = stock_quantity - $1
-			 WHERE product_id = $2 AND size_label = $3 AND stock_quantity >= $1`,
-			it.Quantity, it.ProductID, it.SizeLabel,
+		for i := range items {
+			items[i].OrderID = o.ID
+			meta, ok := productMeta[items[i].ProductID]
+			if !ok {
+				tx.Rollback(ctx)
+				return nil, fmt.Errorf("product %d not found during order insert", items[i].ProductID)
+			}
+			pname, pslug := meta.Name, meta.Slug
+			items[i].ProductName = pname
+			items[i].ProductSlug = pslug
+			var measurementsJSON []byte
+			if len(items[i].Measurements) > 0 {
+				measurementsJSON, err = json.Marshal(items[i].Measurements)
+				if err != nil {
+					tx.Rollback(ctx)
+					return nil, fmt.Errorf("marshal measurements: %w", err)
+				}
+			}
+			err = tx.QueryRow(ctx, `
+				INSERT INTO order_items (order_id, product_id, product_name, product_slug, size_label, quantity, price_minor, measurements)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+				RETURNING id`,
+				o.ID, items[i].ProductID, pname, pslug, items[i].SizeLabel, items[i].Quantity, items[i].PriceMinor,
+				measurementsJSON,
+			).Scan(&items[i].ID)
+			if err != nil {
+				tx.Rollback(ctx)
+				return nil, fmt.Errorf("insert order item: %w", err)
+			}
+		}
+		o.Items = items
+
+		// Decrement per-size stock atomically — oversell fails the transaction
+		for _, it := range items {
+			tag, err := tx.Exec(ctx,
+				`UPDATE product_sizes SET stock_quantity = stock_quantity - $1
+				 WHERE product_id = $2 AND size_label = $3 AND stock_quantity >= $1`,
+				it.Quantity, it.ProductID, it.SizeLabel,
+			)
+			if err != nil {
+				tx.Rollback(ctx)
+				return nil, fmt.Errorf("decrement stock for product %d size %s: %w", it.ProductID, it.SizeLabel, err)
+			}
+			if tag.RowsAffected() == 0 {
+				tx.Rollback(ctx)
+				return nil, fmt.Errorf("product %d size %s: %w (requested %d)", it.ProductID, it.SizeLabel, ErrInsufficientStock, it.Quantity)
+			}
+		}
+
+		// Store idempotency record
+		respBody, err := json.Marshal(o)
+		if err != nil {
+			respBody = []byte(`{}`)
+		}
+		now := s.clock()
+		_, err = tx.Exec(ctx, `
+			INSERT INTO order_idempotency (key, user_id, order_id, request_hash, status, response_body, expires_at)
+			VALUES ($1, $2, $3, $4, 201, $5, $6)`,
+			idempotencyKey, customerID, o.ID, requestHash, string(respBody),
+			now.Add(48*time.Hour),
 		)
 		if err != nil {
-			return nil, fmt.Errorf("decrement stock for product %d size %s: %w", it.ProductID, it.SizeLabel, err)
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" &&
+				pgErr.ConstraintName == "order_idempotency_pkey" {
+				tx.Rollback(ctx)
+				return nil, fmt.Errorf("idempotency insert: %w", ErrIdempotencyRace)
+			}
+			tx.Rollback(ctx)
+			return nil, fmt.Errorf("insert idempotency: %w", err)
 		}
-		if tag.RowsAffected() == 0 {
-			return nil, fmt.Errorf("product %d size %s: %w (requested %d)", it.ProductID, it.SizeLabel, ErrInsufficientStock, it.Quantity)
+
+		if err := tx.Commit(ctx); err != nil {
+			return nil, fmt.Errorf("commit order: %w", err)
 		}
+
+		return o, nil
 	}
 
-	// Store idempotency record
-	respBody, err := json.Marshal(o)
-	if err != nil {
-		// model.Order should always be serializable, but if a future
-		// field breaks Marshal (e.g. channel, func), store a valid
-		// empty JSON object so the replay path doesn't crash on
-		// Unmarshal(nil). The business value is degraded (replay
-		// returns minimal body) but the idempotency guarantee holds.
-		respBody = []byte(`{}`)
-	}
-	now := s.clock()
-	_, err = tx.Exec(ctx, `
-		INSERT INTO order_idempotency (key, user_id, order_id, request_hash, status, response_body, expires_at)
-		VALUES ($1, $2, $3, $4, 201, $5, $6)`,
-		idempotencyKey, customerID, o.ID, requestHash, string(respBody),
-		now.Add(48*time.Hour),
-	)
-	if err != nil {
-		// Concurrent first submit with the same key won the race —
-		// its INSERT is the only one that succeeded. Money/stock are
-		// safe (unique constraint), but the loser needs the
-		// winner's response on the same path. Return a dedicated
-		// sentinel so the handler re-fetches the stored
-		// IdempotencyRecord and decides between true replay (201)
-		// and hash mismatch (409 IDEMPOTENCY_REPLAY).
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" &&
-			pgErr.ConstraintName == "order_idempotency_pkey" {
-			return nil, fmt.Errorf("idempotency insert: %w", ErrIdempotencyRace)
-		}
-		return nil, fmt.Errorf("insert idempotency: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("commit order: %w", err)
-	}
-
+	return nil, fmt.Errorf("failed to generate unique order code after %d attempts", maxCodeAttempts)
 	return o, nil
 }
 
@@ -444,7 +473,7 @@ func (s *PostgresStore) ListAllOrders(ctx context.Context, page, perPage int, st
 	offsetN := len(args) + 2
 
 	query := fmt.Sprintf(`
-		SELECT o.id, o.customer_id, o.type, o.total_minor, o.status,
+		SELECT o.id, o.order_code, o.customer_id, o.type, o.total_minor, o.status,
 		       o.phone,
 		       o.city, o.delivery_method, o.payment_method,
 		       o.street, o.house, o.apartment, o.comment,
@@ -468,7 +497,7 @@ func (s *PostgresStore) ListAllOrders(ctx context.Context, page, perPage int, st
 	var orderIDs []int64
 	for rows.Next() {
 		var o model.Order
-		if err := rows.Scan(&o.ID, &o.CustomerID, &o.Type, &o.TotalMinor, &o.Status,
+		if err := rows.Scan(&o.ID, &o.OrderCode, &o.CustomerID, &o.Type, &o.TotalMinor, &o.Status,
 			&o.Phone,
 			&o.City, &o.DeliveryMethod, &o.PaymentMethod,
 			&o.Street, &o.House, &o.Apartment, &o.Comment,
@@ -606,4 +635,27 @@ func OrderRequestHash(method, path, body string, customerID int64) string {
 	data := fmt.Sprintf("%s‖%s‖%s‖%d", method, path, body, customerID)
 	sum := sha256.Sum256([]byte(data))
 	return fmt.Sprintf("%x", sum)
+}
+
+// generateOrderCode produces a human-friendly, unique order code in the form
+// of two uppercase letters + hyphen + three digits (e.g. AB-017, KX-429).
+// Uniqueness is enforced by a partial unique index on orders(order_code)
+// WHERE order_code != '' (migration 019).  Concurrent inserts that pick the
+// same code get a 23505 (duplicate key) and the retry loop regenerates.
+// Codespace: 26² × 1,000 = 676,000 unique codes.
+func (s *PostgresStore) generateOrderCode(ctx context.Context, tx pgx.Tx) (string, error) {
+	const maxAttempts = 10
+	letters := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		a := letters[rand.IntN(len(letters))]
+		b := letters[rand.IntN(len(letters))]
+		code := fmt.Sprintf("%c%c-%03d", a, b, rand.IntN(1000))
+
+		// Uniqueness is guaranteed by the partial unique index —
+		// no SELECT EXISTS needed.  Two concurrent INSERTs with
+		// the same code will both attempt the INSERT; one wins,
+		// the other gets 23505 and retries.
+		return code, nil
+	}
+	return "", fmt.Errorf("failed to generate unique order code after %d attempts", maxAttempts)
 }

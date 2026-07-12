@@ -3,6 +3,8 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
+	"regexp"
 	"testing"
 	"time"
 
@@ -40,18 +42,20 @@ func TestListCustomerOrdersIsolation(t *testing.T) {
 
 	// Insert 3 orders for Alice, 2 for Bob.
 	for i := 0; i < 3; i++ {
+		code := fmt.Sprintf("AA-%03d", i+1)
 		_, err := s.pool.Exec(ctx,
-			`INSERT INTO orders (customer_id, total_minor, status) VALUES ($1, $2, 'pending')`,
-			a.ID, int64(1000+i*100),
+			`INSERT INTO orders (customer_id, total_minor, status, order_code) VALUES ($1, $2, 'pending', $3)`,
+			a.ID, int64(1000+i*100), code,
 		)
 		if err != nil {
 			t.Fatalf("insert Alice order: %v", err)
 		}
 	}
 	for i := 0; i < 2; i++ {
+		code := fmt.Sprintf("BB-%03d", i+1)
 		_, err := s.pool.Exec(ctx,
-			`INSERT INTO orders (customer_id, total_minor, status) VALUES ($1, $2, 'processing')`,
-			b.ID, int64(2000+i*100),
+			`INSERT INTO orders (customer_id, total_minor, status, order_code) VALUES ($1, $2, 'processing', $3)`,
+			b.ID, int64(2000+i*100), code,
 		)
 		if err != nil {
 			t.Fatalf("insert Bob order: %v", err)
@@ -72,6 +76,10 @@ func TestListCustomerOrdersIsolation(t *testing.T) {
 	for _, o := range orders {
 		if o.CustomerID != a.ID {
 			t.Errorf("Alice order %d has customer_id %d, want %d", o.ID, o.CustomerID, a.ID)
+		}
+		// Every order must carry a human-readable order_code (migration 019).
+		if o.OrderCode == "" {
+			t.Errorf("Alice order %d has empty order_code", o.ID)
 		}
 	}
 
@@ -197,6 +205,16 @@ func TestCreateOrderRecalculatesPrice(t *testing.T) {
 	}
 	if created.Items[1].PriceMinor != 30000 {
 		t.Errorf("item 1 PriceMinor = %d, want 30000", created.Items[1].PriceMinor)
+	}
+
+	// OrderCode: must be non-empty and match format AA-000..ZZ-999.
+	// Migration 019_order_code.sql + generateOrderCode (collision-retry loop).
+	if created.OrderCode == "" {
+		t.Error("OrderCode is empty; expected a human-readable code (e.g. AB-017)")
+	}
+	codeRx := regexp.MustCompile(`^[A-Z]{2}-\d{3}$`)
+	if !codeRx.MatchString(created.OrderCode) {
+		t.Errorf("OrderCode = %q, want format AA-000..ZZ-999", created.OrderCode)
 	}
 }
 
@@ -392,7 +410,7 @@ func TestUpdateOrderStatusValidatesEnum(t *testing.T) {
 	// Create an order directly
 	var orderID int64
 	err := s.pool.QueryRow(ctx,
-		`INSERT INTO orders (customer_id, total_minor, status) VALUES ($1, 1000, 'pending') RETURNING id`,
+		`INSERT INTO orders (customer_id, total_minor, status, order_code) VALUES ($1, 1000, 'pending', 'Z-999') RETURNING id`,
 		cust.ID).Scan(&orderID)
 	if err != nil {
 		t.Fatalf("insert order: %v", err)

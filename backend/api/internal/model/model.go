@@ -131,8 +131,9 @@ type CustomerOAuth struct {
 // Order represents a customer order. total_minor is in minor currency
 // units (kopecks/cents). Display as (total_minor / 100) with 2 decimal places.
 type Order struct {
-	ID         int64  `json:"id"`
-	CustomerID int64  `json:"customer_id"`
+	ID        int64  `json:"id"`
+	OrderCode string `json:"order_code"`
+	CustomerID int64 `json:"customer_id"`
 	Type       string `json:"type"`
 	TotalMinor int64  `json:"total_minor"`
 	Status     string `json:"status"`

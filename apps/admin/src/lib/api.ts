@@ -238,6 +238,7 @@ export const uploadImage = (file: File) => {
 
 export interface AdminOrder {
   id: number;
+  order_code: string;
   customer_id: number;
   customer_email: string;
   customer_first_name: string;
@@ -326,6 +327,7 @@ export interface AdminCustomersResponse {
 
 export interface AdminCustomerOrderSummary {
   id: number;
+  order_code: string;
   type: string;
   total_minor: number;
   status: string;
