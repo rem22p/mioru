@@ -9,12 +9,9 @@ import { SORT_OPTIONS } from "@/lib/constants";
 import {
   Plus,
   Search,
-  Filter,
   X,
-  Package,
   ChevronLeft,
   ChevronRight,
-  RefreshCw,
 } from "lucide-react";
 
 export default function Products() {
@@ -33,14 +30,13 @@ export default function Products() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
 
   const totalPages = Math.max(1, Math.ceil(total / filter.limit));
 
   useEffect(() => {
     fetchProducts();
     fetchCategories();
-  }, []);
+  }, [fetchProducts, fetchCategories]);
 
   const handleFilterChange = useCallback(
     (key: string, value: string) => {
