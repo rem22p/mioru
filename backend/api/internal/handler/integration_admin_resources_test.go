@@ -125,6 +125,29 @@ func TestIntegrationAdminCategoriesFlat(t *testing.T) {
 	if _, ok := cats[0]["parent_id"]; !ok {
 		t.Errorf("flat category entry missing parent_id key: %+v", cats[0])
 	}
+
+	// Migration 018 added Eyewear (25/26/27) — assert each is present.
+	assertFlatCategoryID(t, cats, 25, "eyewear")
+	assertFlatCategoryID(t, cats, 26, "sunglasses")
+	assertFlatCategoryID(t, cats, 27, "optical-glasses")
+}
+
+func assertFlatCategoryID(t *testing.T, cats []map[string]any, wantID int, wantSlug string) {
+	t.Helper()
+	for _, c := range cats {
+		if id, ok := c["id"]; ok {
+			switch v := id.(type) {
+			case float64:
+				if int(v) == wantID {
+					if s, _ := c["slug"].(string); s != wantSlug {
+						t.Errorf("category %d slug = %q, want %q", wantID, s, wantSlug)
+					}
+					return
+				}
+			}
+		}
+	}
+	t.Errorf("eyewear category id=%d (%s) not found in flat categories", wantID, wantSlug)
 }
 
 // TestIntegrationAdminListProducts: the admin product list paginates under the
