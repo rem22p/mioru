@@ -16,16 +16,22 @@ import {
   getImageUrl,
 } from "@/lib/api";
 import {
+  useProductDraft,
+  type DraftImageRef,
+  type DraftPayload,
+} from "@/hooks/useProductDraft";
+import UnsavedChangesDialog from "./UnsavedChangesDialog";
+import {
   X,
   Upload,
   Plus,
   Trash2,
-  Image as ImageIcon,
   Save,
   Eye,
-  GripVertical,
-  ChevronDown,
 } from "lucide-react";
+
+const IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 interface ProductFormProps {
   product: Product | null;
@@ -58,6 +64,29 @@ export default function ProductForm({
   const categoriesUnavailable = !categoriesLoading && cats.length === 0;
 
   const isEdit = !!product;
+  const draftSlot: "new" | string =
+    isEdit && product ? `edit:${product.slug}` : "new";
+  const {
+    draft,
+    hasHydrated,
+    saveDraft,
+    clearDraft,
+  } = useProductDraft(draftSlot);
+
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [uploadErrors, setUploadErrors] = useState<string[]>([]);
+  const [isDirty, setIsDirty] = useState(false);
+  const justSavedRef = useRef(false);
+  // Serialized snapshot of the pristine form, captured once after hydration.
+  // The form is "dirty" iff the live payload differs from this — so merely
+  // opening a form never marks it dirty (and never autosaves a spurious
+  // draft), while typing always does.
+  const baselineRef = useRef<string | null>(null);
+  // Tracks whether the restore-prompt has already been shown for this mount
+  // — autosave updates `draft` reference object internally, so a naive
+  // `[hasHydrated, draft]` effect pops the dialog on every keystroke.
+  const restorePromptShownRef = useRef(false);
 
   // Basic fields
   const [name, setName] = useState(product?.name || "");
@@ -126,7 +155,38 @@ export default function ProductForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrls, setPreviewUrls] = useState<Map<string, string>>(new Map());
+  const previewUrlsRef = useRef<Map<string, string>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // One blob URL per `img.id`, reused across re-renders so we don't leak a
+  // fresh `URL.createObjectURL` every pass. When an image leaves the list its
+  // URL is revoked; on unmount every remaining URL is revoked (createObjectURL
+  // allocations outlive GC of the Map).
+  useEffect(() => {
+    const prev = previewUrlsRef.current;
+    const next = new Map<string, string>();
+    for (const img of images) {
+      if (!img.file) continue;
+      // Reuse the existing URL for this id — a given id always wraps the same
+      // File, so re-creating would leak the old one.
+      next.set(img.id, prev.get(img.id) ?? URL.createObjectURL(img.file));
+    }
+    for (const [id, url] of prev) {
+      if (!next.has(id)) URL.revokeObjectURL(url);
+    }
+    previewUrlsRef.current = next;
+    setPreviewUrls(next);
+  }, [images]);
+
+  useEffect(
+    () => () => {
+      for (const url of previewUrlsRef.current.values()) {
+        URL.revokeObjectURL(url);
+      }
+    },
+    [],
+  );
 
   // Derive which criteria to show
   const selectedCategory =
@@ -142,6 +202,86 @@ export default function ProductForm({
   const showBrand = criteria.includes("brand");
   const showColor = criteria.includes("color");
   const showModel = criteria.includes("model");
+
+  // ── Draft hydration: once we've read the slot from localStorage, offer to
+  // restore the previous session's work. The dialog opens exactly ONCE per
+  // mount — ref guard defeats the autosave-driven `draft` re-flow that would
+  // otherwise pop it on every keystroke.
+  useEffect(() => {
+    if (!hasHydrated) return;
+    if (!draft) return;
+    if (restorePromptShownRef.current) return;
+    restorePromptShownRef.current = true;
+    setRestoreDialogOpen(true);
+  }, [hasHydrated, draft]);
+
+  // ── Autosave: every state change writes a debounced snapshot. Skipped
+  // mid-save so the just-cleared draft isn't recreated by the effect's own
+  // re-run.
+  useEffect(() => {
+    if (!hasHydrated) return;
+    if (justSavedRef.current) {
+      justSavedRef.current = false;
+      return;
+    }
+    const imageRefs: DraftImageRef[] = images.map((img) => ({
+      id: img.id,
+      url: img.url,
+    }));
+    const payload: DraftPayload = {
+      name,
+      slug,
+      description,
+      brand,
+      price,
+      xpReward,
+      inStock,
+      status,
+      stockQuantity,
+      selectedCategoryId,
+      color,
+      model,
+      fit,
+      material,
+      selectedSizes,
+      sizeChart,
+      careInstructions,
+      images: imageRefs,
+    };
+    const serialized = JSON.stringify(payload);
+    // First post-hydration run establishes the pristine baseline and writes
+    // nothing — opening a form must not persist a draft or arm the close-guard.
+    if (baselineRef.current === null) {
+      baselineRef.current = serialized;
+      return;
+    }
+    const dirty = serialized !== baselineRef.current;
+    setIsDirty(dirty);
+    // Persist only a real change: a form reverted to baseline stops
+    // autosaving and won't pop a spurious restore prompt next open.
+    if (dirty) saveDraft(payload);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    hasHydrated,
+    name,
+    slug,
+    description,
+    brand,
+    price,
+    xpReward,
+    inStock,
+    status,
+    stockQuantity,
+    selectedCategoryId,
+    color,
+    model,
+    fit,
+    material,
+    selectedSizes,
+    sizeChart,
+    careInstructions,
+    images,
+  ]);
 
   // Determine size options
   const getSizeOptions = (): readonly string[] => {
@@ -174,22 +314,38 @@ export default function ProductForm({
     }
   };
 
-  // Image upload
+  // Image upload — accepts PNG/JPG/WebP, surfaces failures per file instead
+  // of swallowing them. Invalid files are reported back so the admin knows
+  // exactly which ones were rejected.
   const handleImageUpload = async (files: FileList | null) => {
     if (!files) return;
+    setUploadErrors([]);
+    const newErrors: string[] = [];
+    const successes: { id: string; url: string; file: File }[] = [];
     setUploading(true);
     for (const file of Array.from(files)) {
-      if (file.type !== "image/png") continue;
+      if (!(IMAGE_MIME_TYPES as readonly string[]).includes(file.type)) {
+        newErrors.push(`${file.name}: неподдерживаемый формат (${file.type || "неизвестно"})`);
+        continue;
+      }
+      if (file.size > MAX_IMAGE_BYTES) {
+        newErrors.push(`${file.name}: больше 10 МБ`);
+        continue;
+      }
       try {
         const result = await uploadImage(file);
-        setImages((prev) => [
-          ...prev,
-          { id: `img-${Date.now()}-${Math.random()}`, url: result.url, file },
-        ]);
-      } catch {
-        // ignore
+        successes.push({
+          id: `img-${Date.now()}-${Math.random()}`,
+          url: result.url,
+          file,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "ошибка загрузки";
+        newErrors.push(`${file.name}: ${msg}`);
       }
     }
+    if (successes.length) setImages((prev) => [...prev, ...successes]);
+    setUploadErrors(newErrors);
     setUploading(false);
   };
 
@@ -278,6 +434,14 @@ export default function ProductForm({
       setError("Введите корректную цену");
       return;
     }
+    if (stockQuantity && (isNaN(Number(stockQuantity)) || Number(stockQuantity) < 0)) {
+      setError("Количество не может быть отрицательным");
+      return;
+    }
+    if (xpReward && (isNaN(Number(xpReward)) || Number(xpReward) < 0)) {
+      setError("XP награда не может быть отрицательной");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -334,6 +498,12 @@ export default function ProductForm({
       } else {
         await createProduct(fd);
       }
+      // Successful save — drop the draft and reset dirty so the close path
+      // exits without prompting.
+      justSavedRef.current = true;
+      clearDraft();
+      setIsDirty(false);
+      setImages((prev) => prev.filter((img) => !img.file));
       onSaved();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Ошибка сохранения";
@@ -342,6 +512,74 @@ export default function ProductForm({
       setSaving(false);
     }
   };
+
+  // ── Close / restore handlers ──
+  const askToClose = useCallback(() => {
+    if (isDirty) setCloseDialogOpen(true);
+    else onClose();
+  }, [isDirty, onClose]);
+
+  const handleCloseConfirm = useCallback(() => {
+    clearDraft();
+    setCloseDialogOpen(false);
+    setIsDirty(false);
+    justSavedRef.current = true;
+    onClose();
+  }, [clearDraft, onClose]);
+
+  const handleCloseCancel = useCallback(
+    () => setCloseDialogOpen(false),
+    [],
+  );
+
+  const handleRestore = useCallback(() => {
+    if (!draft) return;
+    const d = draft.data;
+    setName(d.name);
+    setSlug(d.slug);
+    setDescription(d.description);
+    setBrand(d.brand);
+    setPrice(d.price);
+    setXpReward(d.xpReward);
+    setInStock(d.inStock);
+    setStatus(d.status);
+    setStockQuantity(d.stockQuantity);
+    setSelectedCategoryId(d.selectedCategoryId);
+    setColor(d.color);
+    setModel(d.model);
+    setFit(d.fit);
+    setMaterial(d.material);
+    setSelectedSizes(d.selectedSizes);
+    setSizeChart(d.sizeChart);
+    setCareInstructions(d.careInstructions);
+    // Only persisted image references are restored — File blobs are not
+    // serialisable so newly-picked images can't survive a round-trip.
+    setImages(d.images.map((img) => ({ id: img.id, url: img.url })));
+    setIsDirty(true);
+    setRestoreDialogOpen(false);
+  }, [draft]);
+
+  const handleDiscardDraft = useCallback(() => {
+    clearDraft();
+    setRestoreDialogOpen(false);
+  }, [clearDraft]);
+
+  // Esc always asks (matches the click-outside contract) — Radix Dialog handles
+  // its own Esc when a dialog is open, and the preview overlay owns Esc while
+  // it is up (closing the preview, not the whole form).
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (closeDialogOpen || restoreDialogOpen) return;
+      if (previewOpen) {
+        setPreviewOpen(false);
+        return;
+      }
+      askToClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [askToClose, closeDialogOpen, restoreDialogOpen, previewOpen]);
 
   // Build category tree for select
   const parentCats = cats.filter((c) => c.parent_id === null);
@@ -356,7 +594,7 @@ export default function ProductForm({
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
         className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm overflow-y-auto"
-        onClick={onClose}
+        onClick={askToClose}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 40 }}
@@ -375,13 +613,16 @@ export default function ProductForm({
               <button
                 type="button"
                 onClick={() => setPreviewOpen(true)}
+                data-testid="pf-preview-open"
                 className="flex items-center gap-1.5 h-9 px-3 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-bg-secondary)] transition-colors text-sm"
               >
                 <Eye className="h-4 w-4" />
                 Предпросмотр
               </button>
               <button
-                onClick={onClose}
+                type="button"
+                onClick={askToClose}
+                data-testid="pf-close-x"
                 className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
               >
                 <X className="h-5 w-5" />
@@ -843,7 +1084,7 @@ export default function ProductForm({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/png"
+                  accept="image/png,image/jpeg,image/webp"
                   multiple
                   data-testid="pf-image-input"
                   className="hidden"
@@ -856,6 +1097,20 @@ export default function ProductForm({
                 )}
               </div>
 
+              {uploadErrors.length > 0 && (
+                <div
+                  data-testid="pf-image-errors"
+                  className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-500 space-y-1"
+                >
+                  <div className="font-semibold uppercase tracking-wider">
+                    Не удалось загрузить
+                  </div>
+                  {uploadErrors.map((msg, i) => (
+                    <div key={i}>{msg}</div>
+                  ))}
+                </div>
+              )}
+
               {images.length > 0 && (
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
                   {images.map((img, i) => (
@@ -866,7 +1121,7 @@ export default function ProductForm({
                       <img
                         src={
                           img.file
-                            ? URL.createObjectURL(img.file)
+                            ? previewUrls.get(img.id) ?? ""
                             : getImageUrl(img.url)
                         }
                         alt={`img-${i}`}
@@ -941,7 +1196,8 @@ export default function ProductForm({
             <div className="flex gap-3 justify-end pt-4 border-t border-[var(--color-border-custom)]">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={askToClose}
+                data-testid="pf-cancel"
                 className="rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-5 py-2.5 text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
               >
                 Отмена
@@ -987,6 +1243,24 @@ export default function ProductForm({
           />,
           document.body,
         )}
+
+      {/* Restore prompt fires when LS has a draft for this slot. */}
+      <UnsavedChangesDialog
+        open={restoreDialogOpen && !!draft}
+        variant="restore"
+        draftSavedAt={draft?.savedAt}
+        onConfirm={handleRestore}
+        onCancel={handleDiscardDraft}
+      />
+
+      {/* Close-without-save prompt fires when X / Cancel / outside-click / Esc
+          is attempted while there's unsaved work or a pending draft. */}
+      <UnsavedChangesDialog
+        open={closeDialogOpen}
+        variant="close"
+        onConfirm={handleCloseConfirm}
+        onCancel={handleCloseCancel}
+      />
     </>
   );
 }
