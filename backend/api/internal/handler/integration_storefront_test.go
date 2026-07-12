@@ -94,6 +94,25 @@ func TestIntegrationListCategories(t *testing.T) {
 	if len(cats) == 0 {
 		t.Error("expected seeded category tree, got 0 categories")
 	}
+
+	// Eyewear (migration 021) — walk the tree and confirm at least the
+	// „Очки“ category is discoverable under Accessories (id=16).
+	var found bool
+	var walk func([]model.Category)
+	walk = func(nodes []model.Category) {
+		for _, c := range nodes {
+			if c.Slug == "eyewear" {
+				found = true
+			}
+			if c.Children != nil {
+				walk(c.Children)
+			}
+		}
+	}
+	walk(cats)
+	if !found {
+		t.Error("category tree does not contain eyewear (slug=eyewear); migration 021 may not have been applied")
+	}
 }
 
 func TestIntegrationCustomerMeRequiresAuth(t *testing.T) {
