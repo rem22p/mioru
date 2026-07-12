@@ -71,6 +71,24 @@ func TestSeededCategoryTree(t *testing.T) {
 		}
 	}
 
+	// Category 15 (Bags / Сумки) must include "size" in its criteria so the
+	// admin product form shows the size picker and clients can select a size
+	// before checkout (migration 020_bags_size_criteria.sql).
+	for _, c := range flat {
+		if c.ID == 15 {
+			found := false
+			for _, crit := range c.Criteria {
+				if crit == "size" {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("category 15 (bags) criteria does not include 'size'; migration 020 may not have been applied")
+			}
+		}
+	}
+
 	// The tree must expose exactly the four top-level categories.
 	roots, err := s.GetCategories(ctx)
 	if err != nil {
