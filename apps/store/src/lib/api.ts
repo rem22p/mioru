@@ -292,6 +292,7 @@ export interface StoreOrderItem {
 
 export interface StoreOrder {
   id: number;
+  order_code: string;
   total_minor: number;
   status: string;
   type: string;

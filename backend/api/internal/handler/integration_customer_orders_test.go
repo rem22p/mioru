@@ -81,7 +81,7 @@ func TestIntegrationCustomerListOrdersIncludesFullDetails(t *testing.T) {
 	// the test deterministically red — Max's round-3 review (D1)
 	// caught this after the round-2 "angle B" suggestion proved wrong.
 	mustHave := []string{
-		"id", "type", "status", "total_minor",
+		"id", "order_code", "type", "status", "total_minor",
 		"phone",
 		"city", "delivery_method", "payment_method",
 		"street", "house", "apartment", "comment",
@@ -105,6 +105,11 @@ func TestIntegrationCustomerListOrdersIncludesFullDetails(t *testing.T) {
 	}
 	if got := o["payment_method"]; got != "cash" {
 		t.Errorf("payment_method = %v, want cash", got)
+	}
+
+	// order_code must be a human-readable code (e.g. A-017), not the raw numeric id.
+	if code, ok := o["order_code"].(string); !ok || code == "" {
+		t.Errorf("order_code should be a non-empty string, got %v", o["order_code"])
 	}
 
 	// Admin-only fields must be scrubbed.

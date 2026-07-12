@@ -44,12 +44,16 @@ func TestIntegrationCreateOrderHappyAndDecrementsStock(t *testing.T) {
 		t.Fatalf("CreateOrder: want 201, got %d (%s)", rr.Code, rr.Body.String())
 	}
 	var order struct {
-		ID         int64 `json:"id"`
-		TotalMinor int64 `json:"total_minor"`
+		ID         int64  `json:"id"`
+		OrderCode  string `json:"order_code"`
+		TotalMinor int64  `json:"total_minor"`
 	}
 	decode(t, rr, &order)
 	if order.ID == 0 {
 		t.Error("created order has no ID")
+	}
+	if order.OrderCode == "" {
+		t.Error("created order has no order_code (migration 019)")
 	}
 	const wantTotal = 3 * 500 * 100 // qty × priceMDL × 100 (MDL → minor units)
 	if order.TotalMinor != wantTotal {

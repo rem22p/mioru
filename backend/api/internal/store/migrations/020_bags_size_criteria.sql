@@ -1,0 +1,12 @@
+-- Add the "size" criterion to Bags (Сумки, id=15) so the admin product form
+-- shows the size section and clients can select a size before checkout.
+-- Bags use the same one-size option as Accessories (SIZE_OPTIONS_ACCESSORIES),
+-- keeping the inventory model simple (one label = "One size" with per-item
+-- stock_quantity).
+--
+-- This fixes the UX bug where bags products were un-purchasable because the
+-- storefront requires a selected size to enable "Add to Cart".
+--
+-- Pinned by TestSeededCategoryTree (criteria assertion TBD in integration test).
+-- Migration 020_bags_size_criteria.sql
+UPDATE categories SET criteria = '["size","brand","color"]' WHERE id = 15;

@@ -150,7 +150,7 @@ export default function ProductForm({
     if (path.length === 0) return [];
     const rootId = path[0];
     if (rootId === 11) return SIZE_OPTIONS_SHOES;
-    if (rootId === 16) return SIZE_OPTIONS_ACCESSORIES;
+    if (rootId === 15 || rootId === 16) return SIZE_OPTIONS_ACCESSORIES;
     if (rootId === 1 || rootId === 23) return SIZE_OPTIONS_CLOTHING;
     return [];
   };
