@@ -392,7 +392,6 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 	}
 
 	return nil, fmt.Errorf("failed to generate unique order code after %d attempts", maxCodeAttempts)
-	return o, nil
 }
 
 // GetOrderByIdempotencyKey fetches the winner's stored response on the
