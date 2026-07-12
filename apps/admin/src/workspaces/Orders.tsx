@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { fetchAdminOrders, updateOrderStatus, getImageUrl, type AdminOrder } from "@/lib/api";
 import { Package, RefreshCw, X, MapPin, Truck, CreditCard, User, Clock, ShoppingBag, Phone, Copy, Check } from "lucide-react";
@@ -58,7 +58,7 @@ export default function Orders() {
   const [copiedOrderID, setCopiedOrderID] = useState<number | null>(null);
   const perPage = 12;
 
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -75,11 +75,11 @@ export default function Orders() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, perPage, statusFilter, typeFilter]);
 
   useEffect(() => {
     loadOrders();
-  }, [page, statusFilter, typeFilter]);
+  }, [page, statusFilter, typeFilter, loadOrders]);
 
   const handleStatusChange = async (orderId: number, newStatus: string) => {
     try {

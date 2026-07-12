@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   X,
-  Star,
   Ruler,
   Check,
   ShoppingBag,
@@ -68,7 +67,6 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
   const accentBg10 = isLight ? "bg-[#44944A]/10" : "bg-[#44944A]/10";
   const accentText = "text-[#44944A]";
   const accentBorder = "border-[#44944A]";
-  const hoverBg = isLight ? "hover:bg-gray-100" : "hover:bg-[#222222]";
 
   const images = data.images.filter((img) => img.url || img.file);
   const displayImages =

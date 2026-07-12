@@ -51,7 +51,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   // Hide "users" workspace from non-super_admin
   const visibleWorkspaces = WORKSPACES.filter(
-    (ws) => ws.id !== 'users' || user?.role === 'super_admin'
+    (ws) => ws.active && (ws.id !== 'users' || user?.role === 'super_admin'),
   );
 
   useEffect(() => {
