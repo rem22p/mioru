@@ -103,7 +103,8 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   const handleIncrement = () => {
     if (isPreorder) {
       if (!preorderValid) return;
-      addItem(product, "preorder", 1, { ...measurements });
+      const size = preorderFields.length > 0 ? "preorder" : (selectedSize || "One size");
+      addItem(product, size, 1, { ...measurements });
       setAddedToCart(true);
       setTimeout(() => setAddedToCart(false), 800);
       return;
@@ -210,7 +211,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
               <div className="mt-8">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-primary)]">
-                    {isPreorder ? t("product.preorder.measurements") : t("product.size")}
+                    {isPreorder && preorderFields.length > 0 ? t("product.preorder.measurements") : t("product.size")}
                   </h3>
                   {isPreorder ? (
                     <button
@@ -230,7 +231,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                     </button>
                   )}
                 </div>
-                {isPreorder ? (
+                {isPreorder && preorderFields.length > 0 ? (
                   <div className="flex gap-3 flex-wrap">
                     {preorderFields.map((field) => (
                       <div key={field.key} className={preorderFields.length > 2 ? "w-full" : "flex-1"}>
@@ -263,13 +264,13 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-3">
-                    {product.sizes.filter(sz => sz.stock_quantity > 0).map((sz) => (
+                    {product.sizes.filter(sz => isPreorder || sz.stock_quantity > 0).map((sz) => (
                       <button
                         key={sz.label}
                         data-testid="product-size"
                         data-size={sz.label}
                         onClick={() => setSelectedSize(sz.label)}
-                        disabled={sz.stock_quantity <= 0}
+                        disabled={!isPreorder && sz.stock_quantity <= 0}
                         className={`relative rounded-xl border px-5 py-3 text-sm font-medium transition-all min-h-[44px] ${
                           selectedSize === sz.label
                           ? "border-[#44944A] bg-[#44944A] text-black"
@@ -303,7 +304,9 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   <button
                     data-testid="product-add-to-cart"
                     onClick={handleIncrement}
-                    disabled={isPreorder ? !preorderValid : (!selectedSize || soldOut)}
+                    disabled={isPreorder
+                      ? (preorderFields.length > 0 ? !preorderValid : !selectedSize)
+                      : (!selectedSize || soldOut)}
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-4 text-sm font-semibold transition-all min-h-[44px] ${
                       addedToCart
                         ? "bg-[#558b5c] text-[var(--color-text-primary)]"
