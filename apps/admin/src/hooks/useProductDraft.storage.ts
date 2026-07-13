@@ -50,7 +50,6 @@ export interface DraftPayload {
   stockQuantity: string;
   selectedCategoryId: number | "";
   color: string;
-  model: string;
   fit: string;
   material: string;
   selectedSizes: DraftSizeEntry[];

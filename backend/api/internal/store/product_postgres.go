@@ -27,10 +27,10 @@ func (s *PostgresStore) CreateProduct(ctx context.Context, p model.Product) (int
 
 	var productID int64
 	err = tx.QueryRow(ctx, `
-		INSERT INTO products (slug, category_id, brand, name, price, color, model, fit, material, care, description, xp_reward, in_stock, status, stock_quantity, created_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+		INSERT INTO products (slug, category_id, brand, name, price, color, fit, material, care, description, xp_reward, in_stock, status, stock_quantity, created_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		RETURNING id`,
-		p.Slug, p.CategoryID, p.Brand, p.Name, p.Price, p.Color, p.Model, p.Fit, p.Material, string(careJSON), p.Description, p.XPReward, inStock, p.Status, p.StockQty, p.CreatedBy,
+		p.Slug, p.CategoryID, p.Brand, p.Name, p.Price, p.Color, p.Fit, p.Material, string(careJSON), p.Description, p.XPReward, inStock, p.Status, p.StockQty, p.CreatedBy,
 	).Scan(&productID)
 	if err != nil {
 		return 0, fmt.Errorf("insert product: %w", err)
@@ -92,9 +92,9 @@ func (s *PostgresStore) UpdateProduct(ctx context.Context, slug string, p model.
 	}
 
 	_, err = tx.Exec(ctx, `
-		UPDATE products SET slug=$1, category_id=$2, brand=$3, name=$4, price=$5, color=$6, model=$7, fit=$8, material=$9, care=$10, description=$11, xp_reward=$12, in_stock=$13, status=$14, stock_quantity=$15, updated_at=NOW()
-		WHERE id=$16`,
-		p.Slug, p.CategoryID, p.Brand, p.Name, p.Price, p.Color, p.Model, p.Fit, p.Material, string(careJSON), p.Description, p.XPReward, inStock, p.Status, p.StockQty, productID,
+		UPDATE products SET slug=$1, category_id=$2, brand=$3, name=$4, price=$5, color=$6, fit=$7, material=$8, care=$9, description=$10, xp_reward=$11, in_stock=$12, status=$13, stock_quantity=$14, updated_at=NOW()
+		WHERE id=$15`,
+		p.Slug, p.CategoryID, p.Brand, p.Name, p.Price, p.Color, p.Fit, p.Material, string(careJSON), p.Description, p.XPReward, inStock, p.Status, p.StockQty, productID,
 	)
 	if err != nil {
 		return fmt.Errorf("update product: %w", err)
@@ -270,7 +270,7 @@ func (s *PostgresStore) listProductsByIDs(ctx context.Context, ids []int64) ([]m
 		var inStock int16
 		if err := rows.Scan(
 			&p.ID, &p.Slug, &p.CategoryID, &p.CategoryName,
-			&p.Brand, &p.Name, &p.Price, &p.Color, &p.Model, &p.Fit, &p.Material, &careJSON,
+			&p.Brand, &p.Name, &p.Price, &p.Color, &p.Fit, &p.Material, &careJSON,
 			&p.Description, &p.XPReward, &inStock, &p.Status, &p.StockQty, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan product: %w", err)
@@ -377,7 +377,7 @@ func (s *PostgresStore) attachImages(ctx context.Context, byID map[int64]*model.
 // productSelectBase is the shared SELECT (with category name joined) for reading
 // products. Append a WHERE clause to it. Column order matches scanProduct.
 const productSelectBase = `SELECT p.id, p.slug, p.category_id, COALESCE(c.name, '') as category_name,
-	p.brand, p.name, p.price, p.color, p.model, p.fit, p.material, p.care,
+	p.brand, p.name, p.price, p.color, p.fit, p.material, p.care,
 	p.description, p.xp_reward, p.in_stock, p.status, p.stock_quantity, p.created_by,
 	COALESCE(p.created_at::text, '') as created_at, COALESCE(p.updated_at::text, '') as updated_at
 	FROM products p
@@ -392,7 +392,7 @@ func (s *PostgresStore) queryProduct(ctx context.Context, whereClause string, ar
 	var inStock int16
 	if err := s.pool.QueryRow(ctx, query, arg).Scan(
 		&p.ID, &p.Slug, &p.CategoryID, &p.CategoryName,
-		&p.Brand, &p.Name, &p.Price, &p.Color, &p.Model, &p.Fit, &p.Material, &careJSON,
+		&p.Brand, &p.Name, &p.Price, &p.Color, &p.Fit, &p.Material, &careJSON,
 		&p.Description, &p.XPReward, &inStock, &p.Status, &p.StockQty, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
 	); err != nil {
 		if strings.Contains(err.Error(), "no rows") {

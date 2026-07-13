@@ -38,7 +38,6 @@ type Product struct {
 	Name         string         `json:"name"`
 	Price        int            `json:"price"`
 	Color        string         `json:"color"`
-	Model        string         `json:"model"`
 	Fit          string         `json:"fit"`
 	Material     string         `json:"material"`
 	Care         []string       `json:"care"`
