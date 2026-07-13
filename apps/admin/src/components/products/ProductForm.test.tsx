@@ -67,7 +67,6 @@ const emptyPayload = (over: Partial<DraftPayload> = {}): DraftPayload => ({
   stockQuantity: "",
   selectedCategoryId: "",
   color: "",
-  model: "",
   fit: "",
   material: "",
   selectedSizes: [],

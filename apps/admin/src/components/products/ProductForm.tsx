@@ -110,7 +110,6 @@ export default function ProductForm({
 
   // Dynamic fields
   const [color, setColor] = useState(product?.color || "");
-  const [model, setModel] = useState(product?.model || "");
   const [fit, setFit] = useState(product?.fit || "");
   const [material, setMaterial] = useState(product?.material || "");
 
@@ -201,7 +200,6 @@ export default function ProductForm({
   const showSize = criteria.includes("size");
   const showBrand = criteria.includes("brand");
   const showColor = criteria.includes("color");
-  const showModel = criteria.includes("model");
 
   // ── Draft hydration: once we've read the slot from localStorage, offer to
   // restore the previous session's work. The dialog opens exactly ONCE per
@@ -240,7 +238,6 @@ export default function ProductForm({
       stockQuantity,
       selectedCategoryId,
       color,
-      model,
       fit,
       material,
       selectedSizes,
@@ -274,7 +271,6 @@ export default function ProductForm({
     stockQuantity,
     selectedCategoryId,
     color,
-    model,
     fit,
     material,
     selectedSizes,
@@ -457,7 +453,6 @@ export default function ProductForm({
       fd.append("status", status);
       fd.append("stock_quantity", stockQuantity || "0");
       if (showColor || color) fd.append("color", color);
-      if (model) fd.append("model", model);
       if (fit) fd.append("fit", fit);
       if (material) fd.append("material", material);
 
@@ -546,7 +541,6 @@ export default function ProductForm({
     setStockQuantity(d.stockQuantity);
     setSelectedCategoryId(d.selectedCategoryId);
     setColor(d.color);
-    setModel(d.model);
     setFit(d.fit);
     setMaterial(d.material);
     setSelectedSizes(d.selectedSizes);
@@ -745,22 +739,6 @@ export default function ProductForm({
                     value={color}
                     onChange={(e) => setColor(e.target.value)}
                     placeholder="Чёрный, белый..."
-                    className={TEXT_FIELD_STYLE}
-                  />
-                </div>
-              )}
-
-              {/* Model — only for shoes */}
-              {showModel && (
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
-                    Модель
-                  </label>
-                  <input
-                    type="text"
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    placeholder="Air Force, Samba..."
                     className={TEXT_FIELD_STYLE}
                   />
                 </div>
