@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useCatalogStore } from "@/stores/catalogStore";
@@ -7,7 +7,7 @@ import { formatPrice } from "@/lib/currency";
 import { useFavoritesStore } from "@/stores/favoritesStore";
 import { getThumbUrl, getImageUrl } from "@/lib/api";
 import { colorHex, contrastTextFor } from "@/lib/colors";
-import { Heart, ChevronDown } from "lucide-react";
+import { Heart, ChevronDown, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import CatalogStatusToggle from "@/components/catalog/CatalogStatusToggle";
 import { Helmet } from "@dr.pogodin/react-helmet";
@@ -56,6 +56,10 @@ export default function CatalogPage() {
     brands: false,
     colors: false,
   });
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [page, setPage] = useState(1);
   // Catalog status toggle: "in_stock" (default) | "preorder". Two-state
   // (per the customer spec in JIRA) — no "All" option, the toggle is the
@@ -228,6 +232,7 @@ export default function CatalogPage() {
       sort: sortParam,
       page: String(page),
       per_page: String(PER_PAGE),
+      search: debouncedSearch || undefined,
       status,
     });
   }, [
@@ -242,6 +247,7 @@ export default function CatalogPage() {
     sortParam,
     page,
     status,
+    debouncedSearch,
   ]);
 
   // Facets follow the scope (category + price + search) only — brand/color/size
@@ -361,7 +367,7 @@ export default function CatalogPage() {
               className="mb-8"
             >
               {/* Category chips — horizontal scroll, wrap on mobile */}
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none flex-wrap sm:flex-nowrap">
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none flex-wrap sm:flex-nowrap items-center">
                 <button
                   onClick={() => handleCategoryChange("all")}
                   className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
@@ -392,6 +398,43 @@ export default function CatalogPage() {
                       </button>
                     );
                   })}
+
+              {/* Search pill — click to expand, debounced live search */}
+              {searchOpen ? (
+                <input
+                  autoFocus
+                  type="text"
+                  maxLength={200}
+                  value={searchQuery}
+                  placeholder="Поиск..."
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setSearchQuery(v);
+                    if (debounceRef.current) clearTimeout(debounceRef.current);
+                    debounceRef.current = setTimeout(() => setDebouncedSearch(v), 300);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setSearchOpen(false);
+                      setSearchQuery("");
+                      setDebouncedSearch("");
+                      setPage(1);
+                    }
+                  }}
+                  onBlur={() => {
+                    if (!searchQuery) setSearchOpen(false);
+                  }}
+                  className="shrink-0 px-4 py-2 rounded-full text-sm font-medium bg-[var(--color-bg-card)] text-[var(--color-text-primary)] border border-[#44944A] outline-none focus:ring-2 focus:ring-[#44944A]/30 placeholder:text-[var(--color-text-muted)] w-40 sm:w-48 transition-all"
+                />
+              ) : (
+                <button
+                  onClick={() => setSearchOpen(true)}
+                  className="shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all bg-[#44944A] text-white hover:bg-[#3a7d3f] flex items-center gap-2"
+                >
+                  <Search className="h-4 w-4" />
+                  <span className="hidden sm:inline">Поиск</span>
+                </button>
+              )}
               </div>
 
               {/* Subcategory chips — show when parent selected */}

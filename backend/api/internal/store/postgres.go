@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/tern/v2/migrate"
 
@@ -31,7 +32,20 @@ type PostgresStore struct {
 // NewPostgresStore creates a connection pool and runs migrations.
 // The clock defaults to time.Now; inject a fixed clock in tests.
 func NewPostgresStore(ctx context.Context, databaseURL string) (*PostgresStore, error) {
-	pool, err := pgxpool.New(ctx, databaseURL)
+	pool, err := pgxpool.NewWithConfig(ctx, func() *pgxpool.Config {
+		c, err := pgxpool.ParseConfig(databaseURL)
+		if err != nil {
+			// Fallback: ParseConfig shouldn't fail for a validated URL.
+			panic("pgxpool parse config: " + err.Error())
+		}
+		c.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+			// Lower trigram threshold so the % operator catches
+			// typos like "crhome" → "Chrome" (sim=0.27).
+			_, err := conn.Exec(ctx, "SET pg_trgm.similarity_threshold = '0.2'")
+			return err
+		}
+		return c
+	}())
 	if err != nil {
 		return nil, fmt.Errorf("pgxpool connect: %w", err)
 	}

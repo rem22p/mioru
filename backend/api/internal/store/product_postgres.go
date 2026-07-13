@@ -167,6 +167,16 @@ func (s *PostgresStore) GetProduct(ctx context.Context, slug string) (*model.Pro
 func (s *PostgresStore) ListProducts(ctx context.Context, filter model.ProductFilter) ([]model.Product, int, error) {
 	where, args, argIdx := buildProductFilterWhere(filter, 1)
 
+	// Lower trigram threshold for fuzzy search (handles typos).
+	// The AfterConnect hook (postgres.go) also sets this, but an
+	// explicit SET here is defence in depth — pgx pools may reuse
+	// connections where the session setting was reset.
+	if filter.Search != "" {
+		if _, err := s.pool.Exec(ctx, "SET pg_trgm.similarity_threshold = '0.2'"); err != nil {
+			// Non-fatal: search still works via ILIKE fallback.
+		}
+	}
+
 	// Count total
 	var total int
 	countQuery := `SELECT COUNT(*) FROM products p ` + where
@@ -507,10 +517,19 @@ func buildProductFilterWhere(filter model.ProductFilter, startIdx int) (where st
 		argIdx++
 	}
 	if filter.Search != "" {
-		where += fmt.Sprintf(" AND (p.name ILIKE $%d OR p.brand ILIKE $%d OR p.slug ILIKE $%d)", argIdx, argIdx+1, argIdx+2)
-		s := "%" + filter.Search + "%"
-		args = append(args, s, s, s)
-		argIdx += 3
+		// Defence in depth: clamp search to 200 chars (frontend maxLength
+		// also enforces this, but a direct API call could bypass it).
+		s := filter.Search
+		if len(s) > 200 {
+			s = s[:200]
+		}
+		// Trigram fuzzy match via % operator (uses GIN index) +
+		// ILIKE fallback for substrings pg_trgm might miss.
+		// Threshold 0.2 set via AfterConnect (postgres.go).
+		where += fmt.Sprintf(" AND (p.name %% $%d OR p.name ILIKE $%d OR p.brand ILIKE $%d OR p.slug ILIKE $%d)",
+			argIdx, argIdx+1, argIdx+2, argIdx+3)
+		args = append(args, s, "%"+s+"%", "%"+s+"%", "%"+s+"%")
+		argIdx += 4
 	}
 	// Brand (legacy single) + Brands (multi) collapse to a single ANY clause so
 	// the storefront can pass either without surprise.
