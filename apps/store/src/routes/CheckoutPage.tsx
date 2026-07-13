@@ -39,6 +39,7 @@ export default function CheckoutPage() {
   const items = useCartStore((state) => state.items);
   const totalPrice = useCartStore((state) => state.totalPrice());
   const clearCart = useCartStore((state) => state.clearCart);
+  const removeItem = useCartStore((state) => state.removeItem);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -551,10 +552,34 @@ export default function CheckoutPage() {
           const hasPreorder = items.some((i) => i.product.status !== "in_stock");
           if (hasInStock && hasPreorder) {
             return (
-              <div className="mt-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
-                <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
+              <div className="mt-8 p-5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <p className="text-sm text-amber-600 dark:text-amber-400 font-medium mb-3 text-center">
                   {t("checkout.mixedCart")}
                 </p>
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={() => {
+                      // Remove preorder items, keep only in-stock
+                      items.forEach((i) => {
+                        if (i.product.status !== "in_stock") removeItem(i.product.id, i.size);
+                      });
+                    }}
+                    className="rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-4 py-2 text-sm text-[var(--color-text-primary)] hover:border-[#44944A] transition-colors"
+                  >
+                    {t("checkout.mixedCart.inStockOnly")}
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Remove in-stock items, keep only preorder
+                      items.forEach((i) => {
+                        if (i.product.status === "in_stock") removeItem(i.product.id, i.size);
+                      });
+                    }}
+                    className="rounded-xl bg-[#44944A] text-black px-4 py-2 text-sm font-medium hover:bg-[#3a7d3f] transition-colors"
+                  >
+                    {t("checkout.mixedCart.preorderOnly")}
+                  </button>
+                </div>
               </div>
             );
           }

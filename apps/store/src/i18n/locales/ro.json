@@ -307,7 +307,9 @@
     "phonePlaceholder": "+373 ...",
     "phoneRequired": "Introduceți numărul de telefon",
     "useMyPhone": "Folosește numărul meu",
-    "mixedCart": "Produsele din stoc și cele la comandă trebuie comandate separat. Eliminați un tip din coș."
+    "mixedCart": "Produsele din stoc și cele la comandă trebuie comandate separat. Eliminați un tip din coș.",
+    "mixedCart.inStockOnly": "Păstrează în stoc",
+    "mixedCart.preorderOnly": "Păstrează la comandă"
   },
   "profile": {
     "title": "Contul meu",
