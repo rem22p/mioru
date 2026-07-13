@@ -289,22 +289,22 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 				seen[it.ProductID] = true
 			}
 		}
-		productMeta := make(map[int64]struct{ Name, Slug string }, len(productIDs))
+		productMeta := make(map[int64]struct{ Name, Slug, Status string }, len(productIDs))
 		rows, err := tx.Query(ctx,
-			`SELECT id, name, slug FROM products WHERE id = ANY($1)`, productIDs)
+			`SELECT id, name, slug, status FROM products WHERE id = ANY($1)`, productIDs)
 		if err != nil {
 			tx.Rollback(ctx)
 			return nil, fmt.Errorf("batch lookup products: %w", err)
 		}
 		for rows.Next() {
 			var id int64
-			var name, slug string
-			if err := rows.Scan(&id, &name, &slug); err != nil {
+			var name, slug, status string
+			if err := rows.Scan(&id, &name, &slug, &status); err != nil {
 				rows.Close()
 				tx.Rollback(ctx)
 				return nil, fmt.Errorf("scan product meta: %w", err)
 			}
-			productMeta[id] = struct{ Name, Slug string }{name, slug}
+			productMeta[id] = struct{ Name, Slug, Status string }{name, slug, status}
 		}
 		rows.Close()
 		if err := rows.Err(); err != nil {
@@ -344,8 +344,13 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 		}
 		o.Items = items
 
-		// Decrement per-size stock atomically — oversell fails the transaction
+		// Decrement per-size stock atomically — oversell fails the transaction.
+		// Preorder items skip stock check entirely (they are made to order).
 		for _, it := range items {
+			meta := productMeta[it.ProductID]
+			if meta.Status == "preorder" {
+				continue
+			}
 			tag, err := tx.Exec(ctx,
 				`UPDATE product_sizes SET stock_quantity = stock_quantity - $1
 				 WHERE product_id = $2 AND size_label = $3 AND stock_quantity >= $1`,

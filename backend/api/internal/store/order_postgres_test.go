@@ -553,3 +553,50 @@ func TestGetOrderByIdempotencyKey(t *testing.T) {
 		t.Errorf("cross-customer lookup err = %v, want pgx.ErrNoRows", err)
 	}
 }
+
+// TestCreateOrderPreorderSkipsStockCheck verifies that preorder products
+// (status='preorder', stock_quantity=0) can be ordered without triggering
+// ErrInsufficientStock.  The stock check is only relevant for in_stock items;
+// preorder items are made-to-order.
+func TestCreateOrderPreorderSkipsStockCheck(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	if err := s.CreateCustomer(ctx, model.Customer{Email: "preorder@test.com", HashedPW: "h"}); err != nil {
+		t.Fatalf("CreateCustomer: %v", err)
+	}
+	cust, _ := s.GetCustomerByEmail(ctx, "preorder@test.com")
+
+	// Insert a preorder product with zero stock directly.
+	var pid int64
+	err := s.pool.QueryRow(ctx, `
+		INSERT INTO products (slug, category_id, brand, name, price, color, status, stock_quantity, created_by)
+		VALUES ($1, 1, 'TestBrand', 'Preorder Item', 100, 'red', 'preorder', 0, 'test')
+		RETURNING id`, "preorder-test-item").Scan(&pid)
+	if err != nil {
+		t.Fatalf("insert preorder product: %v", err)
+	}
+	// product_sizes row is still required (FK constraint in order_items).
+	if _, err := s.pool.Exec(ctx,
+		`INSERT INTO product_sizes (product_id, size_label, stock_quantity) VALUES ($1, 'M', 0)`, pid); err != nil {
+		t.Fatalf("insert preorder size: %v", err)
+	}
+
+	order := &model.Order{
+		Type:           "cart",
+		City:           "Tiraspol",
+		DeliveryMethod: "personal",
+		PaymentMethod:  "cash",
+	}
+	items := []model.OrderItem{
+		{ProductID: pid, SizeLabel: "M", Quantity: 2},
+	}
+
+	created, err := s.CreateOrder(ctx, cust.ID, order, items, "preorder-key-1", "hash-pre-1")
+	if err != nil {
+		t.Fatalf("CreateOrder for preorder: %v (expected success)", err)
+	}
+	if created.ID == 0 {
+		t.Error("preorder order has no ID")
+	}
+}
