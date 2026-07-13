@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useCatalogStore } from "@/stores/catalogStore";
@@ -58,6 +58,8 @@ export default function CatalogPage() {
   });
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [page, setPage] = useState(1);
   // Catalog status toggle: "in_stock" (default) | "preorder". Two-state
   // (per the customer spec in JIRA) — no "All" option, the toggle is the
@@ -230,7 +232,7 @@ export default function CatalogPage() {
       sort: sortParam,
       page: String(page),
       per_page: String(PER_PAGE),
-      search: searchQuery || undefined,
+      search: debouncedSearch || undefined,
       status,
     });
   }, [
@@ -245,7 +247,7 @@ export default function CatalogPage() {
     sortParam,
     page,
     status,
-    searchQuery,
+    debouncedSearch,
   ]);
 
   // Facets follow the scope (category + price + search) only — brand/color/size
@@ -397,18 +399,25 @@ export default function CatalogPage() {
                     );
                   })}
 
-              {/* Search pill — click to expand, Enter to search, Esc to close */}
+              {/* Search pill — click to expand, debounced live search */}
               {searchOpen ? (
                 <input
                   autoFocus
                   type="text"
+                  maxLength={200}
                   value={searchQuery}
                   placeholder="Поиск..."
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setSearchQuery(v);
+                    if (debounceRef.current) clearTimeout(debounceRef.current);
+                    debounceRef.current = setTimeout(() => setDebouncedSearch(v), 300);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Escape") {
                       setSearchOpen(false);
                       setSearchQuery("");
+                      setDebouncedSearch("");
                       setPage(1);
                     }
                   }}

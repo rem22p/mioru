@@ -124,6 +124,10 @@ func TestListProductsFilters(t *testing.T) {
 		{"by brand", model.ProductFilter{Brand: "Nike", Sort: "name"}, []string{"sneaker-nike", "tee-nike"}},
 		{"by search name", model.ProductFilter{Search: "Cotton", Sort: "name"}, []string{"tee-acme"}},
 		{"by search slug", model.ProductFilter{Search: "sneaker", Sort: "name"}, []string{"sneaker-nike"}},
+		// Fuzzy: "cotn" is a typo of "Cotton", trigram similarity ≈ 0.3 > 0.2 threshold.
+		{"by fuzzy typo", model.ProductFilter{Search: "cotn", Sort: "name"}, []string{"tee-acme"}},
+		// Clamp: search >200 chars is truncated to 200, query still works on prefix.
+		{"clamped search", model.ProductFilter{Search: strings.Repeat("x", 250) + "Cotton", Sort: "name"}, []string{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

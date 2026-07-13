@@ -507,14 +507,18 @@ func buildProductFilterWhere(filter model.ProductFilter, startIdx int) (where st
 		argIdx++
 	}
 	if filter.Search != "" {
-		// Trigram word_similarity (matches against individual words, not
-		// the full string — "crhome" still finds "Chrome Hearts American
-		// Flag" because the similarity is computed per word).
+		// Defence in depth: clamp search to 200 chars (frontend maxLength
+		// also enforces this, but a direct API call could bypass it).
+		s := filter.Search
+		if len(s) > 200 {
+			s = s[:200]
+		}
+		// Trigram fuzzy match via % operator (uses GIN index) +
 		// ILIKE fallback for substrings pg_trgm might miss.
-		// Threshold 0.2 catches typos like "crhome" → "Chrome".
-		where += fmt.Sprintf(" AND (word_similarity($%d, p.name) > 0.2 OR p.name ILIKE $%d OR p.brand ILIKE $%d OR p.slug ILIKE $%d)",
+		// Threshold 0.2 set via AfterConnect (postgres.go).
+		where += fmt.Sprintf(" AND (p.name %% $%d OR p.name ILIKE $%d OR p.brand ILIKE $%d OR p.slug ILIKE $%d)",
 			argIdx, argIdx+1, argIdx+2, argIdx+3)
-		args = append(args, filter.Search, "%"+filter.Search+"%", "%"+filter.Search+"%", "%"+filter.Search+"%")
+		args = append(args, s, "%"+s+"%", "%"+s+"%", "%"+s+"%")
 		argIdx += 4
 	}
 	// Brand (legacy single) + Brands (multi) collapse to a single ANY clause so
