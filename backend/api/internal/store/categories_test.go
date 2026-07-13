@@ -43,6 +43,11 @@ func TestSeededCategoryTree(t *testing.T) {
 		22: {20, "pendants"},
 		23: {20, "rings"},
 		24: {16, "watches"},
+
+		// Eyewear sub-category under Accessories (added by migration 021)
+		25: {16, "eyewear"},
+		26: {25, "sunglasses"},
+		27: {25, "optical-glasses"},
 	}
 
 	flat, err := s.GetCategoriesFlat(ctx)
