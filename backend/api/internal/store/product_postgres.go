@@ -167,6 +167,16 @@ func (s *PostgresStore) GetProduct(ctx context.Context, slug string) (*model.Pro
 func (s *PostgresStore) ListProducts(ctx context.Context, filter model.ProductFilter) ([]model.Product, int, error) {
 	where, args, argIdx := buildProductFilterWhere(filter, 1)
 
+	// Lower trigram threshold for fuzzy search (handles typos).
+	// The AfterConnect hook (postgres.go) also sets this, but an
+	// explicit SET here is defence in depth — pgx pools may reuse
+	// connections where the session setting was reset.
+	if filter.Search != "" {
+		if _, err := s.pool.Exec(ctx, "SET pg_trgm.similarity_threshold = '0.2'"); err != nil {
+			// Non-fatal: search still works via ILIKE fallback.
+		}
+	}
+
 	// Count total
 	var total int
 	countQuery := `SELECT COUNT(*) FROM products p ` + where
