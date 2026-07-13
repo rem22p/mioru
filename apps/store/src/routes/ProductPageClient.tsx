@@ -94,11 +94,11 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
 
   const preorderValid =
     isPreorder &&
-    preorderFields.length > 0 &&
-    preorderFields.every((f) => {
-      const v = measurements[f.key];
-      return v !== undefined && v >= f.min && v <= f.max;
-    });
+    (preorderFields.length === 0 ||
+      preorderFields.every((f) => {
+        const v = measurements[f.key];
+        return v !== undefined && v >= f.min && v <= f.max;
+      }));
 
   const handleIncrement = () => {
     if (isPreorder) {
