@@ -31,6 +31,7 @@ Single source of truth for agents working in this repo. `AGENTS.md` is just a po
 3. Make the change → user checks
 4. User says commit → agent commits
 5. Push the branch → create a PR → user reviews and merges
+6. **Persist deferred follow-ups as a single tech-debt issue** — when a PR is approved with non-blocker findings still open (the `F3+` rows in the final review body), file one `tech-debt` issue before dropping the thread. See [Deferred follow-up backlog](#deferred-follow-up-backlog) for shape.
 
 No commits without explicit user approval; no code changes before presenting a plan.
 
@@ -40,6 +41,35 @@ No commits without explicit user approval; no code changes before presenting a p
 - **PR should reference an existing issue** (e.g. `Closes #N`).
 - **Branch is deleted after merge** (agent or user cleans up).
 - Remote: `git@github.com:rem22p/mioru.git` (SSH) for the user. The agent uses HTTPS with a temporary GitHub PAT (`repo` scope) to push feature branches and create PRs.
+
+### Deferred follow-up backlog
+
+PR-thread text is the canonical record per *"доставка findings по каналу источника: PR → review + inline + --approve"*, but it does not survive past the merge in any practical cross-session way. A deferred-LOW finding from a clean APPROVE will be invisible one merged-PR later. To stop that, file **one** `tech-debt` issue per approved PR that carries non-blocker follow-ups, before the merge button is pressed.
+
+**Body shape** (copy/paste as a starting skeleton):
+
+```markdown
+## Why
+One-paragraph recap of what was merged and why these follow-ups were deferred
+(no functional regression at merge time; non-blockers because of scope/blast radius
+or follow-up-only nature).
+
+## Checklist
+- [ ] F<N> — <severity> · <file:line> · <one-line summary>
+        fix direction: <one sentence>; falsify: <one sentence>
+- [ ] ...
+```
+
+Each check-list row carries: severity, file:line, one-line defect, fix direction, falsify instruction. **No prose paragraphs** — the reviewer iterates the list. Cite the PR by URL + review IDs (`gh pr view <N> --json reviews --jq '.reviews[] | "\(.id) \(.state)"'`) so the thread remains the audit source.
+
+**Labels:** `tech-debt` + `process`. (Pick `severity:medium` if any single row is MEDIUM+, otherwise `severity:low` covers the whole issue as a backlog block.)
+
+**Channel rules:**
+- **Bypass push to `main`** (in обход PR) — findings land as GitHub issues with severity labels. The issue-channel is the *only* legit deliverable for bypass work.
+- **Re-opened / re-pushed PR** (e.g. PR #59 → #64 carrying a renumber after collision) — re-apply the same rule before APPROVE; one issue per re-merge if the body shape shifts.
+- **Squash-merge of an APPROVED PR** — no issue needed; just confirm the deferred list survives via the new PR-thread + issue. Do **not** spawn a fresh issue on merge itself.
+
+**Reference example:** `rem22p/mioru#71` (PR #70 follow-up cleanup).
 
 ## What this is
 
