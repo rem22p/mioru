@@ -100,7 +100,6 @@ export default function Products() {
       fd.append("stock_quantity", String(full.stock_quantity));
       if (full.color) fd.append("color", full.color);
       if (full.model) fd.append("model", full.model);
-      if (full.fit) fd.append("fit", full.fit);
       if (full.material) fd.append("material", full.material);
       full.sizes.forEach((s) => fd.append("sizes[]", s));
       full.care.forEach((c) => fd.append("care[]", c));

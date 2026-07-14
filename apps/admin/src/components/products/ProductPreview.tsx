@@ -28,7 +28,6 @@ interface ProductPreviewProps {
     care: string[];
     sizes: (string | {label: string; stock_quantity: number})[];
     color: string;
-    fit: string;
     categoryName: string;
     images: { url: string; file?: File }[];
     sizeChart: {
@@ -81,19 +80,7 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
             ),
         ];
 
-  const fitLabels: Record<string, string> = {
-    slim: "Облегающий",
-    regular: "Стандартный",
-    oversized: "Оверсайз",
-    loose: "Свободный",
-  };
 
-  const fitDescs: Record<string, string> = {
-    slim: "Плотно облегает фигуру",
-    regular: "Классическая посадка",
-    oversized: "Увеличенный объём и ширина",
-    loose: "Свободный силуэт без объёма",
-  };
 
   return (
     <motion.div
@@ -370,25 +357,6 @@ export default function ProductPreview({ data, onClose }: ProductPreviewProps) {
                   <p className={`${textSecondary} leading-relaxed text-base`}>
                     {data.description || "Описание товара..."}
                   </p>
-                  {data.fit && (
-                    <div
-                      className={`mt-6 flex items-center gap-3 p-4 rounded-xl ${cardBg} border ${border}`}
-                    >
-                      <div
-                        className={`w-10 h-10 rounded-lg ${accentBg10} flex items-center justify-center shrink-0`}
-                      >
-                        <Shirt className={`h-5 w-5 ${accentText}`} />
-                      </div>
-                      <div>
-                        <p className={`text-sm font-medium ${textPrimary}`}>
-                          Крой: {fitLabels[data.fit] || data.fit}
-                        </p>
-                        <p className={`text-xs ${textSecondary} mt-0.5`}>
-                          {fitDescs[data.fit] || ""}
-                        </p>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 

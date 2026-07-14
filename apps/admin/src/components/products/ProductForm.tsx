@@ -101,16 +101,12 @@ export default function ProductForm({
   );
   const [inStock, setInStock] = useState(product?.in_stock ?? true);
   const [status, setStatus] = useState(product?.status || "in_stock");
-  const [stockQuantity, setStockQuantity] = useState(
-    product?.stock_quantity ? String(product.stock_quantity) : "0",
-  );
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | "">(
     product?.category_id || "",
   );
 
   // Dynamic fields
   const [color, setColor] = useState(product?.color || "");
-  const [fit, setFit] = useState(product?.fit || "");
   const [material, setMaterial] = useState(product?.material || "");
 
   // Sizes — per-label with stock quantity
@@ -235,10 +231,8 @@ export default function ProductForm({
       xpReward,
       inStock,
       status,
-      stockQuantity,
       selectedCategoryId,
       color,
-      fit,
       material,
       selectedSizes,
       sizeChart,
@@ -268,10 +262,8 @@ export default function ProductForm({
     xpReward,
     inStock,
     status,
-    stockQuantity,
     selectedCategoryId,
     color,
-    fit,
     material,
     selectedSizes,
     sizeChart,
@@ -430,10 +422,6 @@ export default function ProductForm({
       setError("Введите корректную цену");
       return;
     }
-    if (stockQuantity && (isNaN(Number(stockQuantity)) || Number(stockQuantity) < 0)) {
-      setError("Количество не может быть отрицательным");
-      return;
-    }
     if (xpReward && (isNaN(Number(xpReward)) || Number(xpReward) < 0)) {
       setError("XP награда не может быть отрицательной");
       return;
@@ -451,9 +439,7 @@ export default function ProductForm({
       fd.append("category_id", String(selectedCategoryId));
       fd.append("in_stock", inStock ? "1" : "0");
       fd.append("status", status);
-      fd.append("stock_quantity", stockQuantity || "0");
       if (showColor || color) fd.append("color", color);
-      if (fit) fd.append("fit", fit);
       if (material) fd.append("material", material);
 
       // Sizes
@@ -538,10 +524,8 @@ export default function ProductForm({
     setXpReward(d.xpReward);
     setInStock(d.inStock);
     setStatus(d.status);
-    setStockQuantity(d.stockQuantity);
     setSelectedCategoryId(d.selectedCategoryId);
     setColor(d.color);
-    setFit(d.fit);
     setMaterial(d.material);
     setSelectedSizes(d.selectedSizes);
     setSizeChart(d.sizeChart);
@@ -744,23 +728,6 @@ export default function ProductForm({
                 </div>
               )}
 
-              {/* Fit */}
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
-                  Посадка (fit)
-                </label>
-                <select
-                  value={fit}
-                  onChange={(e) => setFit(e.target.value)}
-                  className={TEXT_FIELD_STYLE}
-                >
-                  <option value="">Не выбрано</option>
-                  <option value="slim">Slim</option>
-                  <option value="regular">Regular</option>
-                  <option value="loose">Loose / Oversized</option>
-                  <option value="tailored">Tailored</option>
-                </select>
-              </div>
 
               {/* Material */}
               <div>
@@ -825,19 +792,6 @@ export default function ProductForm({
                     <option value="pre_order">Под заказ</option>
                     <option value="none">Нет</option>
                   </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
-                    Количество
-                  </label>
-                  <input
-                    type="number"
-                    value={stockQuantity}
-                    onChange={(e) => setStockQuantity(e.target.value)}
-                    placeholder="0"
-                    min="0"
-                    className={`${TEXT_FIELD_STYLE} font-mono`}
-                  />
                 </div>
               </div>
             </div>
@@ -1211,8 +1165,7 @@ export default function ProductForm({
               care: careInstructions,
               sizes: selectedSizes.map(s => ({label: s.label, stock_quantity: s.stock})),
               color,
-              fit,
-              categoryName: selectedCategory?.name || "",
+                      categoryName: selectedCategory?.name || "",
               images,
               sizeChart,
               inStock,

@@ -47,10 +47,8 @@ export interface DraftPayload {
   xpReward: string;
   inStock: boolean;
   status: string;
-  stockQuantity: string;
   selectedCategoryId: number | "";
   color: string;
-  fit: string;
   material: string;
   selectedSizes: DraftSizeEntry[];
   sizeChart: DraftSizeChartEntry[];

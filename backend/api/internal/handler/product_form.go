@@ -50,7 +50,6 @@ func parseProductFromForm(r *http.Request) (model.Product, error) {
 		Description: strings.TrimSpace(r.FormValue("description")),
 		Brand:       strings.TrimSpace(r.FormValue("brand")),
 		Color:       strings.TrimSpace(r.FormValue("color")),
-		Fit:         strings.TrimSpace(r.FormValue("fit")),
 		Material:    strings.TrimSpace(r.FormValue("material")),
 	}
 
