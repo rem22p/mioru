@@ -789,7 +789,7 @@ export default function ProductForm({
                     className={TEXT_FIELD_STYLE}
                   >
                     <option value="in_stock">В наличии</option>
-                    <option value="pre_order">Под заказ</option>
+                    <option value="preorder">Под заказ</option>
                     <option value="none">Нет</option>
                   </select>
                 </div>
