@@ -121,12 +121,14 @@ func TestCategoryCoverImage(t *testing.T) {
 	// stock_quantity should become the cover.
 	mustCreateProduct(t, s, model.Product{
 		Slug: "shorts-low-stock", CategoryID: 3, Brand: "X", Name: "Low", Price: 100,
-		Status: "in_stock", InStock: true, StockQty: 5,
+		Status: "in_stock", InStock: true,
+		Sizes:  []model.ProductSize{{Label: "M", StockQuantity: 5}},
 		Images: []model.ProductImage{{URL: "/uploads/low-stock.png"}},
 	})
 	mustCreateProduct(t, s, model.Product{
 		Slug: "shorts-high-stock", CategoryID: 3, Brand: "X", Name: "High", Price: 200,
-		Status: "in_stock", InStock: true, StockQty: 100,
+		Status: "in_stock", InStock: true,
+		Sizes:  []model.ProductSize{{Label: "M", StockQuantity: 100}},
 		Images: []model.ProductImage{{URL: "/uploads/high-stock.png"}},
 	})
 
