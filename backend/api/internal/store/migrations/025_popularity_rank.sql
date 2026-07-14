@@ -3,3 +3,4 @@
 -- ranks via the admin "Sort" workspace.  The storefront uses
 -- ?sort=popular which orders by popularity_rank ASC NULLS LAST.
 ALTER TABLE products ADD COLUMN IF NOT EXISTS popularity_rank INTEGER;
+CREATE INDEX IF NOT EXISTS idx_products_popularity_rank ON products (popularity_rank ASC NULLS LAST);
