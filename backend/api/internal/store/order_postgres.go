@@ -366,6 +366,20 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 			}
 		}
 
+		// Refresh products.stock_quantity from per-size totals so
+		// admin badges and cover-image ordering stay accurate.
+		for _, pid := range productIDs {
+			if _, err := tx.Exec(ctx,
+				`UPDATE products SET stock_quantity = (
+					SELECT COALESCE(SUM(stock_quantity), 0)
+					FROM product_sizes
+					WHERE product_id = $1
+				) WHERE id = $1`, pid); err != nil {
+				tx.Rollback(ctx)
+				return nil, fmt.Errorf("refresh product stock: %w", err)
+			}
+		}
+
 		// Store idempotency record
 		respBody, err := json.Marshal(o)
 		if err != nil {

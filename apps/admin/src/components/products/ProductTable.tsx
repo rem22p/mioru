@@ -222,7 +222,7 @@ export default function ProductTable({
                   <CircleCheck className="h-2.5 w-2.5" />В наличии
                   {product.stock_quantity > 0 && ` (${product.stock_quantity})`}
                 </span>
-              ) : product.status === "pre_order" ? (
+              ) : product.status === "preorder" ? (
                 <span className="inline-flex items-center gap-1 text-[10px] font-medium text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-full">
                   <Circle className="h-2.5 w-2.5" />
                   Под заказ
