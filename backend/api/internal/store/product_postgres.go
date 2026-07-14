@@ -416,7 +416,7 @@ func (s *PostgresStore) queryProduct(ctx context.Context, whereClause string, ar
 	if err := s.pool.QueryRow(ctx, query, arg).Scan(
 		&p.ID, &p.Slug, &p.CategoryID, &p.CategoryName,
 		&p.Brand, &p.Name, &p.Price, &p.Color, &p.Material, &careJSON,
-		&p.Description, &p.XPReward, &inStock, &p.Status, &p.StockQty, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
+		&p.Description, &p.XPReward, &inStock, &p.Status, &p.StockQty, &p.PopularityRank, &p.PopularityRankPreorder, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
 	); err != nil {
 		if strings.Contains(err.Error(), "no rows") {
 			return nil, nil
