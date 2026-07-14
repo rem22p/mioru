@@ -22,6 +22,11 @@ type productStore interface {
 	CreateProduct(ctx context.Context, p model.Product) (int64, error)
 	UpdateProduct(ctx context.Context, slug string, p model.Product) error
 	DeleteProduct(ctx context.Context, slug string) error
+	UpdateProductRanks(ctx context.Context, entries []struct {
+		ID   int64  `json:"id"`
+		Rank int    `json:"rank"`
+		Key  string `json:"key"`
+	}, column string) error
 	GetCategories(ctx context.Context) ([]model.Category, error)
 	GetCategoriesFlat(ctx context.Context) ([]model.Category, error)
 }
@@ -51,6 +56,7 @@ func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	filter.Search = q.Get("search")
 	filter.Brand = q.Get("brand")
+	filter.Status = q.Get("status")
 	filter.Sort = q.Get("sort")
 	if v, err := strconv.Atoi(q.Get("page")); err == nil && v > 0 {
 		filter.Page = v
@@ -283,4 +289,35 @@ func (h *ProductHandler) Categories(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(cats)
+}
+
+func writeJSONError(w http.ResponseWriter, status int, code string, msg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]string{"code": code, "error": msg})
+}
+
+// UpdateRanks handles PUT /api/admin/products/rank
+func (h *ProductHandler) UpdateRanks(w http.ResponseWriter, r *http.Request) {
+	var entries []struct {
+		ID   int64  `json:"id"`
+		Rank int    `json:"rank"`
+		Key  string `json:"key"` // "popularity_rank" or "popularity_rank_preorder"
+	}
+	if err := json.NewDecoder(r.Body).Decode(&entries); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "INVALID_JSON", "invalid JSON")
+		return
+	}
+	// Default to the main rank column for backward compat.
+	column := "popularity_rank"
+	if len(entries) > 0 && entries[0].Key == "popularity_rank_preorder" {
+		column = "popularity_rank_preorder"
+	}
+	if err := h.store.UpdateProductRanks(r.Context(), entries, column); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "RANK_UPDATE_FAILED", "failed to update ranks")
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 }

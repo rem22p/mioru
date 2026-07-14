@@ -147,6 +147,7 @@
       "preorder": "La comandă"
     },
     "sortBy": {
+      "popular": "Cele mai populare",
       "newest": "Cele mai noi",
       "priceAsc": "Preț ↑",
       "priceDesc": "Preț ↓"

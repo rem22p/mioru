@@ -207,13 +207,21 @@ func (s *PostgresStore) ListProducts(ctx context.Context, filter model.ProductFi
 			desc = true
 			col = col[1:]
 		}
-		allowedCols := map[string]bool{"created_at": true, "price": true, "name": true, "brand": true}
+		allowedCols := map[string]bool{"created_at": true, "price": true, "name": true, "brand": true, "popular": true}
 		if allowedCols[col] {
-			dir := "ASC"
-			if desc {
-				dir = "DESC"
+			if col == "popular" {
+				rankCol := "p.popularity_rank"
+				if filter.Status == "preorder" {
+					rankCol = "p.popularity_rank_preorder"
+				}
+				order = rankCol + " ASC NULLS LAST, p.id DESC"
+			} else {
+				dir := "ASC"
+				if desc {
+					dir = "DESC"
+				}
+				order = "p." + col + " " + dir
 			}
-			order = "p." + col + " " + dir
 		}
 	}
 
@@ -285,7 +293,7 @@ func (s *PostgresStore) listProductsByIDs(ctx context.Context, ids []int64) ([]m
 		if err := rows.Scan(
 			&p.ID, &p.Slug, &p.CategoryID, &p.CategoryName,
 			&p.Brand, &p.Name, &p.Price, &p.Color, &p.Material, &careJSON,
-			&p.Description, &p.XPReward, &inStock, &p.Status, &p.StockQty, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
+			&p.Description, &p.XPReward, &inStock, &p.Status, &p.StockQty, &p.PopularityRank, &p.PopularityRankPreorder, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan product: %w", err)
 		}
@@ -392,7 +400,8 @@ func (s *PostgresStore) attachImages(ctx context.Context, byID map[int64]*model.
 // products. Append a WHERE clause to it. Column order matches scanProduct.
 const productSelectBase = `SELECT p.id, p.slug, p.category_id, COALESCE(c.name, '') as category_name,
 	p.brand, p.name, p.price, p.color, p.material, p.care,
-	p.description, p.xp_reward, p.in_stock, p.status, p.stock_quantity, p.created_by,
+	p.description, p.xp_reward, p.in_stock, p.status, p.stock_quantity,
+	p.popularity_rank, p.popularity_rank_preorder, p.created_by,
 	COALESCE(p.created_at::text, '') as created_at, COALESCE(p.updated_at::text, '') as updated_at
 	FROM products p
 	LEFT JOIN categories c ON c.id = p.category_id `
@@ -407,7 +416,7 @@ func (s *PostgresStore) queryProduct(ctx context.Context, whereClause string, ar
 	if err := s.pool.QueryRow(ctx, query, arg).Scan(
 		&p.ID, &p.Slug, &p.CategoryID, &p.CategoryName,
 		&p.Brand, &p.Name, &p.Price, &p.Color, &p.Material, &careJSON,
-		&p.Description, &p.XPReward, &inStock, &p.Status, &p.StockQty, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
+		&p.Description, &p.XPReward, &inStock, &p.Status, &p.StockQty, &p.PopularityRank, &p.PopularityRankPreorder, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
 	); err != nil {
 		if strings.Contains(err.Error(), "no rows") {
 			return nil, nil
@@ -662,4 +671,27 @@ func (s *PostgresStore) ListProductFacets(ctx context.Context, filter model.Prod
 	}
 
 	return facets, nil
+}
+
+// UpdateProductRanks sets the given rank column (popularity_rank or
+// popularity_rank_preorder) for a batch of products.
+func (s *PostgresStore) UpdateProductRanks(ctx context.Context, entries []struct {
+	ID   int64  `json:"id"`
+	Rank int    `json:"rank"`
+	Key  string `json:"key"`
+}, column string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	for _, e := range entries {
+		query := fmt.Sprintf(`UPDATE products SET %s = $1 WHERE id = $2`, column)
+		if _, err := tx.Exec(ctx, query, e.Rank, e.ID); err != nil {
+			return fmt.Errorf("update rank for product %d: %w", e.ID, err)
+		}
+	}
+
+	return tx.Commit(ctx)
 }

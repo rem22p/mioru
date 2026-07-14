@@ -16,6 +16,7 @@ import {
   Bot,
   Flame,
   Lightbulb,
+  ListOrdered,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "@/stores/authStore";
@@ -33,6 +34,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Bot,
   Flame,
   Lightbulb,
+  ListOrdered,
 };
 
 interface SidebarProps {

@@ -45,6 +45,8 @@ type Product struct {
 	InStock      bool           `json:"in_stock"`
 	Status       string         `json:"status"`
 	StockQty     int            `json:"stock_quantity"`
+	PopularityRank *int         `json:"popularity_rank"`
+	PopularityRankPreorder *int `json:"popularity_rank_preorder"`
 	CreatedBy    string         `json:"created_by"`
 	CreatedAt    string         `json:"created_at"`
 	UpdatedAt    string         `json:"updated_at"`
