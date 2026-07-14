@@ -18,18 +18,6 @@ interface ListResponse {
   total: number;
 }
 
-async function saveRanks(products: Product[], ctx: RankingContext) {
-  const key = ctx === "preorder" ? "popularity_rank_preorder" : "popularity_rank";
-  const ranks = products.map((p, i) => ({ id: p.id, rank: i + 1, key }));
-  const res = await fetch("/api/admin/products/rank", {
-    method: "PUT",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(ranks),
-  });
-  if (!res.ok) throw new Error(await res.text());
-}
-
 export default function RankingWorkspace() {
   const [tab, setTab] = useState<RankingContext>("in_stock");
   const [products, setProducts] = useState<Product[]>([]);
@@ -60,7 +48,12 @@ export default function RankingWorkspace() {
     setSaved(false);
     setError("");
     try {
-      await saveRanks(products, tab);
+      const key = tab === "preorder" ? "popularity_rank_preorder" : "popularity_rank";
+      const ranks = products.map((p, i) => ({ id: p.id, rank: i + 1, key }));
+      await api("/api/admin/products/rank", {
+        method: "PUT",
+        body: JSON.stringify(ranks),
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e: any) {
