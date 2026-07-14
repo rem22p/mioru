@@ -314,7 +314,7 @@ func (h *ProductHandler) UpdateRanks(w http.ResponseWriter, r *http.Request) {
 		column = "popularity_rank_preorder"
 	}
 	if err := h.store.UpdateProductRanks(r.Context(), entries, column); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		writeJSONError(w, http.StatusInternalServerError, "failed to update ranks")
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
