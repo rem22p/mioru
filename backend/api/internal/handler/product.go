@@ -291,10 +291,10 @@ func (h *ProductHandler) Categories(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(cats)
 }
 
-func writeJSONError(w http.ResponseWriter, code int, msg string) {
+func writeJSONError(w http.ResponseWriter, status int, code string, msg string) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]string{"code": code, "error": msg})
 }
 
 // UpdateRanks handles PUT /api/admin/products/rank
@@ -305,7 +305,7 @@ func (h *ProductHandler) UpdateRanks(w http.ResponseWriter, r *http.Request) {
 		Key  string `json:"key"` // "popularity_rank" or "popularity_rank_preorder"
 	}
 	if err := json.NewDecoder(r.Body).Decode(&entries); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid JSON")
+		writeJSONError(w, http.StatusBadRequest, "INVALID_JSON", "invalid JSON")
 		return
 	}
 	// Default to the main rank column for backward compat.
@@ -314,7 +314,7 @@ func (h *ProductHandler) UpdateRanks(w http.ResponseWriter, r *http.Request) {
 		column = "popularity_rank_preorder"
 	}
 	if err := h.store.UpdateProductRanks(r.Context(), entries, column); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to update ranks")
+		writeJSONError(w, http.StatusInternalServerError, "RANK_UPDATE_FAILED", "failed to update ranks")
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
