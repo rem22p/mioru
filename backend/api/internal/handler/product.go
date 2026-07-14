@@ -56,6 +56,7 @@ func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	filter.Search = q.Get("search")
 	filter.Brand = q.Get("brand")
+	filter.Status = q.Get("status")
 	filter.Sort = q.Get("sort")
 	if v, err := strconv.Atoi(q.Get("page")); err == nil && v > 0 {
 		filter.Page = v
