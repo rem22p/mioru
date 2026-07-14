@@ -47,8 +47,8 @@ export default function CatalogPage() {
   const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
   const [selectedColors, setSelectedColors] = useState<Set<string>>(new Set());
   const [selectedSizes, setSelectedSizes] = useState<Set<string>>(new Set());
-  const [sortBy, setSortBy] = useState<"price-asc" | "price-desc" | "newest">(
-    "newest",
+  const [sortBy, setSortBy] = useState<"price-asc" | "price-desc" | "newest" | "popular">(
+    "popular",
   );
   const [dynamicFiltersOpen, setDynamicFiltersOpen] = useState(false);
   const [filterSubsectionsOpen, setFilterSubsectionsOpen] = useState({
@@ -199,6 +199,8 @@ export default function CatalogPage() {
         return "price";
       case "price-desc":
         return "-price";
+      case "popular":
+        return "popular";
       case "newest":
       default:
         return "-created_at";
@@ -646,6 +648,7 @@ export default function CatalogPage() {
                   }}
                   className="rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-4 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] transition-colors"
                 >
+                  <option value="popular">{t("catalog.sortBy.popular")}</option>
                   <option value="newest">{t("catalog.sortBy.newest")}</option>
                   <option value="price-asc">
                     {t("catalog.sortBy.priceAsc")}

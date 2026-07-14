@@ -186,6 +186,7 @@ func main() {
 	mux.Handle("GET /api/admin/products/{slug}", adminOnly(http.HandlerFunc(productH.Get)))
 	mux.Handle("PUT /api/admin/products/{slug}", adminOnly(http.HandlerFunc(productH.Update)))
 	mux.Handle("DELETE /api/admin/products/{slug}", adminOnly(http.HandlerFunc(productH.Delete)))
+	mux.Handle("PUT /api/admin/products/rank", adminOnly(http.HandlerFunc(productH.UpdateRanks)))
 
 	// Admin: Orders (admin only)
 	mux.Handle("GET /api/admin/orders", adminOnly(http.HandlerFunc(adminOrderH.ListAll)))

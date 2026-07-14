@@ -12,6 +12,7 @@ import CustomerDetail from "@/workspaces/CustomerDetail";
 import Telegram from "@/workspaces/Telegram";
 import Profile from "@/workspaces/Profile";
 import Settings from "@/workspaces/Settings";
+import RankingWorkspace from "@/workspaces/RankingWorkspace";
 import {
   Banknote,
   BarChart3,
@@ -66,6 +67,7 @@ export default function AdminLayout() {
           <Route path="/customers" element={<Customers />} />
           <Route path="/customers/:id" element={<CustomerDetail />} />
           <Route path="/telegram" element={<Telegram />} />
+          <Route path="/ranking" element={<RankingWorkspace />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />
           <Route

@@ -147,6 +147,7 @@
       "preorder": "Preorder"
     },
     "sortBy": {
+      "popular": "Most popular",
       "newest": "Newest first",
       "priceAsc": "Price ↑",
       "priceDesc": "Price ↓"

@@ -207,13 +207,17 @@ func (s *PostgresStore) ListProducts(ctx context.Context, filter model.ProductFi
 			desc = true
 			col = col[1:]
 		}
-		allowedCols := map[string]bool{"created_at": true, "price": true, "name": true, "brand": true}
+		allowedCols := map[string]bool{"created_at": true, "price": true, "name": true, "brand": true, "popular": true}
 		if allowedCols[col] {
-			dir := "ASC"
-			if desc {
-				dir = "DESC"
+			if col == "popular" {
+				order = "p.popularity_rank ASC NULLS LAST, p.id DESC"
+			} else {
+				dir := "ASC"
+				if desc {
+					dir = "DESC"
+				}
+				order = "p." + col + " " + dir
 			}
-			order = "p." + col + " " + dir
 		}
 	}
 
@@ -285,7 +289,7 @@ func (s *PostgresStore) listProductsByIDs(ctx context.Context, ids []int64) ([]m
 		if err := rows.Scan(
 			&p.ID, &p.Slug, &p.CategoryID, &p.CategoryName,
 			&p.Brand, &p.Name, &p.Price, &p.Color, &p.Material, &careJSON,
-			&p.Description, &p.XPReward, &inStock, &p.Status, &p.StockQty, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
+			&p.Description, &p.XPReward, &inStock, &p.Status, &p.StockQty, &p.PopularityRank, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan product: %w", err)
 		}
@@ -392,7 +396,8 @@ func (s *PostgresStore) attachImages(ctx context.Context, byID map[int64]*model.
 // products. Append a WHERE clause to it. Column order matches scanProduct.
 const productSelectBase = `SELECT p.id, p.slug, p.category_id, COALESCE(c.name, '') as category_name,
 	p.brand, p.name, p.price, p.color, p.material, p.care,
-	p.description, p.xp_reward, p.in_stock, p.status, p.stock_quantity, p.created_by,
+	p.description, p.xp_reward, p.in_stock, p.status, p.stock_quantity,
+	p.popularity_rank, p.created_by,
 	COALESCE(p.created_at::text, '') as created_at, COALESCE(p.updated_at::text, '') as updated_at
 	FROM products p
 	LEFT JOIN categories c ON c.id = p.category_id `
@@ -662,4 +667,23 @@ func (s *PostgresStore) ListProductFacets(ctx context.Context, filter model.Prod
 	}
 
 	return facets, nil
+}
+
+// UpdateProductRanks sets popularity_rank for a batch of products.
+// Ranks is a map of product_id → rank.  Missing IDs are untouched.
+func (s *PostgresStore) UpdateProductRanks(ctx context.Context, ranks map[int64]int) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	for id, rank := range ranks {
+		if _, err := tx.Exec(ctx,
+			`UPDATE products SET popularity_rank = $1 WHERE id = $2`, rank, id); err != nil {
+			return fmt.Errorf("update rank for product %d: %w", id, err)
+		}
+	}
+
+	return tx.Commit(ctx)
 }

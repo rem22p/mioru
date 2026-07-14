@@ -147,6 +147,7 @@
       "preorder": "Под заказ"
     },
     "sortBy": {
+      "popular": "Самые популярные",
       "newest": "Сначала новые",
       "priceAsc": "Цена ↑",
       "priceDesc": "Цена ↓"

@@ -22,6 +22,7 @@ type productStore interface {
 	CreateProduct(ctx context.Context, p model.Product) (int64, error)
 	UpdateProduct(ctx context.Context, slug string, p model.Product) error
 	DeleteProduct(ctx context.Context, slug string) error
+	UpdateProductRanks(ctx context.Context, ranks map[int64]int) error
 	GetCategories(ctx context.Context) ([]model.Category, error)
 	GetCategoriesFlat(ctx context.Context) ([]model.Category, error)
 }
@@ -283,4 +284,25 @@ func (h *ProductHandler) Categories(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(cats)
+}
+
+// UpdateRanks handles PUT /api/admin/products/rank
+func (h *ProductHandler) UpdateRanks(w http.ResponseWriter, r *http.Request) {
+	var entries []struct {
+		ID   int64 `json:"id"`
+		Rank int   `json:"rank"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&entries); err != nil {
+		http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
+		return
+	}
+	ranks := make(map[int64]int, len(entries))
+	for _, e := range entries {
+		ranks[e.ID] = e.Rank
+	}
+	if err := h.store.UpdateProductRanks(r.Context(), ranks); err != nil {
+		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
