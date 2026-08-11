@@ -5,8 +5,10 @@ import {
   fetchStoreRegister,
   fetchStoreLogout,
   fetchStoreCustomerMe,
+  fetchTelegramLogin,
   type CustomerProfile,
   type CustomerRegisterData,
+  type TelegramAuthData,
 } from "@/lib/api";
 
 interface AuthStore {
@@ -16,6 +18,7 @@ interface AuthStore {
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (data: CustomerRegisterData) => Promise<void>;
+  telegramLogin: (data: TelegramAuthData) => Promise<void>;
   logout: () => Promise<void>;
   fetchMe: () => Promise<void>;
   updateXp: (amount: number) => void;
@@ -25,14 +28,15 @@ interface AuthStore {
 function toUser(c: CustomerProfile): User {
   return {
     id: String(c.id),
-    name: [c.first_name, c.last_name].filter(Boolean).join(" ") || c.email,
-    email: c.email,
+    name: [c.first_name, c.last_name].filter(Boolean).join(" ") || c.email || (c.telegram?.username ? `@${c.telegram.username}` : ""),
+    email: c.email || (c.telegram?.username ? `@${c.telegram.username}` : null),
     firstName: c.first_name,
     lastName: c.last_name,
     phone: c.phone || "",
     avatarParams: {} as AvatarParams,
     xpBalance: 0,
     vipLevel: 0,
+    telegram: c.telegram,
   };
 }
 
@@ -89,6 +93,19 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
       await syncOnAuth();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Registration failed";
+      set({ error: msg, loading: false });
+      throw err;
+    }
+  },
+
+  telegramLogin: async (data) => {
+    set({ loading: true, error: null });
+    try {
+      const customer = await fetchTelegramLogin(data);
+      set({ user: toUser(customer), isAuthenticated: true, loading: false });
+      await syncOnAuth();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Telegram login failed";
       set({ error: msg, loading: false });
       throw err;
     }

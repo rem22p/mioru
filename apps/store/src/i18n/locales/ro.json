@@ -302,6 +302,8 @@
     "back": "Înapoi",
     "next": "Continuă",
     "confirm": "Confirmă comanda",
+    "telegramRequired": "Conectați Telegram pentru a plasa comanda. Este necesar pentru securitate și pentru a vă contacta după plată.",
+    "telegramRequiredCta": "Conectează în profil",
     "orderSummary": "Comanda",
     "total": "Total",
     "phone": "Telefon",
@@ -313,8 +315,11 @@
     "mixedCart.preorderOnly": "Păstrează la comandă"
   },
   "profile": {
-    "title": "Contul meu",
+    "title": "Profil",
     "edit": "Editează profilul",
+    "telegramLinked": "Telegram conectat",
+    "telegramNotLinked": "Telegram neconectat",
+    "telegramHint": "Conectați Telegram pentru a plasa comenzi: este necesar pentru securitate și pentru a vă contacta după plată.",
     "name": "Nume",
     "namePlaceholder": "Numele tău",
     "lastNamePlaceholder": "Prenumele tău",

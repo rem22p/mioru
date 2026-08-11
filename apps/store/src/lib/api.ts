@@ -230,6 +230,11 @@ export interface CustomerProfile {
   last_name: string;
   phone: string;
   avatar_color: string;
+  telegram?: {
+    linked: boolean;
+    username?: string;
+    first_name?: string;
+  };
 }
 
 export const fetchStoreRegister = (data: CustomerRegisterData) =>
@@ -380,6 +385,23 @@ export const fetchTelegramLogin = (data: TelegramAuthData) =>
   api<CustomerProfile>("/api/store/auth/telegram", {
     method: "POST",
     body: JSON.stringify(data),
+  });
+
+// fetchLinkOAuth binds a verified Telegram payload to the currently
+// authenticated customer (the "Подключить Telegram" button in the profile).
+export const fetchLinkOAuth = (data: TelegramAuthData) =>
+  api<{ ok: boolean }>("/api/store/customers/me/oauth", {
+    method: "POST",
+    body: JSON.stringify({
+      provider: "telegram",
+      profile_data: JSON.stringify({
+        username: data.username ?? "",
+        first_name: data.first_name,
+        last_name: data.last_name ?? "",
+        photo_url: data.photo_url ?? "",
+      }),
+      ...data,
+    }),
   });
 
 /** Map a category slug or name to an emoji icon */

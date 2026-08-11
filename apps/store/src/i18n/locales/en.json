@@ -302,6 +302,8 @@
     "back": "Back",
     "next": "Next",
     "confirm": "Confirm order",
+    "telegramRequired": "Connect Telegram to place an order. It is needed for security and to reach you after payment.",
+    "telegramRequiredCta": "Connect in profile",
     "orderSummary": "Order summary",
     "total": "Total",
     "phone": "Phone",
@@ -313,8 +315,11 @@
     "mixedCart.preorderOnly": "Keep pre-order"
   },
   "profile": {
-    "title": "My account",
+    "title": "Profile",
     "edit": "Edit profile",
+    "telegramLinked": "Telegram connected",
+    "telegramNotLinked": "Telegram not connected",
+    "telegramHint": "Connect Telegram to place orders: it is needed for security and to reach you after payment.",
     "name": "Name",
     "namePlaceholder": "Your name",
     "lastNamePlaceholder": "Your last name",

@@ -302,6 +302,8 @@
     "back": "Назад",
     "next": "Далее",
     "confirm": "Подтвердить заказ",
+    "telegramRequired": "Чтобы сделать заказ, подключите Telegram. Это нужно для безопасности и связи после оплаты.",
+    "telegramRequiredCta": "Подключить в личном кабинете",
     "orderSummary": "Заказ",
     "total": "Итого",
     "phone": "Телефон",
@@ -315,6 +317,9 @@
   "profile": {
     "title": "Личный кабинет",
     "edit": "Редактировать профиль",
+    "telegramLinked": "Telegram подключён",
+    "telegramNotLinked": "Telegram не подключён",
+    "telegramHint": "Подключите Telegram, чтобы делать заказы: это нужно для безопасности и связи после оплаты.",
     "name": "Имя",
     "namePlaceholder": "Ваше имя",
     "lastNamePlaceholder": "Ваша фамилия",
