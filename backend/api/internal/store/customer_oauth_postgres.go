@@ -97,10 +97,16 @@ func (s *PostgresStore) CreateCustomerWithOAuth(ctx context.Context, c model.Cus
 	return nil
 }
 
-// LinkOAuth attaches an OAuth provider to an existing customer. The insert is
-// idempotent: ON CONFLICT DO NOTHING makes repeated calls harmless.
+// LinkOAuth attaches an OAuth provider to an existing customer.
+//
+// Idempotent for the SAME customer: re-linking the same provider/oauth_id
+// is a no-op. But when the provider identity is already bound to a
+// DIFFERENT customer, the insert must fail loudly — otherwise the UI
+// reports "connected" while the binding never happened, and the customer
+// stays locked out of checkout (order gate) with no explanation.
+// ErrOAuthAlreadyLinked signals that case.
 func (s *PostgresStore) LinkOAuth(ctx context.Context, customerID int64, oa model.CustomerOAuth) error {
-	_, err := s.pool.Exec(ctx, `
+	tag, err := s.pool.Exec(ctx, `
 		INSERT INTO customer_oauth (customer_id, provider, oauth_id, profile_data)
 		VALUES ($1, $2, $3, $4::jsonb)
 		ON CONFLICT (provider, oauth_id) DO NOTHING`,
@@ -108,6 +114,21 @@ func (s *PostgresStore) LinkOAuth(ctx context.Context, customerID int64, oa mode
 	)
 	if err != nil {
 		return fmt.Errorf("link oauth: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		// Nothing inserted: either the same customer re-linked (fine) or
+		// the identity belongs to someone else (must surface).
+		var owner int64
+		qerr := s.pool.QueryRow(ctx,
+			`SELECT customer_id FROM customer_oauth WHERE provider = $1 AND oauth_id = $2`,
+			oa.Provider, oa.OAuthID,
+		).Scan(&owner)
+		if qerr != nil {
+			return fmt.Errorf("link oauth: resolve owner: %w", qerr)
+		}
+		if owner != customerID {
+			return ErrOAuthAlreadyLinked
+		}
 	}
 	return nil
 }

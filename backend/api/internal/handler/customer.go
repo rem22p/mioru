@@ -789,6 +789,10 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.store.LinkOAuth(r.Context(), id, oa); err != nil {
+		if errors.Is(err, store.ErrOAuthAlreadyLinked) {
+			jsonErrorCode(w, "этот Telegram уже подключён к другому аккаунту", http.StatusConflict, "CONFLICT")
+			return
+		}
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}

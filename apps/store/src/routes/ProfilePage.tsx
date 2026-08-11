@@ -21,6 +21,7 @@ export default function ProfilePage() {
   const { t } = useTranslation();
   const { user, isAuthenticated, logout } = useAuthStore();
   const [orders, setOrders] = useState<StoreOrder[]>([]);
+  const [telegramError, setTelegramError] = useState("");
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const redirect = searchParams.get("redirect");
@@ -171,17 +172,30 @@ export default function ProfilePage() {
                       botName={TELEGRAM_BOT_NAME}
                       mode="link"
                       onSuccess={() => {
+                        setTelegramError("");
                         // Re-fetch profile so the telegram block flips to "подключён"
                         // and the redirect effect (if any) fires.
                         useAuthStore.getState().fetchMe();
                       }}
                       onError={(e: Error) => {
-                        console.error("Telegram link failed", e);
+                        // The api() wrapper prefixes "[POST /api/...]" — strip it
+                        // so the user sees only the human message from the
+                        // backend envelope (e.g. "этот Telegram уже подключён…").
+                        const msg = e.message.replace(/^\[[^\]]+\]\s*/, "");
+                        setTelegramError(msg);
                       }}
                     />
                   ) : (
                     <p className="text-xs text-[var(--color-text-muted)]">
                       {t("auth.telegramNotConfigured")}
+                    </p>
+                  )}
+                  {telegramError && (
+                    <p
+                      data-testid="profile-telegram-error"
+                      className="mt-2 text-xs text-red-400"
+                    >
+                      {telegramError}
                     </p>
                   )}
                 </div>

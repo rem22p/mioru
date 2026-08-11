@@ -1,3 +1,4 @@
+import { createHmac, createHash } from "node:crypto";
 import { test, expect, type APIRequestContext } from "@playwright/test";
 
 /**
@@ -14,6 +15,13 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
  */
 
 const API = process.env.E2E_API_URL || "http://localhost:8000";
+
+// Bot token for signing the Telegram widget payload in the E2E.  The
+// backend under test verifies the signature with its own TELEGRAM_BOT_TOKEN
+// (same test stand), so the two must match.  When unset the ordering part
+// of the flow is skipped (the widget cannot be driven from Playwright —
+// it is an external iframe on oauth.telegram.org).
+const TG_BOT_TOKEN = process.env.E2E_TELEGRAM_BOT_TOKEN || "";
 
 // Matches the App-startup `GET /api/store/customers/me` (not the /orders or
 // /cart siblings) so we can wait for auth to be restored after a full reload.
@@ -36,6 +44,25 @@ async function findInStockSlug(request: APIRequestContext): Promise<string | nul
     (x) => x.in_stock && x.stock_quantity > 0 && (x.sizes?.length ?? 0) > 0,
   );
   return p?.slug ?? null;
+}
+
+// signTelegram mirrors the Login Widget's data-check-string exactly:
+// sorted keys, "key=value" joined by '\n', HMAC-SHA256 with
+// secret = SHA256(botToken), hex-encoded.  Empty optional fields are
+// excluded per the Telegram spec.  Replicated here so the E2E can bind a
+// Telegram identity through the real /me/oauth endpoint and pass
+// auth.VerifyTelegramAuth for real.
+function signTelegram(botToken: string, d: { id: number; first_name: string; username?: string; auth_date: number }): string {
+  const pairs: Record<string, string> = {
+    auth_date: String(d.auth_date),
+    first_name: d.first_name,
+    id: String(d.id),
+  };
+  if (d.username) pairs.username = d.username;
+  const keys = Object.keys(pairs).sort();
+  const dataCheck = keys.map((k) => `${k}=${pairs[k]}`).join("\n");
+  const secret = createHash("sha256").update(botToken).digest();
+  return createHmac("sha256", secret).update(dataCheck).digest("hex");
 }
 
 test.beforeAll(async ({ request }) => {
@@ -93,6 +120,44 @@ test("customer registers, adds a product to cart, and places an order", async ({
 
   // ── Cart → checkout (client-side, auth still in memory) ─────────────────
   await expect(page.getByTestId("cart-row")).toHaveCount(1);
+  await page.getByTestId("cart-checkout").click();
+
+  // ── Bind a Telegram identity so the order gate passes ───────────────────
+  // The widget is an external iframe (oauth.telegram.org) — not drivable
+  // from Playwright.  Instead we sign a payload with the same bot token
+  // the backend verifies against and hit the real /me/oauth endpoint.
+  // Without a token the ordering part of this journey is skipped.
+  test.skip(!TG_BOT_TOKEN, "E2E_TELEGRAM_BOT_TOKEN unset — cannot bind Telegram for the order gate");
+  const tgAuthDate = Math.floor(Date.now() / 1000);
+  const tgID = 420000000 + Math.floor(Math.random() * 1000000);
+  const tgUsername = `e2e_tg_${Date.now() % 100000}`;
+  const tgHash = signTelegram(TG_BOT_TOKEN, {
+    id: tgID,
+    first_name: "E2E",
+    username: tgUsername,
+    auth_date: tgAuthDate,
+  });
+  // page.request shares the browser context, so store_auth + store_csrf
+  // cookies from the registration are attached.  The CSRF header must
+  // echo the readable store_csrf cookie value (double-submit pattern).
+  const cookies = await page.context().cookies();
+  const csrf = cookies.find((c) => c.name === "store_csrf")?.value ?? "";
+  const linkResp = await page.request.post(`${API}/api/store/customers/me/oauth`, {
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+    data: {
+      provider: "telegram",
+      id: tgID,
+      first_name: "E2E",
+      username: tgUsername,
+      auth_date: tgAuthDate,
+      hash: tgHash,
+      profile_data: JSON.stringify({ username: tgUsername, first_name: "E2E" }),
+    },
+  });
+  expect(linkResp.status()).toBe(200);
+  // Re-fetch /me in the SPA so telegram.linked flips true client-side.
+  await page.reload();
+  await page.waitForResponse((r) => ME_RE.test(r.url()) && r.ok());
   await page.getByTestId("cart-checkout").click();
 
   // ── Checkout step 1: city + delivery + phone ─────────────────────
