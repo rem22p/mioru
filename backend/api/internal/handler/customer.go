@@ -731,6 +731,7 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var oauthID string
+	profileData := body.ProfileData
 
 	if body.Provider == "telegram" {
 		// Telegram requires the full signed payload — never trust a bare oauth_id.
@@ -744,6 +745,12 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 		}
 		if body.ID <= 0 {
 			jsonError(w, "некорректный Telegram ID", http.StatusBadRequest)
+			return
+		}
+		// Checked after the shape: a malformed payload is caller error either
+		// way, and unverifiable is not the same diagnosis as forged.
+		if h.botToken == "" {
+			jsonError(w, "Telegram login is not configured", http.StatusServiceUnavailable)
 			return
 		}
 
@@ -763,6 +770,21 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 		}
 
 		oauthID = fmt.Sprintf("%d", body.ID)
+		// The signature covers these fields, the client blob does not: storing
+		// the blob would let a customer label their own binding with someone
+		// else's handle, which the admin console then shows as the contact.
+		// TelegramLogin builds the record the same way.
+		profileBytes, err := json.Marshal(map[string]string{
+			"first_name": strings.TrimSpace(body.FirstName),
+			"last_name":  strings.TrimSpace(body.LastName),
+			"username":   strings.TrimSpace(body.Username),
+			"photo_url":  strings.TrimSpace(body.PhotoURL),
+		})
+		if err != nil {
+			jsonError(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		profileData = string(profileBytes)
 	} else {
 		// Non-Telegram providers use the oauth_id directly.
 		if body.OAuthID == "" {
@@ -776,8 +798,16 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 		oauthID = body.OAuthID
 	}
 
-	if len(body.ProfileData) > 2000 {
+	if len(profileData) > 2000 {
 		jsonError(w, "profile_data максимум 2000 символов", http.StatusBadRequest)
+		return
+	}
+	// The column is jsonb: an empty or malformed blob is caller error, and
+	// without this it reaches the driver as ''::jsonb and surfaces as a 500.
+	if profileData == "" {
+		profileData = "{}"
+	} else if !json.Valid([]byte(profileData)) {
+		jsonErrorCode(w, "profile_data должен быть корректным JSON", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
 
@@ -785,7 +815,7 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 		CustomerID:  id,
 		Provider:    body.Provider,
 		OAuthID:     oauthID,
-		ProfileData: body.ProfileData,
+		ProfileData: profileData,
 	}
 
 	if err := h.store.LinkOAuth(r.Context(), id, oa); err != nil {
