@@ -35,8 +35,8 @@ export default function RankingWorkspace() {
         `/api/admin/products?per_page=200&sort=popular${statusParam}`
       );
       setProducts(data.products || []);
-    } catch (e: any) {
-      setError(e?.message || "Ошибка загрузки");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка загрузки");
     }
     setLoading(false);
   }, [tab]);
@@ -56,8 +56,8 @@ export default function RankingWorkspace() {
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch (e: any) {
-      setError(e?.message || "Ошибка сохранения");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка сохранения");
     }
     setSaving(false);
   };
