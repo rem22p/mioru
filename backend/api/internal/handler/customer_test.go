@@ -69,6 +69,11 @@ func (f *fakeCustomerStore) CreateCustomerWithOAuth(ctx context.Context, c model
 func (f *fakeCustomerStore) LinkOAuth(ctx context.Context, customerID int64, oa model.CustomerOAuth) error {
 	return nil
 }
+func (f *fakeCustomerStore) GetCustomerOAuth(ctx context.Context, customerID int64) ([]model.CustomerOAuth, error) {
+	// Default: a telegram link exists, so CreateOrder passes the gate.
+	// Tests that exercise the gate override this in their own fake.
+	return []model.CustomerOAuth{{Provider: "telegram", OAuthID: "tg-1"}}, nil
+}
 func (f *fakeCustomerStore) ListCustomerOrders(ctx context.Context, customerID int64, page, perPage int) ([]model.Order, int, error) {
 	return nil, 0, nil
 }

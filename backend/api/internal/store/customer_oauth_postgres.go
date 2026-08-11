@@ -111,3 +111,33 @@ func (s *PostgresStore) LinkOAuth(ctx context.Context, customerID int64, oa mode
 	}
 	return nil
 }
+
+// GetCustomerOAuth returns the OAuth links for a customer. Returns an empty
+// slice when the customer has none. Used by /me and the order gate to expose
+// the Telegram binding status.
+func (s *PostgresStore) GetCustomerOAuth(ctx context.Context, customerID int64) ([]model.CustomerOAuth, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, customer_id, provider, oauth_id,
+			COALESCE(profile_data::text, '{}') as profile_data,
+			COALESCE(created_at::text, '') as created_at
+		FROM customer_oauth
+		WHERE customer_id = $1
+		ORDER BY id`, customerID)
+	if err != nil {
+		return nil, fmt.Errorf("list customer oauth: %w", err)
+	}
+	defer rows.Close()
+
+	out := []model.CustomerOAuth{}
+	for rows.Next() {
+		var oa model.CustomerOAuth
+		if err := rows.Scan(&oa.ID, &oa.CustomerID, &oa.Provider, &oa.OAuthID, &oa.ProfileData, &oa.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan customer oauth: %w", err)
+		}
+		out = append(out, oa)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate customer oauth: %w", err)
+	}
+	return out, nil
+}

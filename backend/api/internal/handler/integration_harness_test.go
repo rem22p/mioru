@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -120,6 +121,10 @@ type session struct {
 }
 
 // customerSession creates a customer row and mints a real customer JWT cookie.
+// The customer gets a Telegram binding so order-related tests pass the
+// TELEGRAM_REQUIRED gate by default. Tests that exercise the gate itself
+// build a customer without a binding directly (see
+// TestIntegrationCreateOrderRequiresTelegram).
 func (e *env) customerSession(t *testing.T, email string) (*session, int64) {
 	t.Helper()
 	ctx := context.Background()
@@ -129,6 +134,13 @@ func (e *env) customerSession(t *testing.T, email string) (*session, int64) {
 	c, err := e.st.GetCustomerByEmail(ctx, email)
 	if err != nil || c == nil {
 		t.Fatalf("GetCustomerByEmail: %v / %v", c, err)
+	}
+	if err := e.st.LinkOAuth(ctx, c.ID, model.CustomerOAuth{
+		Provider:    "telegram",
+		OAuthID:     fmt.Sprintf("tg-%d", c.ID),
+		ProfileData: `{"username":"testuser","first_name":"Test"}`,
+	}); err != nil {
+		t.Fatalf("LinkOAuth(telegram): %v", err)
 	}
 	tok, err := auth.CreateToken(strconv.FormatInt(c.ID, 10), auth.TokenTypeCustomer, testSecret, tokenExpiryMin)
 	if err != nil {

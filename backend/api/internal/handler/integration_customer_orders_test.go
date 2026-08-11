@@ -14,10 +14,14 @@
 package handler_test
 
 import (
+	"context"
 	"net/http"
+	"strconv"
 	"testing"
 
+	"mioru/internal/auth"
 	"mioru/internal/cookieauth"
+	"mioru/internal/model"
 )
 
 func TestIntegrationCustomerListOrdersIncludesFullDetails(t *testing.T) {
@@ -152,4 +156,45 @@ func mapKeys(m map[string]any) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+// TestIntegrationCreateOrderRequiresTelegram pins the order gate: a customer
+// without a Telegram binding gets 403 TELEGRAM_REQUIRED, not a created order.
+// The customer is built directly (no customerSession helper) so no Telegram
+// link exists.
+func TestIntegrationCreateOrderRequiresTelegram(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	if err := e.st.CreateCustomer(ctx, model.Customer{Email: "notg@ex.com", HashedPW: "x", FirstName: "T"}); err != nil {
+		t.Fatalf("CreateCustomer: %v", err)
+	}
+	c, err := e.st.GetCustomerByEmail(ctx, "notg@ex.com")
+	if err != nil || c == nil {
+		t.Fatalf("GetCustomerByEmail: %v / %v", c, err)
+	}
+	tok, err := auth.CreateToken(strconv.FormatInt(c.ID, 10), auth.TokenTypeCustomer, testSecret, tokenExpiryMin)
+	if err != nil {
+		t.Fatalf("CreateToken: %v", err)
+	}
+	sess := &session{
+		authCookie: &http.Cookie{Name: cookieauth.StoreAuthCookie, Value: tok},
+		csrfValue:  "csrf-customer-token",
+	}
+
+	pid := seedProduct(t, e, "order-no-tg", 500, 10)
+	rr := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+		reqOpts{
+			sess:           sess,
+			csrfCookieName: cookieauth.StoreCSRFCookie,
+			idempotencyKey: "key-notg-1",
+			body:           orderBody(pid, 1),
+		})
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("order without telegram: want 403, got %d (body %q)", rr.Code, rr.Body.String())
+	}
+	var env errEnvelope
+	decode(t, rr, &env)
+	if env.Code != "TELEGRAM_REQUIRED" {
+		t.Fatalf("order without telegram: want code TELEGRAM_REQUIRED, got %q", env.Code)
+	}
 }

@@ -41,6 +41,7 @@ type customerStore interface {
 	GetCustomerByOAuth(ctx context.Context, provider, oauthID string) (*model.Customer, *model.CustomerOAuth, error)
 	CreateCustomerWithOAuth(ctx context.Context, c model.Customer, oa model.CustomerOAuth) error
 	LinkOAuth(ctx context.Context, customerID int64, oa model.CustomerOAuth) error
+	GetCustomerOAuth(ctx context.Context, customerID int64) ([]model.CustomerOAuth, error)
 
 	// Orders
 	ListCustomerOrders(ctx context.Context, customerID int64, page, perPage int) ([]model.Order, int, error)
@@ -121,16 +122,65 @@ type linkOAuthReq struct {
 	Hash      string `json:"hash"`
 }
 
+// customerTelegramResp is the Telegram binding info in /me responses.
+type customerTelegramResp struct {
+	Linked    bool   `json:"linked"`
+	Username  string `json:"username,omitempty"`
+	FirstName string `json:"first_name,omitempty"`
+}
+
 // customerProfileResp is returned by Register/Login: a small public profile
 // of the authenticated customer. The session itself lives in HttpOnly cookies
 // set on the same response — no token is exposed in JSON (XSS-exfil guard).
 type customerProfileResp struct {
-	ID          int64  `json:"id"`
-	Email       string `json:"email"`
-	FirstName   string `json:"first_name"`
-	LastName    string `json:"last_name"`
-	Phone       string `json:"phone"`
-	AvatarColor string `json:"avatar_color"`
+	ID          int64               `json:"id"`
+	Email       string              `json:"email"`
+	FirstName   string              `json:"first_name"`
+	LastName    string              `json:"last_name"`
+	Phone       string              `json:"phone"`
+	AvatarColor string              `json:"avatar_color"`
+	Telegram    *customerTelegramResp `json:"telegram"`
+}
+
+// telegramSummary extracts the telegram binding from the customer's OAuth
+// links. Returns nil when not linked. Callers that already hold the OAuth
+// list reuse it; otherwise they fetch it.
+func telegramSummary(links []model.CustomerOAuth) *customerTelegramResp {
+	for _, oa := range links {
+		if oa.Provider != "telegram" {
+			continue
+		}
+		sum := &customerTelegramResp{Linked: true}
+		var profile struct {
+			Username  string `json:"username"`
+			FirstName string `json:"first_name"`
+		}
+		// profile_data is best-effort; a missing username is fine.
+		_ = json.Unmarshal([]byte(oa.ProfileData), &profile)
+		sum.Username = profile.Username
+		sum.FirstName = profile.FirstName
+		return sum
+	}
+	return &customerTelegramResp{Linked: false}
+}
+
+// customerProfile builds the profile response for a customer, attaching the
+// Telegram binding status. Returns an error only on store failure.
+func (h *CustomerHandler) customerProfile(ctx context.Context, cust *model.Customer) (customerProfileResp, error) {
+	resp := customerProfileResp{
+		ID:          cust.ID,
+		Email:       cust.Email,
+		FirstName:   cust.FirstName,
+		LastName:    cust.LastName,
+		Phone:       cust.Phone,
+		AvatarColor: cust.AvatarColor,
+	}
+	links, err := h.store.GetCustomerOAuth(ctx, cust.ID)
+	if err != nil {
+		return resp, err
+	}
+	resp.Telegram = telegramSummary(links)
+	return resp, nil
 }
 
 // ── Handlers ──
@@ -221,6 +271,7 @@ func (h *CustomerHandler) Register(w http.ResponseWriter, r *http.Request) {
 		LastName:    cust.LastName,
 		Phone:       cust.Phone,
 		AvatarColor: cust.AvatarColor,
+		Telegram:    &customerTelegramResp{Linked: false},
 	})
 }
 
@@ -279,6 +330,7 @@ func (h *CustomerHandler) Login(w http.ResponseWriter, r *http.Request) {
 		LastName:    cust.LastName,
 		Phone:       cust.Phone,
 		AvatarColor: cust.AvatarColor,
+		Telegram:    &customerTelegramResp{Linked: false},
 	})
 }
 
@@ -300,15 +352,14 @@ func (h *CustomerHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	resp, err := h.customerProfile(r.Context(), cust)
+	if err != nil {
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"id":           cust.ID,
-		"email":        cust.Email,
-		"first_name":   cust.FirstName,
-		"last_name":    cust.LastName,
-		"phone":        cust.Phone,
-		"avatar_color": cust.AvatarColor,
-	})
+	json.NewEncoder(w).Encode(resp)
 }
 
 func (h *CustomerHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
@@ -518,6 +569,7 @@ func (h *CustomerHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) 
 			LastName:    cust.LastName,
 			Phone:       cust.Phone,
 			AvatarColor: cust.AvatarColor,
+			Telegram:    &customerTelegramResp{Linked: true, Username: req.Username, FirstName: req.FirstName},
 		})
 		return
 	}
@@ -565,6 +617,7 @@ func (h *CustomerHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) 
 				LastName:    cust.LastName,
 				Phone:       cust.Phone,
 				AvatarColor: cust.AvatarColor,
+				Telegram:    &customerTelegramResp{Linked: true, Username: req.Username, FirstName: req.FirstName},
 			})
 			return
 		}
@@ -593,6 +646,7 @@ func (h *CustomerHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) 
 		LastName:    cust.LastName,
 		Phone:       cust.Phone,
 		AvatarColor: cust.AvatarColor,
+		Telegram:    &customerTelegramResp{Linked: true, Username: req.Username, FirstName: req.FirstName},
 	})
 }
 
@@ -743,6 +797,17 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"ok":true}`))
 }
 
+// hasTelegram reports whether the customer's OAuth links include a Telegram
+// binding. Used by the CreateOrder gate.
+func hasTelegram(links []model.CustomerOAuth) bool {
+	for _, oa := range links {
+		if oa.Provider == "telegram" {
+			return true
+		}
+	}
+	return false
+}
+
 // CreateOrder handles POST /api/store/orders — creates an order from checkout
 // or individual order form. Requires customer auth + CSRF.
 //
@@ -750,6 +815,20 @@ func (h *CustomerHandler) LinkOAuth(w http.ResponseWriter, r *http.Request) {
 // by product_id and recalculates price_minor and total_minor.
 func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	customerID := middleware.CustomerID(r)
+
+	// Telegram is required to place an order: the customer must have a
+	// verified Telegram binding before they can check out. This is the
+	// backend gate — the storefront disables the button and explains,
+	// but the API enforces it (architectural integrity).
+	links, err := h.store.GetCustomerOAuth(r.Context(), customerID)
+	if err != nil {
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if !hasTelegram(links) {
+		jsonErrorCode(w, "подключите Telegram, чтобы сделать заказ", http.StatusForbidden, "TELEGRAM_REQUIRED")
+		return
+	}
 
 	// Limit body size before reading (defence in depth — JSON bodies capped at 1 MiB)
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
