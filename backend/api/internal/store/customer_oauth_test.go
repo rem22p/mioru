@@ -221,3 +221,21 @@ func TestLinkOAuth_AlreadyLinkedToOtherCustomer(t *testing.T) {
 		t.Fatalf("binding moved to wrong customer: got %d want %d", got.ID, got1.ID)
 	}
 }
+
+// The order gate reads customer_oauth by customer_id on every checkout, and
+// Postgres does not index a FK on its own: without 027 that read is a seq scan.
+func TestCustomerOAuthIndexedByCustomer(t *testing.T) {
+	s := testStore(t)
+
+	var n int
+	err := s.pool.QueryRow(t.Context(),
+		`SELECT count(*) FROM pg_indexes
+		 WHERE tablename = 'customer_oauth' AND indexdef LIKE '%(customer_id%'`,
+	).Scan(&n)
+	if err != nil {
+		t.Fatalf("read pg_indexes: %v", err)
+	}
+	if n == 0 {
+		t.Error("no index leading with customer_id on customer_oauth")
+	}
+}
