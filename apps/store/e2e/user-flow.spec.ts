@@ -122,6 +122,9 @@ test("customer registers, adds a product to cart, and places an order", async ({
   await expect(page.getByTestId("cart-row")).toHaveCount(1);
   await page.getByTestId("cart-checkout").click();
 
+  // Unlinked customer lands on checkout with the order gate visible.
+  await expect(page.getByTestId("checkout-telegram-required")).toBeVisible();
+
   // ── Bind a Telegram identity so the order gate passes ───────────────────
   // The widget is an external iframe (oauth.telegram.org) — not drivable
   // from Playwright.  Instead we sign a payload with the same bot token
@@ -155,10 +158,13 @@ test("customer registers, adds a product to cart, and places an order", async ({
     },
   });
   expect(linkResp.status()).toBe(200);
-  // Re-fetch /me in the SPA so telegram.linked flips true client-side.
-  await page.reload();
-  await page.waitForResponse((r) => ME_RE.test(r.url()) && r.ok());
+  // Re-enter from the cart, not `reload()`: reloading /checkout bounces to
+  // /profile because `isAuthenticated` starts false and the page guard fires
+  // before GET /me resolves. The link's href is the rendered proof auth is back.
+  await page.goto("/cart");
+  await expect(page.getByTestId("cart-checkout")).toHaveAttribute("href", "/checkout");
   await page.getByTestId("cart-checkout").click();
+  await expect(page.getByTestId("checkout-telegram-required")).toHaveCount(0);
 
   // ── Checkout step 1: city + delivery + phone ─────────────────────
   // Tiraspol allows the free "personal" pickup method.
