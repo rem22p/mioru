@@ -80,6 +80,10 @@ jobs:
         run: npm run lint
 
       - name: Build
+        env:
+          # vite.config refuses a production build without it; any non-empty
+          # handle satisfies the guard — no widget is driven in this job.
+          VITE_TELEGRAM_BOT_NAME: mioru_ci_bot
         run: npm run build
 
       - name: Unit tests (vitest)
