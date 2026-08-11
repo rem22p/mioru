@@ -133,12 +133,12 @@ type customerTelegramResp struct {
 // of the authenticated customer. The session itself lives in HttpOnly cookies
 // set on the same response — no token is exposed in JSON (XSS-exfil guard).
 type customerProfileResp struct {
-	ID          int64               `json:"id"`
-	Email       string              `json:"email"`
-	FirstName   string              `json:"first_name"`
-	LastName    string              `json:"last_name"`
-	Phone       string              `json:"phone"`
-	AvatarColor string              `json:"avatar_color"`
+	ID          int64                 `json:"id"`
+	Email       string                `json:"email"`
+	FirstName   string                `json:"first_name"`
+	LastName    string                `json:"last_name"`
+	Phone       string                `json:"phone"`
+	AvatarColor string                `json:"avatar_color"`
 	Telegram    *customerTelegramResp `json:"telegram"`
 }
 
@@ -322,16 +322,16 @@ func (h *CustomerHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Bindings come from the store: the SPA seeds auth state from this body and
+	// only refetches /me on a cold start, so a stale linked:false gates checkout.
+	resp, err := h.customerProfile(r.Context(), cust)
+	if err != nil {
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(customerProfileResp{
-		ID:          cust.ID,
-		Email:       cust.Email,
-		FirstName:   cust.FirstName,
-		LastName:    cust.LastName,
-		Phone:       cust.Phone,
-		AvatarColor: cust.AvatarColor,
-		Telegram:    &customerTelegramResp{Linked: false},
-	})
+	json.NewEncoder(w).Encode(resp)
 }
 
 // Logout clears the storefront session cookies. Mount behind CSRF — without

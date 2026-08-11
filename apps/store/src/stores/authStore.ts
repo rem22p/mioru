@@ -36,7 +36,11 @@ function toUser(c: CustomerProfile): User {
     avatarParams: {} as AvatarParams,
     xpBalance: 0,
     vipLevel: 0,
-    telegram: c.telegram,
+    telegram: c.telegram && {
+      linked: c.telegram.linked,
+      username: c.telegram.username,
+      firstName: c.telegram.first_name,
+    },
   };
 }
 

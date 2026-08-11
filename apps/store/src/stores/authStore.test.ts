@@ -128,3 +128,44 @@ describe("pushCartToServer", () => {
     expect(api.saveCustomerCart).not.toHaveBeenCalled();
   });
 });
+
+describe("telegram binding mapping", () => {
+  // The wire uses snake_case (first_name); the User type uses camelCase.
+  // Passing the payload through unmapped silently loses the name and the
+  // profile renders "—" for accounts without a @username.
+  it("maps first_name from the wire onto telegram.firstName", async () => {
+    vi.mocked(api.fetchStoreLogin).mockResolvedValue({
+      ...profile,
+      telegram: { linked: true, first_name: "Neo" },
+    });
+
+    await useAuthStore.getState().login("a@b.c", "pw");
+
+    const tg = useAuthStore.getState().user?.telegram;
+    expect(tg?.linked).toBe(true);
+    expect(tg?.firstName).toBe("Neo");
+  });
+
+  it("keeps username and linked=false from /me", async () => {
+    vi.mocked(api.fetchStoreCustomerMe).mockResolvedValue({
+      ...profile,
+      telegram: { linked: false },
+    });
+
+    await useAuthStore.getState().fetchMe();
+
+    expect(useAuthStore.getState().user?.telegram).toEqual({
+      linked: false,
+      username: undefined,
+      firstName: undefined,
+    });
+  });
+
+  it("leaves telegram undefined when the backend omits it", async () => {
+    vi.mocked(api.fetchStoreLogin).mockResolvedValue(profile);
+
+    await useAuthStore.getState().login("a@b.c", "pw");
+
+    expect(useAuthStore.getState().user?.telegram).toBeUndefined();
+  });
+});

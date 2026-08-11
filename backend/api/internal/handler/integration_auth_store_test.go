@@ -1,10 +1,12 @@
 package handler_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
 	"mioru/internal/cookieauth"
+	"mioru/internal/model"
 )
 
 const goodPassword = "Tr0ub4dourX9"
@@ -137,5 +139,74 @@ func TestIntegrationCustomerLogoutCSRFGate(t *testing.T) {
 		reqOpts{sess: sess, csrfCookieName: cookieauth.StoreCSRFCookie})
 	if ok.Code != http.StatusOK {
 		t.Errorf("logout valid CSRF: want 200, got %d (%s)", ok.Code, ok.Body.String())
+	}
+}
+
+// TestIntegrationCustomerLoginReportsTelegramBinding pins the login payload
+// against the storefront contract: the SPA seeds its auth state straight from
+// this body and only refetches /me on a cold start, so a stale linked:false
+// here locks a customer with a valid binding out of checkout.
+func TestIntegrationCustomerLoginReportsTelegramBinding(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+
+	reg := e.do(t, http.HandlerFunc(e.customerH.Register), http.MethodPost, "/api/store/auth/register",
+		reqOpts{body: registerBody("tg-bound@ex.com")})
+	if reg.Code != http.StatusCreated {
+		t.Fatalf("register: want 201, got %d (%s)", reg.Code, reg.Body.String())
+	}
+	c, err := e.st.GetCustomerByEmail(ctx, "tg-bound@ex.com")
+	if err != nil || c == nil {
+		t.Fatalf("GetCustomerByEmail: %v / %v", c, err)
+	}
+	if err := e.st.LinkOAuth(ctx, c.ID, model.CustomerOAuth{
+		Provider:    "telegram",
+		OAuthID:     "tg-login-contract",
+		ProfileData: `{"username":"neo","first_name":"Neo"}`,
+	}); err != nil {
+		t.Fatalf("LinkOAuth(telegram): %v", err)
+	}
+
+	rr := e.do(t, http.HandlerFunc(e.customerH.Login), http.MethodPost, "/api/store/auth/login",
+		reqOpts{body: map[string]any{"email": "tg-bound@ex.com", "password": goodPassword}})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("login: want 200, got %d (%s)", rr.Code, rr.Body.String())
+	}
+	var prof struct {
+		Telegram *struct {
+			Linked    bool   `json:"linked"`
+			Username  string `json:"username"`
+			FirstName string `json:"first_name"`
+		} `json:"telegram"`
+	}
+	decode(t, rr, &prof)
+	if prof.Telegram == nil {
+		t.Fatalf("login response carries no telegram field: %s", rr.Body.String())
+	}
+	if !prof.Telegram.Linked {
+		t.Fatalf("login telegram.linked = false, want true (%s)", rr.Body.String())
+	}
+	if prof.Telegram.Username != "neo" || prof.Telegram.FirstName != "Neo" {
+		t.Errorf("telegram summary = %+v, want username=neo first_name=Neo", *prof.Telegram)
+	}
+}
+
+// TestIntegrationCustomerRegisterReportsNoTelegram is the counterpart: a fresh
+// account has no binding, so the storefront must gate checkout.
+func TestIntegrationCustomerRegisterReportsNoTelegram(t *testing.T) {
+	e := newEnv(t)
+	rr := e.do(t, http.HandlerFunc(e.customerH.Register), http.MethodPost, "/api/store/auth/register",
+		reqOpts{body: registerBody("tg-unbound@ex.com")})
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("register: want 201, got %d (%s)", rr.Code, rr.Body.String())
+	}
+	var prof struct {
+		Telegram *struct {
+			Linked bool `json:"linked"`
+		} `json:"telegram"`
+	}
+	decode(t, rr, &prof)
+	if prof.Telegram == nil || prof.Telegram.Linked {
+		t.Errorf("register telegram = %+v, want linked=false", prof.Telegram)
 	}
 }
