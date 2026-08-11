@@ -48,6 +48,11 @@ export default function CustomOrderPage() {
     }
   }, [isAuthenticated, navigate]);
 
+  // Same gate as CheckoutPage: this form posts to the same POST /api/store/orders,
+  // which answers 403 TELEGRAM_REQUIRED — and does so only after the photos have
+  // already been uploaded, leaving them orphaned in UPLOAD_DIR on every retry.
+  const telegramLinked = Boolean(user?.telegram?.linked);
+
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [height, setHeight] = useState("");
@@ -120,6 +125,10 @@ export default function CustomOrderPage() {
     e.preventDefault();
     setTouched({ photos: true, body: true, phone: true, city: true, deliveryMethod: true });
     if (!validate()) return;
+    if (!telegramLinked) {
+      navigate("/profile?redirect=/custom-order", { replace: true });
+      return;
+    }
 
     setSubmitting(true);
     setSubmitError("");
@@ -531,11 +540,27 @@ export default function CustomOrderPage() {
 
             {/* Submit */}
             {submitError && (
-              <p className="text-sm text-red-400 text-center">{submitError}</p>
+              <p data-testid="custom-order-error" className="text-sm text-red-400 text-center">{submitError}</p>
+            )}
+            {!telegramLinked && (
+              <div
+                data-testid="custom-order-telegram-required"
+                className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-400"
+              >
+                {t("checkout.telegramRequired")}{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate("/profile?redirect=/custom-order")}
+                  className="font-semibold underline underline-offset-2 hover:text-amber-300"
+                >
+                  {t("checkout.telegramRequiredCta")}
+                </button>
+              </div>
             )}
             <button
               type="submit"
-              disabled={!canSubmit || submitting}
+              data-testid="custom-order-submit"
+              disabled={!canSubmit || submitting || !telegramLinked}
               className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#44944A] px-6 py-4 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(68,148,74,0.3)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none"
             >
               <Send className="h-4 w-4" />

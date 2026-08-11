@@ -122,9 +122,6 @@ test("customer registers, adds a product to cart, and places an order", async ({
   await expect(page.getByTestId("cart-row")).toHaveCount(1);
   await page.getByTestId("cart-checkout").click();
 
-  // Unlinked customer lands on checkout with the order gate visible.
-  await expect(page.getByTestId("checkout-telegram-required")).toBeVisible();
-
   // ── Bind a Telegram identity so the order gate passes ───────────────────
   // The widget is an external iframe (oauth.telegram.org) — not drivable
   // from Playwright.  Instead we sign a payload with the same bot token
@@ -164,7 +161,6 @@ test("customer registers, adds a product to cart, and places an order", async ({
   await page.goto("/cart");
   await expect(page.getByTestId("cart-checkout")).toHaveAttribute("href", "/checkout");
   await page.getByTestId("cart-checkout").click();
-  await expect(page.getByTestId("checkout-telegram-required")).toHaveCount(0);
 
   // ── Checkout step 1: city + delivery + phone ─────────────────────
   // Tiraspol allows the free "personal" pickup method.
@@ -182,6 +178,9 @@ test("customer registers, adds a product to cart, and places an order", async ({
   await page.getByTestId("checkout-next").click();
 
   // ── Checkout step 3: confirm → real POST /api/store/orders ─────────────
+  // The gate banner lives next to the confirm button: absent here means the
+  // binding really propagated to the SPA, not just to the database.
+  await expect(page.getByTestId("checkout-telegram-required")).toHaveCount(0);
   const orderResp = page.waitForResponse(
     (r) => r.url().includes("/api/store/orders") && r.request().method() === "POST",
   );
