@@ -23,6 +23,14 @@ const API = process.env.E2E_API_URL || "http://localhost:8000";
 // it is an external iframe on oauth.telegram.org).
 const TG_BOT_TOKEN = process.env.E2E_TELEGRAM_BOT_TOKEN || "";
 
+// A silent skip is how this journey stopped running in CI at all — there it must fail instead.
+if (process.env.CI && !TG_BOT_TOKEN) {
+  throw new Error(
+    "E2E_TELEGRAM_BOT_TOKEN is unset on CI — the order journey would skip silently. " +
+      "Set it (and the backend's TELEGRAM_BOT_TOKEN) to the same value in the workflow.",
+  );
+}
+
 // Matches the App-startup `GET /api/store/customers/me` (not the /orders or
 // /cart siblings) so we can wait for auth to be restored after a full reload.
 const ME_RE = /\/api\/store\/customers\/me(\?|$)/;
