@@ -80,6 +80,10 @@ jobs:
         run: npm run lint
 
       - name: Build
+        env:
+          # vite.config refuses a production build without it; any non-empty
+          # handle satisfies the guard — no widget is driven in this job.
+          VITE_TELEGRAM_BOT_NAME: mioru_ci_bot
         run: npm run build
 
       - name: Unit tests (vitest)
@@ -153,6 +157,11 @@ jobs:
           BOOTSTRAP_ADMIN_USERNAME: admin
           BOOTSTRAP_ADMIN_EMAIL: admin@mioru.store
           BOOTSTRAP_ADMIN_PASSWORD: Admin12345!
+          # Same throwaway value as E2E_TELEGRAM_BOT_TOKEN below: the spec signs
+          # the widget payload locally and this side verifies it, so the order
+          # journey runs without a real Telegram bot. Unset, the order half of
+          # the priority-#1 flow silently skips.
+          TELEGRAM_BOT_TOKEN: ci-e2e-telegram-bot-token
         run: |
           mkdir -p /tmp/mioru-uploads
           nohup /tmp/mioru-server > /tmp/mioru-server.log 2>&1 &
@@ -179,6 +188,7 @@ jobs:
         working-directory: apps/store
         env:
           CI: 'true'
+          E2E_TELEGRAM_BOT_TOKEN: ci-e2e-telegram-bot-token
         run: npx playwright test
 
       - name: Backend log (on failure)

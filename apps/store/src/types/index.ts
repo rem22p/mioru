@@ -102,6 +102,12 @@ export interface User {
   avatarParams: AvatarParams;
   xpBalance: number;
   vipLevel: number;
+  /** Telegram binding status (from /me). null when the backend didn't send it. */
+  telegram?: {
+    linked: boolean;
+    username?: string;
+    firstName?: string;
+  };
 }
 
 export interface DeliveryInfo {

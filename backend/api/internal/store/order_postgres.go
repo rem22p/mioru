@@ -77,7 +77,9 @@ func (s *PostgresStore) ListCustomerOrders(ctx context.Context, customerID int64
 	}
 	defer rows.Close()
 
-	var orders []model.Order
+	// Empty slice (not nil) so JSON serializes as [] — storefront/profile
+	// and admin do len(orders) and crash on null.
+	var orders = []model.Order{}
 	var orderIDs []int64
 	for rows.Next() {
 		var o model.Order
@@ -511,7 +513,9 @@ func (s *PostgresStore) ListAllOrders(ctx context.Context, page, perPage int, st
 	}
 	defer rows.Close()
 
-	var orders []model.Order
+	// Empty slice (not nil) so JSON serializes as [] — storefront/profile
+	// and admin do len(orders) and crash on null.
+	var orders = []model.Order{}
 	var orderIDs []int64
 	for rows.Next() {
 		var o model.Order

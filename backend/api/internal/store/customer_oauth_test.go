@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"testing"
 
 	"mioru/internal/model"
@@ -168,5 +169,73 @@ func TestLinkOAuth_Idempotent(t *testing.T) {
 	}
 	if err := s.LinkOAuth(t.Context(), cust.ID, oa); err != nil {
 		t.Fatalf("second LinkOAuth (idempotent): %v", err)
+	}
+}
+
+// TestLinkOAuth_AlreadyLinkedToOtherCustomer pins the loud-failure contract:
+// when the same provider+oauth_id is already bound to a DIFFERENT customer,
+// LinkOAuth must return ErrOAuthAlreadyLinked instead of silently doing
+// nothing (the UI would otherwise report "connected" while the customer
+// stays locked out of checkout with no explanation).
+func TestLinkOAuth_AlreadyLinkedToOtherCustomer(t *testing.T) {
+	s := testStore(t)
+
+	c1 := model.Customer{Email: "c1@example.com", FirstName: "One", HashedPW: "x"}
+	if err := s.CreateCustomer(t.Context(), c1); err != nil {
+		t.Fatalf("create c1: %v", err)
+	}
+	got1, err := s.GetCustomerByEmail(t.Context(), "c1@example.com")
+	if err != nil || got1 == nil {
+		t.Fatalf("get c1: %v", err)
+	}
+	c2 := model.Customer{Email: "c2@example.com", FirstName: "Two", HashedPW: "x"}
+	if err := s.CreateCustomer(t.Context(), c2); err != nil {
+		t.Fatalf("create c2: %v", err)
+	}
+	got2, err := s.GetCustomerByEmail(t.Context(), "c2@example.com")
+	if err != nil || got2 == nil {
+		t.Fatalf("get c2: %v", err)
+	}
+
+	oa := model.CustomerOAuth{
+		CustomerID:  got1.ID,
+		Provider:    "telegram",
+		OAuthID:     "999",
+		ProfileData: `{}`,
+	}
+	if err := s.LinkOAuth(t.Context(), got1.ID, oa); err != nil {
+		t.Fatalf("link to c1: %v", err)
+	}
+
+	// c2 tries to claim the same Telegram identity → must fail loudly.
+	err = s.LinkOAuth(t.Context(), got2.ID, oa)
+	if !errors.Is(err, ErrOAuthAlreadyLinked) {
+		t.Fatalf("expected ErrOAuthAlreadyLinked, got %v", err)
+	}
+	// The binding must still belong to c1.
+	got, _, err := s.GetCustomerByOAuth(t.Context(), "telegram", "999")
+	if err != nil {
+		t.Fatalf("get by oauth: %v", err)
+	}
+	if got.ID != got1.ID {
+		t.Fatalf("binding moved to wrong customer: got %d want %d", got.ID, got1.ID)
+	}
+}
+
+// The order gate reads customer_oauth by customer_id on every checkout, and
+// Postgres does not index a FK on its own: without 027 that read is a seq scan.
+func TestCustomerOAuthIndexedByCustomer(t *testing.T) {
+	s := testStore(t)
+
+	var n int
+	err := s.pool.QueryRow(t.Context(),
+		`SELECT count(*) FROM pg_indexes
+		 WHERE tablename = 'customer_oauth' AND indexdef LIKE '%(customer_id%'`,
+	).Scan(&n)
+	if err != nil {
+		t.Fatalf("read pg_indexes: %v", err)
+	}
+	if n == 0 {
+		t.Error("no index leading with customer_id on customer_oauth")
 	}
 }

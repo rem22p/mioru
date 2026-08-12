@@ -47,6 +47,10 @@ export default function CheckoutPage() {
     }
   }, [isAuthenticated, navigate]);
 
+  // Telegram is required to place an order. The backend enforces this
+  // (403 TELEGRAM_REQUIRED); the UI gates earlier and explains why.
+  const telegramLinked = Boolean(user?.telegram?.linked);
+
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [orderError, setOrderError] = useState("");
@@ -59,6 +63,12 @@ export default function CheckoutPage() {
   const idempotencyKeyRef = useRef<string | null>(null);
 
   const submitOrder = async () => {
+    if (!telegramLinked) {
+      // Redirect to profile where the user can link Telegram; they return
+      // to checkout afterwards (the ?redirect= param is honoured there).
+      navigate("/profile?redirect=/checkout", { replace: true });
+      return;
+    }
     setSubmitting(true);
     setOrderError("");
     try {
@@ -481,10 +491,25 @@ export default function CheckoutPage() {
             {orderError && (
               <p data-testid="checkout-error" className="text-sm text-red-400 text-center">{orderError}</p>
             )}
+            {!telegramLinked && (
+              <div
+                data-testid="checkout-telegram-required"
+                className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-400"
+              >
+                {t("checkout.telegramRequired")}{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate("/profile?redirect=/checkout")}
+                  className="font-semibold underline underline-offset-2 hover:text-amber-300"
+                >
+                  {t("checkout.telegramRequiredCta")}
+                </button>
+              </div>
+            )}
             <button
               data-testid="checkout-confirm"
               onClick={submitOrder}
-              disabled={submitting}
+              disabled={submitting || !telegramLinked}
               className="w-full rounded-xl bg-[#44944A] px-6 py-4 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(192,254,57,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? "..." : t("checkout.confirm")}

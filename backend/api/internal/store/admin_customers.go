@@ -110,7 +110,7 @@ func (s *PostgresStore) ListCustomers(ctx context.Context, search string, page, 
 	offset := (page - 1) * perPage
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT c.id, c.email, c.first_name, c.last_name, c.phone, c.avatar_color,
+		SELECT c.id, COALESCE(c.email, '') AS email, c.first_name, c.last_name, c.phone, c.avatar_color,
 		       c.created_at::text,
 		       COALESCE(ord.orders_count, 0) AS orders_count,
 		       COALESCE(ord.total_spent_minor, 0) AS total_spent_minor,
@@ -242,7 +242,8 @@ func (s *PostgresStore) LinkCustomerTelegramForTest(ctx context.Context, custome
 func (s *PostgresStore) GetCustomerFullDetail(ctx context.Context, id int64) (*AdminCustomerDetail, error) {
 	d := &AdminCustomerDetail{Orders: []AdminOrderSummary{}}
 	err := s.pool.QueryRow(ctx, `
-		SELECT c.id, c.email, c.first_name, c.last_name, c.phone,
+		SELECT c.id, COALESCE(c.email, '') AS email, COALESCE(c.first_name, '') AS first_name,
+		       COALESCE(c.last_name, '') AS last_name, COALESCE(c.phone, '') AS phone,
 		       COALESCE(c.avatar_color, '') as avatar_color,
 		       c.created_at::text, c.updated_at::text, c.password_changed_at::text,
 		       (SELECT COUNT(*) FROM orders WHERE customer_id = c.id AND status != 'cancelled'),

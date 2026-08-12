@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { fetchStoreCustomerOrders, type StoreOrder, getImageUrl } from "@/lib/api";
 import { getMeasurementLabel } from "@/lib/preorderFields";
 import {
-  User, Settings, ChevronRight, LogOut,
+  User, Settings, ChevronRight, LogOut, Send,
   MapPin, Truck, CreditCard, ShoppingBag, Phone,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -13,11 +13,15 @@ import { useAuthStore } from "@/stores/authStore";
 import { useCurrencyStore } from "@/stores/currencyStore";
 import { formatPrice } from "@/lib/currency";
 import AuthSection from "@/components/auth/AuthSection";
+import TelegramLoginButton from "@/components/auth/TelegramLoginButton";
+
+const TELEGRAM_BOT_NAME = import.meta.env.VITE_TELEGRAM_BOT_NAME || "";
 
 export default function ProfilePage() {
   const { t } = useTranslation();
   const { user, isAuthenticated, logout } = useAuthStore();
   const [orders, setOrders] = useState<StoreOrder[]>([]);
+  const [telegramError, setTelegramError] = useState("");
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const redirect = searchParams.get("redirect");
@@ -25,16 +29,23 @@ export default function ProfilePage() {
   useEffect(() => {
     if (isAuthenticated) {
       fetchStoreCustomerOrders()
-        .then((res) => setOrders(res.orders))
+        .then((res) => setOrders(res.orders ?? []))
         .catch(() => {});
     }
   }, [isAuthenticated]);
 
+  // Auto-redirect back to the origin (e.g. /checkout) only when the
+  // prerequisite is satisfied. When the redirect came from the Telegram
+  // order gate (?redirect=/checkout from a checkout without Telegram),
+  // we must NOT bounce back immediately — the user needs to see the
+  // connect block first. The effect re-runs once telegram.linked flips
+  // to true (after fetchMe() in the connect handler) and redirects then.
   useEffect(() => {
     if (isAuthenticated && redirect) {
+      if (!user?.telegram?.linked) return;
       navigate(redirect, { replace: true });
     }
-  }, [isAuthenticated, redirect, navigate]);
+  }, [isAuthenticated, redirect, navigate, user?.telegram?.linked]);
 
   if (!isAuthenticated || !user) {
     return (
@@ -111,6 +122,85 @@ export default function ProfilePage() {
                 </p>
               )}
             </div>
+          </div>
+
+          {/* Telegram status */}
+          <div
+            data-testid="profile-telegram-block"
+            className="mt-5 rounded-xl border border-[var(--color-border-custom)] bg-[var(--color-bg-primary)] p-4"
+          >
+            {user.telegram?.linked ? (
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#44944A]/10">
+                  <Send className="h-5 w-5 text-[#44944A]" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                    {t("profile.telegramLinked")}
+                  </p>
+                  <p className="text-xs text-[var(--color-text-muted)]">
+                    {user.telegram.username
+                      ? `@${user.telegram.username}`
+                      : user.telegram.firstName || "—"}
+                  </p>
+                </div>
+                <span
+                  data-testid="profile-telegram-linked-badge"
+                  className="rounded-full bg-[#44944A]/15 px-3 py-1 text-xs font-medium text-[#44944A]"
+                >
+                  ✓
+                </span>
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-bg-secondary)]">
+                    <Send className="h-5 w-5 text-[var(--color-text-muted)]" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                      {t("profile.telegramNotLinked")}
+                    </p>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                      {t("profile.telegramHint")}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  {TELEGRAM_BOT_NAME ? (
+                    <TelegramLoginButton
+                      botName={TELEGRAM_BOT_NAME}
+                      mode="link"
+                      onSuccess={() => {
+                        setTelegramError("");
+                        // Re-fetch profile so the telegram block flips to "подключён"
+                        // and the redirect effect (if any) fires.
+                        useAuthStore.getState().fetchMe();
+                      }}
+                      onError={(e: Error) => {
+                        // The api() wrapper prefixes "[POST /api/...]" — strip it
+                        // so the user sees only the human message from the
+                        // backend envelope (e.g. "этот Telegram уже подключён…").
+                        const msg = e.message.replace(/^\[[^\]]+\]\s*/, "");
+                        setTelegramError(msg);
+                      }}
+                    />
+                  ) : (
+                    <p className="text-xs text-[var(--color-text-muted)]">
+                      {t("auth.telegramNotConfigured")}
+                    </p>
+                  )}
+                  {telegramError && (
+                    <p
+                      data-testid="profile-telegram-error"
+                      className="mt-2 text-xs text-red-400"
+                    >
+                      {telegramError}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </motion.div>
 
