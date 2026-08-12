@@ -287,3 +287,64 @@ func seedCustomer(t *testing.T, e *env, email, first, last, phone string) int64 
 // above, so this line is just a documentation anchor that fails
 // the build if someone renames the production method and forgets
 // to update the test.
+
+// TestIntegrationAdminListCustomersOAuthEmailNull pins the NULL-email
+// regression: customers created via Telegram OAuth (no email column)
+// made GET /api/admin/customers return 500 — pgx cannot Scan NULL into
+// a Go string. The list (and detail) queries must COALESCE email/name/
+// phone so OAuth-only customers render with empty strings instead of
+// crashing the whole admin customers page.
+func TestIntegrationAdminListCustomersOAuthEmailNull(t *testing.T) {
+	e := newEnv(t)
+	admin := e.userSession(t, "oauthnull", "admin")
+
+	// Create an OAuth-only customer (email stays NULL) through the same
+	// production path the Telegram login uses.
+	oauthID := "555000111"
+	err := e.st.CreateCustomerWithOAuth(context.Background(),
+		model.Customer{FirstName: "Tg", HashedPW: "x"},
+		model.CustomerOAuth{Provider: "telegram", OAuthID: oauthID, ProfileData: `{"username":"tg_user"}`},
+	)
+	if err != nil {
+		t.Fatalf("create oauth customer: %v", err)
+	}
+	got, _, err := e.st.GetCustomerByOAuth(context.Background(), "telegram", oauthID)
+	if err != nil || got == nil {
+		t.Fatalf("re-fetch oauth customer: err=%v", err)
+	}
+
+	// List must be 200 and include the OAuth customer with email "".
+	rr := e.do(t, e.wrapAdmin(e.adminCustomerH.List), http.MethodGet, "/api/admin/customers", reqOpts{sess: admin})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("List customers with NULL-email customer: want 200, got %d (%s)", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Customers []map[string]any `json:"customers"`
+	}
+	decode(t, rr, &resp)
+	found := false
+	for _, c := range resp.Customers {
+		if id, _ := c["id"].(float64); int64(id) == got.ID {
+			found = true
+			if email, _ := c["email"].(string); email != "" {
+				t.Errorf("oauth customer email = %q, want empty string (not null)", email)
+			}
+			if tg, _ := c["telegram_linked"].(bool); !tg {
+				t.Errorf("oauth customer telegram_linked = false, want true")
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("oauth customer id=%d missing from list (list crashed or filtered it out)", got.ID)
+	}
+
+	// Detail must also be 200 for the NULL-email customer.
+	rr2 := e.do(t, e.wrapAdmin(e.adminCustomerH.Detail), http.MethodGet,
+		"/api/admin/customers/{id}", reqOpts{
+			sess:       admin,
+			pathValues: map[string]string{"id": strconv.FormatInt(got.ID, 10)},
+		})
+	if rr2.Code != http.StatusOK {
+		t.Fatalf("Detail NULL-email customer: want 200, got %d (%s)", rr2.Code, rr2.Body.String())
+	}
+}
