@@ -285,3 +285,23 @@ describe("CheckoutPage — legacy profile phone", () => {
     expect(screen.queryByTestId("checkout-use-my-phone")).not.toBeInTheDocument();
   });
 });
+
+describe("CheckoutPage — phone field is named by its own label", () => {
+  beforeEach(() => {
+    useCartStore.setState({ items: [cartItem] });
+    useAuthStore.setState({ isAuthenticated: false, user: null, loading: false, error: null });
+  });
+
+  it("announces the translated label, not a fixed-language name", () => {
+    render(
+      <HelmetProvider>
+        <MemoryRouter>
+          <CheckoutPage />
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+    expect(screen.getByTestId("checkout-phone")).toHaveAccessibleName(
+      tMap["checkout.phone"],
+    );
+  });
+});

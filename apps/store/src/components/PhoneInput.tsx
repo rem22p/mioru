@@ -24,6 +24,10 @@ interface PhoneInputProps {
  * subscriber digits. Non-digits are stripped, input is capped at 8 digits,
  * so nothing beyond a valid "+373XXXXXXXX" can ever be entered. The parent
  * always receives the canonical full phone via `onChange`.
+ *
+ * The field carries no `aria-label`: an own name would override the page's
+ * visible label and announce it in one fixed language. Callers pass `id` and
+ * point their `<label htmlFor>` at it instead.
  */
 export default function PhoneInput({
   value,
@@ -62,7 +66,6 @@ export default function PhoneInput({
         onChange={handleChange}
         placeholder={placeholder}
         data-testid={testId}
-        aria-label={`${PHONE_PREFIX} phone`}
         className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-[var(--color-text-muted)]"
       />
     </div>

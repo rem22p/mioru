@@ -230,6 +230,15 @@ describe("CustomOrderPage — legacy profile phone", () => {
   });
 });
 
+describe("CustomOrderPage — phone field is named by its own label", () => {
+  it("announces the translated label, not a fixed-language name", () => {
+    renderPage(true);
+    expect(screen.getByTestId("custom-order-phone")).toHaveAccessibleName(
+      "checkout.phone",
+    );
+  });
+});
+
 describe("CustomOrderPage — category choice (KAN-52)", () => {
   beforeEach(() => {
     mockNavigate.mockClear();

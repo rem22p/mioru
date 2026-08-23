@@ -461,7 +461,10 @@ export default function CustomOrderPage() {
             {/* Phone */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-[var(--color-text-primary)]">
+                <label
+                  htmlFor="custom-order-phone-input"
+                  className="block text-sm font-medium text-[var(--color-text-primary)]"
+                >
                   {t("checkout.phone")}
                 </label>
                 {myPhone && myPhone !== phone && (
@@ -476,6 +479,7 @@ export default function CustomOrderPage() {
                 )}
               </div>
               <PhoneInput
+                id="custom-order-phone-input"
                 value={phone}
                 onChange={(full) => {
                   setPhone(full);

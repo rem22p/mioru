@@ -71,6 +71,23 @@ describe("PhoneInput (KAN-53)", () => {
     expect(screen.getByTestId("full")).toHaveTextContent("");
   });
 
+  it("takes its accessible name from the page's own label", () => {
+    // The field carries no name of its own: whatever the page labels it with
+    // is what a screen reader announces, in the page's language.
+    render(
+      <div>
+        <label htmlFor="phone-field">Telefon</label>
+        <PhoneInput
+          id="phone-field"
+          value=""
+          onChange={() => {}}
+          data-testid="phone"
+        />
+      </div>,
+    );
+    expect(screen.getByTestId("phone")).toHaveAccessibleName("Telefon");
+  });
+
   it("keeps the digits-only value while the parent holds the full phone", () => {
     render(<Harness />);
     fireEvent.change(screen.getByTestId("phone"), {
