@@ -9,7 +9,7 @@ import { formatPrice } from "@/lib/currency";
 import { CreditCard, Check, ChevronRight, Package } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { isDeliveryBlocked as isMethodBlocked } from "@/lib/deliveryRules";
-import { isValidPhone } from "@/lib/phoneValidation";
+import { isValidPhone, usableStoredPhone } from "@/lib/phoneValidation";
 import { Helmet } from "@dr.pogodin/react-helmet";
 import CityAutocomplete from "@/components/ui/CityAutocomplete";
 import PhoneInput from "@/components/PhoneInput";
@@ -36,6 +36,9 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
+  // A pre-KAN-53 profile number would land in the field as blank text and
+  // leave the shortcut button doing nothing visible.
+  const myPhone = usableStoredPhone(user?.phone);
   const [currentStep, setCurrentStep] = useState(1);
   const items = useCartStore((state) => state.items);
   const totalPrice = useCartStore((state) => state.totalPrice());
@@ -214,10 +217,10 @@ export default function CheckoutPage() {
                 <label className="block text-sm font-medium text-[var(--color-text-primary)]">
                   {t("checkout.phone")}
                 </label>
-                {isAuthenticated && user?.phone && user.phone !== formData.phone && (
+                {isAuthenticated && myPhone && myPhone !== formData.phone && (
                   <button
                     type="button"
-                    onClick={() => updateField("phone", user.phone)}
+                    onClick={() => updateField("phone", myPhone)}
                     className="text-xs font-semibold uppercase tracking-wider text-[#44944A] hover:text-[var(--color-text-primary)] transition-colors"
                     data-testid="checkout-use-my-phone"
                   >

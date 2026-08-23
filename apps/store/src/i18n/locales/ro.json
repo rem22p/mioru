@@ -323,6 +323,7 @@
     "namePlaceholder": "Numele tău",
     "lastNamePlaceholder": "Prenumele tău",
     "phone": "Telefon",
+    "phoneDropped": "Numărul anterior {{phone}} nu mai este acceptat — introduceți un număr +373, altfel telefonul va fi șters din profil.",
     "confirmPassword": "Confirmă parola",
     "confirmPasswordHint": "Introdu parola curentă pentru a salva",
     "passwordRequired": "Parola este necesară",

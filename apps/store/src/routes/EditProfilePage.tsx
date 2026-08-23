@@ -7,6 +7,7 @@ import { Helmet } from "@dr.pogodin/react-helmet";
 import { useAuthStore } from "@/stores/authStore";
 import { fetchStoreCustomerUpdate } from "@/lib/api";
 import PhoneInput from "@/components/PhoneInput";
+import { usableStoredPhone } from "@/lib/phoneValidation";
 
 export default function EditProfilePage() {
   const { t } = useTranslation();
@@ -15,7 +16,11 @@ export default function EditProfilePage() {
 
   const [firstName, setFirstName] = useState(user?.firstName || "");
   const [lastName, setLastName] = useState(user?.lastName || "");
-  const [phone, setPhone] = useState(user?.phone || "");
+  // Not user.phone as-is: a pre-KAN-53 number renders as an empty field but
+  // would still be submitted, and the server now rejects it — the profile
+  // would be unsavable with the error pointing at a field that looks empty.
+  const [phone, setPhone] = useState(usableStoredPhone(user?.phone));
+  const droppedPhone = user?.phone && !usableStoredPhone(user.phone) ? user.phone : "";
   const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -119,7 +124,16 @@ export default function EditProfilePage() {
               onChange={setPhone}
               className={inputClass}
               placeholder={t("checkout.phonePlaceholder")}
+              data-testid="profile-phone"
             />
+            {droppedPhone && (
+              <p
+                className="mt-2 text-xs text-amber-400"
+                data-testid="profile-phone-dropped"
+              >
+                {t("profile.phoneDropped", { phone: droppedPhone })}
+              </p>
+            )}
           </div>
 
           <div className="border-t border-[var(--color-border-custom)] pt-5">
@@ -148,6 +162,7 @@ export default function EditProfilePage() {
 
           <button
             type="submit"
+            data-testid="profile-save"
             disabled={saving}
             className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#44944A] px-6 py-4 text-sm font-semibold text-black transition-all hover:shadow-[0_0_30px_rgba(68,148,74,0.3)] disabled:opacity-60"
           >

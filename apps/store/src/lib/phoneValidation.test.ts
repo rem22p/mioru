@@ -4,6 +4,7 @@ import {
   PHONE_RE,
   phoneDigits,
   toFullPhone,
+  usableStoredPhone,
 } from "./phoneValidation";
 
 describe("isValidPhone (KAN-53: strict +373 + 8 digits)", () => {
@@ -122,5 +123,20 @@ describe("toFullPhone", () => {
 
   it("returns empty string for empty digits", () => {
     expect(toFullPhone("")).toBe("");
+  });
+});
+
+describe("usableStoredPhone", () => {
+  it("keeps a stored +373 number", () => {
+    expect(usableStoredPhone("+37360000000")).toBe("+37360000000");
+    expect(usableStoredPhone("  +37360000000  ")).toBe("+37360000000");
+  });
+
+  it("drops anything the +373 field cannot display", () => {
+    expect(usableStoredPhone("+79161234567")).toBe("");
+    expect(usableStoredPhone("+3736000000")).toBe("");
+    expect(usableStoredPhone("")).toBe("");
+    expect(usableStoredPhone(null)).toBe("");
+    expect(usableStoredPhone(undefined)).toBe("");
   });
 });

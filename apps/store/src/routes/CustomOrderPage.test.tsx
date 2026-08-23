@@ -186,3 +186,40 @@ describe("CustomOrderPage — guest access (KAN: form opens without login)", () 
     expect(screen.getByTestId("custom-order-submit")).toBeDisabled();
   });
 });
+
+describe("CustomOrderPage — legacy profile phone", () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+    globalThis.URL.createObjectURL = vi.fn(() => "blob:preview");
+  });
+
+  function seedWithPhone(phone: string) {
+    useAuthStore.setState({
+      isAuthenticated: true,
+      user: { ...makeUser(true), phone },
+      loading: false,
+      error: null,
+    });
+    render(
+      <HelmetProvider>
+        <MemoryRouter>
+          <CustomOrderPage />
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+  }
+
+  it("offers the shortcut for a +373 profile phone and fills the field", () => {
+    seedWithPhone("+37360000000");
+
+    fireEvent.click(screen.getByTestId("custom-order-use-my-phone"));
+
+    expect(screen.getByTestId("custom-order-phone")).toHaveValue("60000000");
+  });
+
+  it("hides the shortcut when the profile still holds a pre-KAN-53 number", () => {
+    seedWithPhone("+79161234567");
+
+    expect(screen.queryByTestId("custom-order-use-my-phone")).not.toBeInTheDocument();
+  });
+});

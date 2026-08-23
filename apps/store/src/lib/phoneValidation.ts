@@ -42,3 +42,16 @@ export function phoneDigits(raw: string): string {
 export function toFullPhone(digits: string): string {
   return digits ? PHONE_PREFIX + digits : "";
 }
+
+/**
+ * A phone kept on the profile is usable in a form only when it already matches
+ * the KAN-53 format. Accounts created before it can hold "+79161234567", which
+ * `PhoneInput` renders as an empty field — putting that raw value into form
+ * state makes what the user sees disagree with what the form submits (an
+ * empty-looking field that the server rejects, or a "use my phone" button that
+ * visibly does nothing). Anything unusable collapses to "".
+ */
+export function usableStoredPhone(raw: string | null | undefined): string {
+  const v = (raw ?? "").trim();
+  return isValidPhone(v) ? v : "";
+}

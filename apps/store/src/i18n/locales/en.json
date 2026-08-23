@@ -323,6 +323,7 @@
     "namePlaceholder": "Your name",
     "lastNamePlaceholder": "Your last name",
     "phone": "Phone",
+    "phoneDropped": "Your previous number {{phone}} is no longer supported — enter a +373 number, otherwise the phone will be removed from your profile.",
     "confirmPassword": "Confirm password",
     "confirmPasswordHint": "Enter your current password to save changes",
     "passwordRequired": "Password required to confirm",

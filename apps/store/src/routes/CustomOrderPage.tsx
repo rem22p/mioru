@@ -9,7 +9,7 @@ import PhoneInput from "@/components/PhoneInput";
 import { createOrder, uploadOrderPhoto } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
 import { isDeliveryBlocked } from "@/lib/deliveryRules";
-import { isValidPhone } from "@/lib/phoneValidation";
+import { isValidPhone, usableStoredPhone } from "@/lib/phoneValidation";
 
 const deliveryTimeOptions = ["fast", "medium", "slow"] as const;
 
@@ -41,6 +41,9 @@ export default function CustomOrderPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  // A pre-KAN-53 profile number would land in the field as blank text and
+  // leave the shortcut button doing nothing visible.
+  const myPhone = usableStoredPhone(user?.phone);
 
   // KAN: guests can open and fill the custom-order form — login is required
   // only on submit (see the !telegramLinked gate below and on handleSubmit).
@@ -369,10 +372,10 @@ export default function CustomOrderPage() {
                 <label className="block text-sm font-medium text-[var(--color-text-primary)]">
                   {t("checkout.phone")}
                 </label>
-                {user?.phone && user.phone !== phone && (
+                {myPhone && myPhone !== phone && (
                   <button
                     type="button"
-                    onClick={() => setPhone(user.phone)}
+                    onClick={() => setPhone(myPhone)}
                     className="text-xs font-semibold uppercase tracking-wider text-[#44944A] hover:text-[var(--color-text-primary)] transition-colors"
                     data-testid="custom-order-use-my-phone"
                   >

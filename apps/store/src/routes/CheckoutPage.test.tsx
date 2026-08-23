@@ -246,3 +246,42 @@ describe("CheckoutPage — guest access (KAN: form opens without login)", () => 
     expect(screen.getByTestId("checkout-phone")).toBeInTheDocument();
   });
 });
+
+describe("CheckoutPage — legacy profile phone", () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+    useCartStore.setState({ items: [cartItem] });
+  });
+
+  function seedWithPhone(phone: string) {
+    useAuthStore.setState({
+      isAuthenticated: true,
+      user: { ...makeUser(true), phone },
+      loading: false,
+      error: null,
+    });
+    render(
+      <HelmetProvider>
+        <MemoryRouter>
+          <CheckoutPage />
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+  }
+
+  it("offers the shortcut for a +373 profile phone and fills the field", () => {
+    seedWithPhone("+37360000000");
+
+    fireEvent.click(screen.getByTestId("checkout-use-my-phone"));
+
+    expect(screen.getByTestId("checkout-phone")).toHaveValue("60000000");
+  });
+
+  it("hides the shortcut when the profile still holds a pre-KAN-53 number", () => {
+    // PhoneInput would render "+79161234567" as an empty field, so the button
+    // would look broken: click it and nothing appears.
+    seedWithPhone("+79161234567");
+
+    expect(screen.queryByTestId("checkout-use-my-phone")).not.toBeInTheDocument();
+  });
+});
