@@ -99,6 +99,20 @@ describe("phoneDigits", () => {
   it("returns empty for empty input", () => {
     expect(phoneDigits("")).toBe("");
   });
+
+  it("does not reinterpret a foreign number as a +373 one", () => {
+    // Legacy values were valid under the pre-KAN-53 contract. Truncating them
+    // would show the user a plausible but different number, so they resolve to
+    // "" and the field has to be filled deliberately.
+    expect(phoneDigits("+79161234567")).toBe(""); // RUS
+    expect(phoneDigits("+380681925470")).toBe(""); // UA
+  });
+
+  it("keeps a bare 8-digit number that happens to start with 373", () => {
+    // The prefix is only stripped from a full +373 number, never from
+    // subscriber digits the user is still typing.
+    expect(phoneDigits("37312345")).toBe("37312345");
+  });
 });
 
 describe("toFullPhone", () => {

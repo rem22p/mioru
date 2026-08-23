@@ -183,7 +183,6 @@
     "unwishlist": "Remove from wishlist",
     "share": "Share",
     "tabs": {
-      "description": "Description",
       "material": "Material & care",
       "delivery": "Delivery & returns"
     },
@@ -307,7 +306,7 @@
     "orderSummary": "Order summary",
     "total": "Total",
     "phone": "Phone",
-    "phonePlaceholder": "+373 ...",
+    "phonePlaceholder": "60000000",
     "phoneRequired": "Enter your phone number",
     "useMyPhone": "Use my number",
     "mixedCart": "In-stock and pre-order items must be ordered separately. Please remove one type from your cart.",

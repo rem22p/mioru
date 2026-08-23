@@ -177,7 +177,10 @@ test("customer registers, adds a product to cart, and places an order", async ({
   // needs the manager to be able to call the buyer). The
   // E2E must fill it before clicking "next" or the click
   // is a no-op and the test deadlocks on the next step.
-  await page.getByTestId("checkout-phone").fill("+37377711234");
+  // PhoneInput (KAN-53) renders the fixed "+373" prefix outside the field and
+  // caps the input at 8 subscriber digits — fill() goes through insertText, so
+  // a full "+373…" string gets truncated by maxlength before React sees it.
+  await page.getByTestId("checkout-phone").fill("77711234");
   await page.getByTestId("checkout-city").fill("Тирасполь");
   await page.keyboard.press("Escape"); // close the autocomplete dropdown overlay
   await page.getByTestId("checkout-delivery-personal").check();

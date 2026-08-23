@@ -24,12 +24,18 @@ export function isValidPhone(raw: string): boolean {
 /**
  * Extract the subscriber digits (after `+373`) from any stored/typed value.
  * Tolerates "+373...", "373...", a bare "60000000", spaces and dashes.
- * Capped at {@link PHONE_DIGITS}.
+ *
+ * A value that is not a Moldova/PMR number is NOT reinterpreted as one: a
+ * legacy "+79161234567" (valid under the pre-KAN-53 contract) must not be
+ * truncated into the plausible-but-different "+37379161234" — the user would
+ * see someone else's number with no hint that it changed. Such input yields
+ * "" so the field stays empty and has to be filled deliberately.
  */
 export function phoneDigits(raw: string): string {
-  let d = raw.replace(/\D/g, "");
-  if (d.startsWith("373")) d = d.slice(3);
-  return d.slice(0, PHONE_DIGITS);
+  const d = raw.replace(/\D/g, "");
+  if (d.length <= PHONE_DIGITS) return d; // already subscriber digits
+  if (d.startsWith("373")) return d.slice(3, 3 + PHONE_DIGITS);
+  return "";
 }
 
 /** Compose the canonical full phone string from subscriber digits. */

@@ -118,7 +118,7 @@ export default function EditProfilePage() {
               value={phone}
               onChange={setPhone}
               className={inputClass}
-              placeholder="60000000"
+              placeholder={t("checkout.phonePlaceholder")}
             />
           </div>
 

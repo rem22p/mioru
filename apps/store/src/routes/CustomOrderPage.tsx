@@ -388,7 +388,7 @@ export default function CustomOrderPage() {
                     setErrors((prev) => ({ ...prev, phone: "" }));
                   }
                 }}
-                placeholder="60000000"
+                placeholder={t("checkout.phonePlaceholder")}
                 data-testid="custom-order-phone"
                 className={`${inputClass} ${touched.phone && errors.phone ? "!border-red-500" : ""}`}
               />

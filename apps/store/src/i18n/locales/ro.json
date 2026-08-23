@@ -183,7 +183,6 @@
     "unwishlist": "Șterge de la favorite",
     "share": "Distribuie",
     "tabs": {
-      "description": "Descriere",
       "material": "Compoziție și îngrijire",
       "delivery": "Livrare și retur"
     },
@@ -307,7 +306,7 @@
     "orderSummary": "Comanda",
     "total": "Total",
     "phone": "Telefon",
-    "phonePlaceholder": "+373 ...",
+    "phonePlaceholder": "60000000",
     "phoneRequired": "Introduceți numărul de telefon",
     "useMyPhone": "Folosește numărul meu",
     "mixedCart": "Produsele din stoc și cele la comandă trebuie comandate separat. Eliminați un tip din coș.",

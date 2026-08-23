@@ -87,7 +87,7 @@ export default function CheckoutPage() {
           // phone + city are trimmed here because the client-side
           // gate (isValidPhone / normaliseCity) trims before
           // validation, but the backend phoneRE does NOT trim
-          // (^\+?\d{7,15}$). Raw "  +373...  " from a paste/IME
+          // (^\+373\d{8}$). Raw "  +373...  " from a paste/IME
           // passes the gate but would 400 on the server — see
           // PR #51 round-3 review (mmx003) for the full discussion.
           // CustomOrderPage.tsx applies the same trim for parity.
@@ -185,7 +185,7 @@ export default function CheckoutPage() {
     switch (currentStep) {
       case 1:
         if (!formData.phone || !formData.city || !formData.deliveryMethod) return false;
-        // Phone must look like +<digits> (7-15 digits, optional leading +).
+        // Phone must be "+373" followed by exactly 8 digits (KAN-53).
         // Mirror of backend `phoneRE`; see apps/store/src/lib/phoneValidation.ts.
         // The backend re-validates, but we block submit early so the user
         // doesn't bounce on the API round-trip.
@@ -228,7 +228,7 @@ export default function CheckoutPage() {
               <PhoneInput
                 value={formData.phone}
                 onChange={(full) => updateField("phone", full)}
-                placeholder="60000000"
+                placeholder={t("checkout.phonePlaceholder")}
                 data-testid="checkout-phone"
                 className={inputBaseClass}
               />

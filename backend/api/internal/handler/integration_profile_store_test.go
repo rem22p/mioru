@@ -3,6 +3,7 @@ package handler_test
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"mioru/internal/cookieauth"
@@ -83,6 +84,53 @@ func TestIntegrationCustomerUpdateProfileHappy(t *testing.T) {
 	decode(t, get, &prof)
 	if prof.FirstName != "Renamed" {
 		t.Errorf("want first_name Renamed, got %q", prof.FirstName)
+	}
+}
+
+// TestIntegrationCustomerUpdateProfilePhoneFormat — the phone format gate is
+// enforced by the endpoint, not only by the storefront's PhoneInput: a
+// non-+373 number is rejected 400 VALIDATION_FAILED, a valid one lands, and an
+// empty string clears the phone (it is optional on registration).
+func TestIntegrationCustomerUpdateProfilePhoneFormat(t *testing.T) {
+	e := newEnv(t)
+	sess := registerCustomer(t, e, "phonefmt@ex.com")
+
+	put := func(phone string) *httptest.ResponseRecorder {
+		return e.do(t, e.wrapCustomer(e.customerH.UpdateProfile), http.MethodPut,
+			"/api/store/customers/me", reqOpts{
+				sess:           sess,
+				csrfCookieName: cookieauth.StoreCSRFCookie,
+				body:           map[string]any{"current_password": goodPassword, "phone": phone},
+			})
+	}
+
+	for _, bad := range []string{"+79161234567", "+380681925470", "60000000", "+3736000000", "не телефон"} {
+		rr := put(bad)
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("PUT me phone=%q: want 400, got %d (%s)", bad, rr.Code, rr.Body.String())
+		}
+		var env errEnvelope
+		decode(t, rr, &env)
+		if env.Code != "VALIDATION_FAILED" {
+			t.Errorf("PUT me phone=%q: want code VALIDATION_FAILED, got %q", bad, env.Code)
+		}
+	}
+
+	if rr := put("+37360000000"); rr.Code != http.StatusOK {
+		t.Fatalf("PUT me with a valid phone: want 200, got %d (%s)", rr.Code, rr.Body.String())
+	}
+	get := e.do(t, e.wrapCustomer(e.customerH.Me), http.MethodGet,
+		"/api/store/customers/me", reqOpts{sess: sess})
+	var prof struct {
+		Phone string `json:"phone"`
+	}
+	decode(t, get, &prof)
+	if prof.Phone != "+37360000000" {
+		t.Errorf("want phone +37360000000, got %q", prof.Phone)
+	}
+
+	if rr := put(""); rr.Code != http.StatusOK {
+		t.Fatalf("PUT me clearing the phone: want 200, got %d (%s)", rr.Code, rr.Body.String())
 	}
 }
 
