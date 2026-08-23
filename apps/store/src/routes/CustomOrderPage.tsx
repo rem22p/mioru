@@ -5,12 +5,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Upload, Send } from "lucide-react";
 import CityAutocomplete from "@/components/ui/CityAutocomplete";
+import PhoneInput from "@/components/PhoneInput";
 import { createOrder, uploadOrderPhoto } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
 import { isDeliveryBlocked } from "@/lib/deliveryRules";
-import { isValidPhone } from "@/lib/phoneValidation";
-
-const deliveryTimeOptions = ["fast", "medium", "slow"] as const;
+import { isValidPhone, usableStoredPhone } from "@/lib/phoneValidation";
 
 const deliveryMethods = [
   { key: "personal", price: "Бесплатно", priceColor: "text-[#44944A]" },
@@ -39,14 +38,15 @@ const deliveryMethods = [
 export default function CustomOrderPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
+  // A pre-KAN-53 profile number would land in the field as blank text and
+  // leave the shortcut button doing nothing visible.
+  const myPhone = usableStoredPhone(user?.phone);
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate("/profile?redirect=/custom-order", { replace: true });
-    }
-  }, [isAuthenticated, navigate]);
+  // KAN: guests can open and fill the custom-order form — login is required
+  // only on submit (see the !telegramLinked gate below and on handleSubmit).
+  // The previous top-level redirect to /profile bounced guests before they
+  // could even see the form.
 
   // Same gate as CheckoutPage: this form posts to the same POST /api/store/orders,
   // which answers 403 TELEGRAM_REQUIRED — and does so only after the photos have
@@ -59,7 +59,6 @@ export default function CustomOrderPage() {
   const [weight, setWeight] = useState("");
   const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
-  const [deliveryTime, setDeliveryTime] = useState<string>("");
   const [deliveryMethod, setDeliveryMethod] = useState("");
 
   // Reset delivery method if the user changed the city and their
@@ -115,7 +114,7 @@ export default function CustomOrderPage() {
     if (!city.trim()) errs.city = "Укажите город";
     if (!phone.trim()) errs.phone = "Введите номер телефона";
     else if (!isValidPhone(phone))
-      errs.phone = "Формат: +<код страны> и 7-15 цифр";
+      errs.phone = "Формат: +373 и 8 цифр";
     if (!deliveryMethod) errs.deliveryMethod = "Выберите способ доставки";
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -152,7 +151,6 @@ export default function CustomOrderPage() {
           total_minor: 0,
           height: height ? parseFloat(height) : undefined,
           weight: weight ? parseFloat(weight) : undefined,
-          delivery_time: deliveryTime ? [deliveryTime] : [],
           comment,
           photos: photoUrls,
         },
@@ -370,10 +368,10 @@ export default function CustomOrderPage() {
                 <label className="block text-sm font-medium text-[var(--color-text-primary)]">
                   {t("checkout.phone")}
                 </label>
-                {user?.phone && user.phone !== phone && (
+                {myPhone && myPhone !== phone && (
                   <button
                     type="button"
-                    onClick={() => setPhone(user.phone)}
+                    onClick={() => setPhone(myPhone)}
                     className="text-xs font-semibold uppercase tracking-wider text-[#44944A] hover:text-[var(--color-text-primary)] transition-colors"
                     data-testid="custom-order-use-my-phone"
                   >
@@ -381,13 +379,10 @@ export default function CustomOrderPage() {
                   </button>
                 )}
               </div>
-              <input
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
+              <PhoneInput
                 value={phone}
-                onChange={(e) => {
-                  setPhone(e.target.value);
+                onChange={(full) => {
+                  setPhone(full);
                   if (touched.phone && errors.phone) {
                     setErrors((prev) => ({ ...prev, phone: "" }));
                   }
@@ -415,40 +410,6 @@ export default function CustomOrderPage() {
               {touched.city && errors.city && (
                 <p className="text-xs text-red-400 mt-1">{errors.city}</p>
               )}
-            </div>
-
-            {/* Delivery time */}
-            <div>
-              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                {t("customOrder.deliveryTime")}
-              </label>
-              <div className="space-y-2">
-                {deliveryTimeOptions.map((key) => (
-                  <label
-                    key={key}
-                    className={`flex items-center gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-all ${
-                      deliveryTime === key
-                        ? "border-[#44944A] bg-[#44944A]/10"
-                        : "border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)]"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="deliveryTime"
-                      value={key}
-                      checked={deliveryTime === key}
-                      onChange={() => setDeliveryTime(key)}
-                      className="accent-[#44944A]"
-                    />
-                    <span className="text-sm text-[var(--color-text-primary)]">
-                      {t(`customOrder.deliveryTimeOptions.${key}`)}
-                    </span>
-                  </label>
-                ))}
-              </div>
-              <p className="mt-3 text-xs text-[var(--color-text-muted)] leading-relaxed">
-                {t("customOrder.deliveryTimeInfo")}
-              </p>
             </div>
 
             {/* Delivery method */}

@@ -38,13 +38,6 @@
     "weight": "Greutate (kg)",
     "city": "Oraș",
     "cityPlaceholder": "Introdu orașul tău",
-    "deliveryTime": "Termen de livrare",
-    "deliveryTimeInfo": "Prețul final depinde de termenul de livrare ales. Uneori mărimea ta poate să nu fie disponibilă pentru anumite tarife — managerul te va informa.",
-    "deliveryTimeOptions": {
-      "fast": "3-5 zile",
-      "medium": "8-10 zile",
-      "slow": "25-30 zile"
-    },
     "deliveryMethod": "Mod de livrare",
     "deliveryMethods": {
       "personal": "Întâlnire personală",
@@ -183,7 +176,6 @@
     "unwishlist": "Șterge de la favorite",
     "share": "Distribuie",
     "tabs": {
-      "description": "Descriere",
       "material": "Compoziție și îngrijire",
       "delivery": "Livrare și retur"
     },
@@ -191,13 +183,6 @@
       "shipping": "Livrare rapidă",
       "returns": "14 zile retur",
       "secure": "Plată securizată"
-    },
-    "fit": {
-      "title": "Croială",
-      "slim": "Mulat",
-      "regular": "Normal",
-      "oversized": "Oversize",
-      "loose": "Lejer"
     },
     "notFound": "Produsul nu a fost găsit",
     "notFoundDesc": "Produsul pe care îl cauți nu există sau a fost eliminat.",
@@ -307,7 +292,7 @@
     "orderSummary": "Comanda",
     "total": "Total",
     "phone": "Telefon",
-    "phonePlaceholder": "+373 ...",
+    "phonePlaceholder": "60000000",
     "phoneRequired": "Introduceți numărul de telefon",
     "useMyPhone": "Folosește numărul meu",
     "mixedCart": "Produsele din stoc și cele la comandă trebuie comandate separat. Eliminați un tip din coș.",
@@ -324,6 +309,7 @@
     "namePlaceholder": "Numele tău",
     "lastNamePlaceholder": "Prenumele tău",
     "phone": "Telefon",
+    "phoneDropped": "Numărul anterior {{phone}} nu mai este acceptat — introduceți un număr +373, altfel telefonul va fi șters din profil.",
     "confirmPassword": "Confirmă parola",
     "confirmPasswordHint": "Introdu parola curentă pentru a salva",
     "passwordRequired": "Parola este necesară",
@@ -352,14 +338,8 @@
       "express": "Poștă express",
       "moldovaPost": "Poșta Moldovei"
     },
-    "deliveryTime": {
-      "fast": "Cât mai repede",
-      "medium": "În decurs de o săptămână",
-      "slow": "În decurs de o lună"
-    },
     "orderDetail": {
       "parameters": "Parametri",
-      "timeframes": "Termene",
       "comment": "Comentariu",
       "deliveryAddress": "Adresă de livrare",
       "heightCm": "Înălțime {{value}} cm",

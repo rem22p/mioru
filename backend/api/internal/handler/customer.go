@@ -402,6 +402,13 @@ func (h *CustomerHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 				jsonError(w, "phone: максимум 30 символов", http.StatusBadRequest)
 				return
 			}
+			// Same format gate as Register and CreateOrder: the client
+			// restricts input, but the endpoint is the enforcing side.
+			// Empty clears the phone, as it is optional on registration.
+			if v != "" && !phoneRE.MatchString(v) {
+				jsonErrorCode(w, "некорректный номер телефона", http.StatusBadRequest, "VALIDATION_FAILED")
+				return
+			}
 			updates[k] = v
 		case "avatar_color":
 			if len(v) > 20 {
@@ -912,16 +919,17 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	// preorder). Customers are asked to type it at every order so
 	// the historical record on the order is always the number they
 	// actually wanted to be reached at, even if their profile phone
-	// is later edited. We accept a single optional leading '+' plus 7-15
-	// digits, which covers MDL (+373), RUS (+7), UA (+380), EU
-	// (+NN…) — anything else gets a 400.
+	// is later edited. Since KAN-53 only the Moldova/PMR format is
+	// accepted — "+373" plus exactly 8 digits (phoneRE); anything
+	// else, including the previously allowed +7/+380/EU numbers,
+	// gets a 400.
 	req.Phone = strings.TrimSpace(req.Phone)
 	if req.Phone == "" {
 		jsonErrorCode(w, "phone is required", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
 	if !phoneRE.MatchString(req.Phone) {
-		jsonErrorCode(w, "phone must be +<countrycode> followed by 7-15 digits", http.StatusBadRequest, "VALIDATION_FAILED")
+		jsonErrorCode(w, "phone must be +373 followed by exactly 8 digits", http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
 	if len(req.City) == 0 || len(req.City) > 100 {
@@ -1391,11 +1399,12 @@ func (h *CustomerHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 
 // ── Cart & Favorites handlers ──
 
-// phoneRE matches a single optional leading '+' followed by 7-15
-// digits. Covers MDL (+373...), RUS (+7...), UA (+380...), EU
-// (+NN...) without being so loose it accepts nonsense like spaces,
-// letters or wildly long numbers.
-var phoneRE = regexp.MustCompile(`^\+?\d{7,15}$`)
+// phoneRE enforces the strict Moldova/PMR format: a fixed "+373" prefix
+// followed by exactly 8 subscriber digits (KAN-53). Both manager examples
+// (+373 60000000, +373 68192547) are 8 digits; the "9 digits" in the task
+// text is a typo. Mirror of apps/store/src/lib/phoneValidation.ts::PHONE_RE
+// — keep the two in sync.
+var phoneRE = regexp.MustCompile(`^\+373\d{8}$`)
 
 const (
 	maxCartItems      = 200

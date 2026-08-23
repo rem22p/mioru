@@ -435,16 +435,6 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
                   </p>
                 </div>
               )}
-              {o.delivery_time && o.delivery_time.length > 0 && (
-                <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
-                  <span className="text-xs text-[var(--color-text-muted)]">{t("profile.orderDetail.timeframes")}</span>
-                  <p className="text-sm text-[var(--color-text-primary)] mt-0.5">
-                    {o.delivery_time.map((timeKey) =>
-                      t(`profile.deliveryTime.${timeKey}`, timeKey)
-                    ).join(", ")}
-                  </p>
-                </div>
-              )}
               {o.comment && (
                 <div className="sm:col-span-2 p-3 rounded-xl bg-[var(--color-bg-secondary)]">
                   <span className="text-xs text-[var(--color-text-muted)]">{t("profile.orderDetail.comment")}</span>

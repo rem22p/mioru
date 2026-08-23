@@ -131,3 +131,99 @@ describe("CustomOrderPage — Telegram order gate", () => {
     expect(screen.getByTestId("custom-order-submit")).toBeEnabled();
   });
 });
+
+describe("CustomOrderPage — delivery time removed (KAN-59 follow-up)", () => {
+  beforeEach(() => {
+    useAuthStore.setState({ isAuthenticated: true, user: makeUser(true), loading: false, error: null });
+  });
+
+  it("has no delivery-time radios — the section is gone entirely", () => {
+    renderPage(true);
+    const timeRadios = screen
+      .getAllByRole("radio")
+      .filter((r) => r.getAttribute("name") === "deliveryTime");
+    expect(timeRadios.length).toBe(0);
+  });
+
+  it("keeps the delivery-method radios (personal/address/…)", () => {
+    renderPage(true);
+    const methodRadios = screen
+      .getAllByRole("radio")
+      .filter((r) => r.getAttribute("name") === "deliveryMethod");
+    expect(methodRadios.length).toBeGreaterThan(0);
+  });
+});
+
+describe("CustomOrderPage — guest access (KAN: form opens without login)", () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+    globalThis.URL.createObjectURL = vi.fn(() => "blob:preview");
+    useAuthStore.setState({ isAuthenticated: false, user: null, loading: false, error: null });
+  });
+
+  it("guest can open the form — no redirect to /profile", () => {
+    useAuthStore.setState({ isAuthenticated: false, user: null, loading: false, error: null });
+    render(
+      <HelmetProvider>
+        <MemoryRouter>
+          <CustomOrderPage />
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+    // The form is shown, not a login bounce
+    expect(mockNavigate).not.toHaveBeenCalledWith(
+      "/profile?redirect=/custom-order",
+      expect.anything(),
+    );
+    expect(screen.getByTestId("custom-order-submit")).toBeInTheDocument();
+  });
+
+  it("guest cannot submit — button stays disabled until login + Telegram", () => {
+    useAuthStore.setState({ isAuthenticated: false, user: null, loading: false, error: null });
+    render(
+      <HelmetProvider>
+        <MemoryRouter>
+          <CustomOrderPage />
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+    expect(screen.getByTestId("custom-order-submit")).toBeDisabled();
+  });
+});
+
+describe("CustomOrderPage — legacy profile phone", () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+    globalThis.URL.createObjectURL = vi.fn(() => "blob:preview");
+  });
+
+  function seedWithPhone(phone: string) {
+    useAuthStore.setState({
+      isAuthenticated: true,
+      user: { ...makeUser(true), phone },
+      loading: false,
+      error: null,
+    });
+    render(
+      <HelmetProvider>
+        <MemoryRouter>
+          <CustomOrderPage />
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+  }
+
+  it("offers the shortcut for a +373 profile phone and fills the field", () => {
+    seedWithPhone("+37360000000");
+
+    fireEvent.click(screen.getByTestId("custom-order-use-my-phone"));
+
+    expect(screen.getByTestId("custom-order-phone")).toHaveValue("60000000");
+  });
+
+  it("hides the shortcut when the profile still holds a pre-KAN-53 number", () => {
+    seedWithPhone("+79161234567");
+
+    expect(screen.queryByTestId("custom-order-use-my-phone")).not.toBeInTheDocument();
+  });
+});

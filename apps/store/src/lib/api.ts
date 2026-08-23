@@ -311,7 +311,6 @@ export interface StoreOrder {
   comment: string;
   height?: number;
   weight?: number;
-  delivery_time?: string[];
   items?: StoreOrderItem[];
   created_at: string;
 }
@@ -342,7 +341,6 @@ export interface CreateOrderData {
   total_minor: number;
   height?: number;
   weight?: number;
-  delivery_time?: string[];
   photos?: string[];
   items?: CreateOrderItem[];
 }

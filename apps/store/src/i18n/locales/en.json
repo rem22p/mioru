@@ -38,13 +38,6 @@
     "weight": "Weight (kg)",
     "city": "City",
     "cityPlaceholder": "Enter your city",
-    "deliveryTime": "Delivery time",
-    "deliveryTimeInfo": "The final price depends on the chosen delivery timeframe. Sometimes your size may not be available under certain rates — the manager will let you know.",
-    "deliveryTimeOptions": {
-      "fast": "3-5 days",
-      "medium": "8-10 days",
-      "slow": "25-30 days"
-    },
     "deliveryMethod": "Delivery method",
     "deliveryMethods": {
       "personal": "Personal meeting",
@@ -183,7 +176,6 @@
     "unwishlist": "Remove from wishlist",
     "share": "Share",
     "tabs": {
-      "description": "Description",
       "material": "Material & care",
       "delivery": "Delivery & returns"
     },
@@ -191,13 +183,6 @@
       "shipping": "Fast delivery",
       "returns": "14-day returns",
       "secure": "Secure payment"
-    },
-    "fit": {
-      "title": "Fit",
-      "slim": "Slim",
-      "regular": "Regular",
-      "oversized": "Oversized",
-      "loose": "Loose"
     },
     "notFound": "Product not found",
     "notFoundDesc": "The product you are looking for does not exist or has been removed.",
@@ -307,7 +292,7 @@
     "orderSummary": "Order summary",
     "total": "Total",
     "phone": "Phone",
-    "phonePlaceholder": "+373 ...",
+    "phonePlaceholder": "60000000",
     "phoneRequired": "Enter your phone number",
     "useMyPhone": "Use my number",
     "mixedCart": "In-stock and pre-order items must be ordered separately. Please remove one type from your cart.",
@@ -324,6 +309,7 @@
     "namePlaceholder": "Your name",
     "lastNamePlaceholder": "Your last name",
     "phone": "Phone",
+    "phoneDropped": "Your previous number {{phone}} is no longer supported — enter a +373 number, otherwise the phone will be removed from your profile.",
     "confirmPassword": "Confirm password",
     "confirmPasswordHint": "Enter your current password to save changes",
     "passwordRequired": "Password required to confirm",
@@ -352,14 +338,8 @@
       "express": "Express mail",
       "moldovaPost": "Moldova Post"
     },
-    "deliveryTime": {
-      "fast": "As soon as possible",
-      "medium": "Within a week",
-      "slow": "Within a month"
-    },
     "orderDetail": {
       "parameters": "Parameters",
-      "timeframes": "Timeframes",
       "comment": "Comment",
       "deliveryAddress": "Delivery address",
       "heightCm": "Height {{value}} cm",

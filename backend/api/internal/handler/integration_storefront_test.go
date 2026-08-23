@@ -277,7 +277,7 @@ func TestIntegrationCreateOrderRejectsUnknownProduct(t *testing.T) {
 
 	body := map[string]any{
 		"type":            "cart",
-		"phone":           "+373777908542",
+		"phone":           "+37377790854",
 		"city":            "Tiraspol",
 		"delivery_method": "personal",
 		"payment_method":  "cash",
@@ -319,7 +319,7 @@ func TestIntegrationCreateOrderRejectsCodWithBus(t *testing.T) {
 
 	body := map[string]any{
 		"type":            "cart",
-		"phone":           "+373777908542",
+		"phone":           "+37377790854",
 		"city":            "Кишинёв", // one of the cities that allows "bus"
 		"delivery_method": "bus",
 		"payment_method":  "cod", // forbidden combo
@@ -378,7 +378,7 @@ func TestIntegrationCreateOrderAllowsCodWithBusForIndividual(t *testing.T) {
 
 	body := map[string]any{
 		"type":            "individual",
-		"phone":           "+373777908542",
+		"phone":           "+37377790854",
 		"city":            "Тирасполь",
 		"delivery_method": "bus",
 		"payment_method":  "cod",
@@ -407,7 +407,7 @@ func TestIntegrationCreateOrderRejectsMoldovaPostInPNR(t *testing.T) {
 	for _, pnrCity := range []string{"Тирасполь", "Бендеры", "Рыбница", "дубоссары"} {
 		body := map[string]any{
 			"type":            "cart",
-			"phone":           "+373777908542",
+			"phone":           "+37377790854",
 			"city":            pnrCity,
 			"delivery_method": "moldovaPost",
 			"payment_method":  "card",
@@ -431,7 +431,7 @@ func TestIntegrationCreateOrderRejectsMoldovaPostInPNR(t *testing.T) {
 	// Sanity: a non-PNR city still passes (e.g. Chisinau).
 	body := map[string]any{
 		"type":            "cart",
-		"phone":           "+373777908542",
+		"phone":           "+37377790854",
 		"city":            "Кишинёв",
 		"delivery_method": "moldovaPost",
 		"payment_method":  "card",

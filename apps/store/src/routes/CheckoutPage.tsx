@@ -9,9 +9,10 @@ import { formatPrice } from "@/lib/currency";
 import { CreditCard, Check, ChevronRight, Package } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { isDeliveryBlocked as isMethodBlocked } from "@/lib/deliveryRules";
-import { isValidPhone } from "@/lib/phoneValidation";
+import { isValidPhone, usableStoredPhone } from "@/lib/phoneValidation";
 import { Helmet } from "@dr.pogodin/react-helmet";
 import CityAutocomplete from "@/components/ui/CityAutocomplete";
+import PhoneInput from "@/components/PhoneInput";
 
 const deliveryMethods = [
   { key: "personal", priceFree: true, priceColor: "text-[#44944A]" },
@@ -35,17 +36,19 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
+  // A pre-KAN-53 profile number would land in the field as blank text and
+  // leave the shortcut button doing nothing visible.
+  const myPhone = usableStoredPhone(user?.phone);
   const [currentStep, setCurrentStep] = useState(1);
   const items = useCartStore((state) => state.items);
   const totalPrice = useCartStore((state) => state.totalPrice());
   const clearCart = useCartStore((state) => state.clearCart);
   const removeItem = useCartStore((state) => state.removeItem);
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate("/profile?redirect=/checkout", { replace: true });
-    }
-  }, [isAuthenticated, navigate]);
+  // Guests can open and fill the checkout form — login is required only on
+  // order confirmation (see the !telegramLinked gate on submitOrder and the
+  // disabled confirm button below). The previous top-level redirect to
+  // /profile bounced guests before they could even see the form.
 
   // Telegram is required to place an order. The backend enforces this
   // (403 TELEGRAM_REQUIRED); the UI gates earlier and explains why.
@@ -87,7 +90,7 @@ export default function CheckoutPage() {
           // phone + city are trimmed here because the client-side
           // gate (isValidPhone / normaliseCity) trims before
           // validation, but the backend phoneRE does NOT trim
-          // (^\+?\d{7,15}$). Raw "  +373...  " from a paste/IME
+          // (^\+373\d{8}$). Raw "  +373...  " from a paste/IME
           // passes the gate but would 400 on the server — see
           // PR #51 round-3 review (mmx003) for the full discussion.
           // CustomOrderPage.tsx applies the same trim for parity.
@@ -185,7 +188,7 @@ export default function CheckoutPage() {
     switch (currentStep) {
       case 1:
         if (!formData.phone || !formData.city || !formData.deliveryMethod) return false;
-        // Phone must look like +<digits> (7-15 digits, optional leading +).
+        // Phone must be "+373" followed by exactly 8 digits (KAN-53).
         // Mirror of backend `phoneRE`; see apps/store/src/lib/phoneValidation.ts.
         // The backend re-validates, but we block submit early so the user
         // doesn't bounce on the API round-trip.
@@ -214,10 +217,10 @@ export default function CheckoutPage() {
                 <label className="block text-sm font-medium text-[var(--color-text-primary)]">
                   {t("checkout.phone")}
                 </label>
-                {isAuthenticated && user?.phone && user.phone !== formData.phone && (
+                {isAuthenticated && myPhone && myPhone !== formData.phone && (
                   <button
                     type="button"
-                    onClick={() => updateField("phone", user.phone)}
+                    onClick={() => updateField("phone", myPhone)}
                     className="text-xs font-semibold uppercase tracking-wider text-[#44944A] hover:text-[var(--color-text-primary)] transition-colors"
                     data-testid="checkout-use-my-phone"
                   >
@@ -225,12 +228,9 @@ export default function CheckoutPage() {
                   </button>
                 )}
               </div>
-              <input
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
+              <PhoneInput
                 value={formData.phone}
-                onChange={(e) => updateField("phone", e.target.value)}
+                onChange={(full) => updateField("phone", full)}
                 placeholder={t("checkout.phonePlaceholder")}
                 data-testid="checkout-phone"
                 className={inputBaseClass}

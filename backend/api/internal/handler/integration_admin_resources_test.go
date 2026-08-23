@@ -414,7 +414,7 @@ func TestIntegrationAdminUploadRejectsNonPNG(t *testing.T) {
 // admin response drops the field, managers see an empty chip and can't
 // reach the customer.
 //
-// The assertion is intentionally strict (exact "+373777908542" string)
+// The assertion is intentionally strict (exact "+37377790854" string)
 // rather than "non-empty" — the test would have caught the regression
 // where admin's ListAllOrders handler accidentally selected from a
 // table that didn't include `phone` (e.g. joining through `customers`
@@ -426,7 +426,7 @@ func TestIntegrationAdminListAllOrdersExposesPhone(t *testing.T) {
 
 	// orderBodyWithPhone sets a specific, recognisable number that we
 	// can grep for in the admin response without false positives.
-	const wantPhone = "+373777908542"
+	const wantPhone = "+37377790854"
 	createRR := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
 		reqOpts{sess: sess, csrfCookieName: cookieauth.StoreCSRFCookie,
 			idempotencyKey: "e-admin-phone-1", body: orderBodyWithPhone(pid, 1, wantPhone)})
