@@ -12,7 +12,7 @@
  * so the test exercises ProductForm's own logic in isolation.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ProductForm from "./ProductForm";
 import {
@@ -22,9 +22,10 @@ import {
 } from "@/hooks/useProductDraft.storage";
 
 const uploadImage = vi.fn();
+const createProduct = vi.fn().mockResolvedValue({});
 
 vi.mock("@/lib/api", () => ({
-  createProduct: vi.fn().mockResolvedValue({}),
+  createProduct: (...args: unknown[]) => createProduct(...args),
   updateProduct: vi.fn().mockResolvedValue({}),
   uploadImage: (...args: unknown[]) => uploadImage(...args),
   getImageUrl: (u: string) => u,
@@ -210,5 +211,41 @@ describe("ProductForm — brand editor (KAN-14)", () => {
     await userEvent.type(input, "Bape{enter}");
     await userEvent.type(input, "Bape{enter}");
     expect(screen.getAllByTestId("brand-chip-Bape")).toHaveLength(1);
+  });
+
+  it("turns a brand typed without Enter into a chip on blur", async () => {
+    const input = await renderWithCategory();
+    await userEvent.type(input, "Nike");
+    fireEvent.blur(input);
+    expect(screen.getByTestId("brand-chip-Nike")).toBeInTheDocument();
+  });
+
+  const fillRequired = async () => {
+    await userEvent.type(screen.getByTestId("pf-name"), "Куртка");
+    await userEvent.type(screen.getByTestId("pf-price"), "1200");
+  };
+
+  const submittedBrands = async () => {
+    await userEvent.click(screen.getByTestId("pf-submit"));
+    await waitFor(() => expect(createProduct).toHaveBeenCalled());
+    const fd = createProduct.mock.calls[0][0] as FormData;
+    return fd.getAll("brands[]");
+  };
+
+  it("sends the committed chips as brands[]", async () => {
+    const input = await renderWithCategory();
+    await fillRequired();
+    await userEvent.type(input, "Bape{enter}");
+    await userEvent.type(input, "Mastermind{enter}");
+
+    expect(await submittedBrands()).toEqual(["Bape", "Mastermind"]);
+  });
+
+  it("does not drop a brand still sitting in the input on submit", async () => {
+    const input = await renderWithCategory();
+    await fillRequired();
+    await userEvent.type(input, "Nike"); // no Enter, straight to "Save"
+
+    expect(await submittedBrands()).toEqual(["Nike"]);
   });
 });

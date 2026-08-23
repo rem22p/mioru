@@ -54,6 +54,15 @@ function getCategoryPath(
 const TEXT_FIELD_STYLE =
   "w-full rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-4 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] transition-colors";
 
+// KAN-14: commit the text sitting in the brand input into the chip list.
+// Kept pure so both the Enter/blur handlers and submit — which cannot wait for
+// a setState to land — derive the same list from the same input.
+function withBrand(list: string[], raw: string): string[] {
+  const v = raw.trim();
+  if (!v || list.includes(v)) return list;
+  return [...list, v];
+}
+
 export default function ProductForm({
   product,
   onClose,
@@ -106,9 +115,7 @@ export default function ProductForm({
 
   // KAN-14: add a brand chip from the input (trimmed, deduped).
   const addBrand = () => {
-    const v = brandInput.trim();
-    if (!v) return;
-    setBrands((prev) => (prev.includes(v) ? prev : [...prev, v]));
+    setBrands((prev) => withBrand(prev, brandInput));
     setBrandInput("");
   };
   const [price, setPrice] = useState(
@@ -445,14 +452,19 @@ export default function ProductForm({
       return;
     }
 
+    // A brand typed but never committed with Enter must not be dropped on save.
+    const effectiveBrands = withBrand(brands, brandInput);
+    setBrands(effectiveBrands);
+    setBrandInput("");
+
     setSaving(true);
     try {
       const fd = new FormData();
       fd.append("name", name.trim());
       fd.append("slug", slug || generateSlug(name));
       fd.append("description", description);
-      if (showBrand || brands.length > 0)
-        brands.forEach((b) => fd.append("brands[]", b.trim()));
+      if (showBrand || effectiveBrands.length > 0)
+        effectiveBrands.forEach((b) => fd.append("brands[]", b));
       fd.append("price", price);
       fd.append("xp_reward", xpReward || "0");
       fd.append("category_id", String(selectedCategoryId));
@@ -763,6 +775,7 @@ export default function ProductForm({
                           addBrand();
                         }
                       }}
+                      onBlur={addBrand}
                       placeholder={
                         brands.length === 0 ? "Nike, Adidas… (Enter — добавить)" : "Добавить бренд"
                       }
