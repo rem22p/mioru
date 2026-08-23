@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Package, Truck, RotateCcw, Shirt, Droplets } from 'lucide-react';
+import { Truck, RotateCcw, Shirt, Droplets } from 'lucide-react';
 import { Product } from '@/types';
 import { useTranslation } from 'react-i18next';
 

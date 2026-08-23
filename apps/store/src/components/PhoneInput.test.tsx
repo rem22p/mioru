@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { useState } from "react";
 import PhoneInput from "./PhoneInput";
@@ -47,9 +47,8 @@ describe("PhoneInput (KAN-53)", () => {
     // plausible-but-different "+37379161234" — the field stays empty instead.
     render(<Harness initial="+79161234567" />);
     expect(screen.getByTestId("phone")).toHaveValue("");
-    // The stored value is not silently wiped either: it survives untouched
-    // until the user types, and the server rejects it loudly on save
-    // (customer.go phoneRE on both Register/UpdateProfile and CreateOrder).
+    // The component does not wipe the parent value on its own — dropping a
+    // number is the page's call, made visible in EditProfilePage.
     expect(screen.getByTestId("full")).toHaveTextContent("+79161234567");
   });
 

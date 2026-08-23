@@ -354,9 +354,8 @@ func TestPhoneValidation(t *testing.T) {
 		valid bool
 	}{
 		{"+37369123456", true},  // canonical МД mobile
-		{"+37360000000", true},  // manager example (ПМР)
+		{"+37360000000", true},  // manager example (ПМР), also the integration-test number
 		{"+37368192547", true},  // manager example (МД)
-		{"+37360000000", true},  // 8 digits — used across integration tests
 		{"+373 69 123 456", false}, // spaces not allowed
 		{"+3736912345", false},  // 7 digits after +373 — too few
 		{"+373777908542", false}, // 9 digits after +373 — too many
