@@ -45,7 +45,6 @@ export interface Product {
   price: number;
   color: string;
   model: string;
-  fit: string;
   material: string;
   care: string[];
   description: string;

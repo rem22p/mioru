@@ -29,7 +29,6 @@ const product: Product = {
   price: 5000,
   color: "#000",
   model: "",
-  fit: "",
   material: "",
   care: [],
   description: "",

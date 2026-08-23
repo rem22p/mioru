@@ -64,7 +64,6 @@ export interface Product {
   sizes: string[];
   color: string;
   model: string;
-  fit: string;
   material: string;
   size_chart: SizeChartEntry[];
   care: string[];

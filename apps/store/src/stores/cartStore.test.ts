@@ -33,7 +33,6 @@ const mockProduct: Product = {
   ],
   color: '#000',
   model: '',
-  fit: '',
   material: '',
   size_chart: [],
   care: [],
