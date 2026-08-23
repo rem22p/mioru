@@ -9,15 +9,19 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS brands TEXT[] NOT NULL DEFAULT '{}
 
 -- Backfill from the legacy single-string brand column. The admin used " x "
 -- (spaces around x) as the collaboration separator.
--- array_remove drops the empty elements string_to_array leaves behind when the
--- separator sits at an edge ("Bape x " splits into {Bape,""}); an empty brand
--- would otherwise reach the facet list and the overlap filter as a real value.
+-- The split is one-way (the source column is dropped below), so it normalises
+-- as it goes rather than preserving whatever the legacy free-text field held:
+-- \s+x\s+ absorbs padded separators ("Bape  x  Mastermind"), btrim strips the
+-- leading/trailing space a hand-typed value carries, and empty elements — left
+-- behind by an edge separator ("Bape x ") or by an empty brand — are dropped.
+-- Without this an element like 'Bape ' becomes its own facet chip that the
+-- overlap filter (element equality) can never match.
 UPDATE products
-   SET brands = array_remove(CASE
-       WHEN brand LIKE '% x %' THEN string_to_array(brand, ' x ')
-       WHEN brand <> '' THEN ARRAY[brand]
-       ELSE '{}'
-   END, '');
+   SET brands = ARRAY(
+       SELECT btrim(v)
+         FROM unnest(regexp_split_to_array(brand, '\s+x\s+')) AS v
+        WHERE btrim(v) <> ''
+   );
 
 ALTER TABLE products DROP COLUMN IF EXISTS brand;
 
