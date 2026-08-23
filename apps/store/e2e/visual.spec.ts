@@ -176,26 +176,68 @@ test.describe("Header — visual states", () => {
     const header = page.locator("header");
     await expect(header).toHaveScreenshot("header-top.png");
   });
-
-  test("Nav links centered — within 10px tolerance", async ({ page }) => {
-    await page.setViewportSize(DESKTOP);
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
-
-    const nav = page.locator("header nav");
-    const navBox = await nav.boundingBox();
-    const viewportWidth = DESKTOP.width;
-
-    if (navBox) {
-      const navCenter = navBox.x + navBox.width / 2;
-      const screenCenter = viewportWidth / 2;
-      const offset = Math.abs(navCenter - screenCenter);
-
-      // Allow 10px tolerance for font rendering differences
-      expect(offset).toBeLessThanOrEqual(10);
-    }
-  });
 });
+
+// The no-overlap margin is narrowest at the smallest lg width in the longest
+// locale (RU: 29px at 1024) — pinning it only at 1280/en leaves 210px of slack,
+// so that assertion cannot fail. Logo width and cluster clipping cover the
+// 768-1023 band, where the burger replaces the nav.
+for (const [locale, lng] of [
+  ["ru-RU", "ru"],
+  ["ro-RO", "ro"],
+  ["en-US", "en"],
+] as const) {
+  test.describe(`Header layout invariants - ${lng}`, () => {
+    test.use({ locale });
+
+    test("logo, right cluster and nav across breakpoints", async ({ page }) => {
+      for (const width of [768, 900, 1023, 1024, 1280]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto("/");
+        await page.waitForLoadState("networkidle");
+
+        const at = `${lng} @ ${width}px`;
+
+        const logo = await page
+          .locator('header img[alt="MIORU"]')
+          .boundingBox();
+        expect(logo, `logo missing - ${at}`).toBeTruthy();
+        expect(logo!.width, `logo squashed - ${at}`).toBe(40);
+
+        const cluster = await page
+          .locator("header > div > div:last-child")
+          .boundingBox();
+        expect(cluster, `right cluster missing - ${at}`).toBeTruthy();
+        expect(
+          cluster!.x + cluster!.width,
+          `right cluster clipped - ${at}`,
+        ).toBeLessThanOrEqual(width - 24);
+
+        const nav = page.locator("header nav");
+        const burger = page.locator('header button[aria-label="Menu"]');
+        const navVisible = await nav.isVisible();
+        expect(navVisible, `nav visibility - ${at}`).toBe(width >= 1024);
+        expect(await burger.isVisible(), `burger visibility - ${at}`).toBe(
+          width < 1024,
+        );
+
+        if (navVisible) {
+          const navBox = await nav.boundingBox();
+          const cartBox = await page
+            .locator('header a[href="/cart"]')
+            .first()
+            .boundingBox();
+          expect(navBox, `nav box missing - ${at}`).toBeTruthy();
+          expect(cartBox, `cart box missing - ${at}`).toBeTruthy();
+          expect(
+            navBox!.x + navBox!.width,
+            `nav overlaps the right cluster - ${at}`,
+          ).toBeLessThanOrEqual(cartBox!.x + 1);
+        }
+      }
+    });
+  });
+}
 
 test.describe("Accessibility & UX", () => {
   test("All touch targets ≥ 44×44px on mobile", async ({ page }) => {
@@ -305,9 +347,8 @@ test.describe("Theme & i18n", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
 
-    // Click language globe
-    await page.click('button[aria-label="Change language"]');
-    await page.click('button:has-text("EN")');
+    // KAN-56: globe dropdown removed — language is switched via the header pill toggle
+    await page.click('[data-testid="language-toggle-en"]');
     await page.waitForTimeout(500);
 
     // Catalog link should now be in English. The nav uppercases labels via CSS
