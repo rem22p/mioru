@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Upload, Send } from "lucide-react";
 import CityAutocomplete from "@/components/ui/CityAutocomplete";
+import PhoneInput from "@/components/PhoneInput";
 import { createOrder, uploadOrderPhoto } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
 import { isDeliveryBlocked } from "@/lib/deliveryRules";
@@ -39,14 +40,12 @@ const deliveryMethods = [
 export default function CustomOrderPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate("/profile?redirect=/custom-order", { replace: true });
-    }
-  }, [isAuthenticated, navigate]);
+  // KAN: guests can open and fill the custom-order form — login is required
+  // only on submit (see the !telegramLinked gate below and on handleSubmit).
+  // The previous top-level redirect to /profile bounced guests before they
+  // could even see the form.
 
   // Same gate as CheckoutPage: this form posts to the same POST /api/store/orders,
   // which answers 403 TELEGRAM_REQUIRED — and does so only after the photos have
@@ -115,7 +114,7 @@ export default function CustomOrderPage() {
     if (!city.trim()) errs.city = "Укажите город";
     if (!phone.trim()) errs.phone = "Введите номер телефона";
     else if (!isValidPhone(phone))
-      errs.phone = "Формат: +<код страны> и 7-15 цифр";
+      errs.phone = "Формат: +373 и 8 цифр";
     if (!deliveryMethod) errs.deliveryMethod = "Выберите способ доставки";
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -381,18 +380,15 @@ export default function CustomOrderPage() {
                   </button>
                 )}
               </div>
-              <input
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
+              <PhoneInput
                 value={phone}
-                onChange={(e) => {
-                  setPhone(e.target.value);
+                onChange={(full) => {
+                  setPhone(full);
                   if (touched.phone && errors.phone) {
                     setErrors((prev) => ({ ...prev, phone: "" }));
                   }
                 }}
-                placeholder={t("checkout.phonePlaceholder")}
+                placeholder="60000000"
                 data-testid="custom-order-phone"
                 className={`${inputClass} ${touched.phone && errors.phone ? "!border-red-500" : ""}`}
               />
@@ -422,15 +418,14 @@ export default function CustomOrderPage() {
               <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                 {t("customOrder.deliveryTime")}
               </label>
+              {/* KAN-59: delivery-time options are shown but NOT selectable —
+                  the manager quotes the price per tariff. */}
               <div className="space-y-2">
                 {deliveryTimeOptions.map((key) => (
                   <label
                     key={key}
-                    className={`flex items-center gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-all ${
-                      deliveryTime === key
-                        ? "border-[#44944A] bg-[#44944A]/10"
-                        : "border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)]"
-                    }`}
+                    aria-disabled="true"
+                    className="flex items-center gap-3 rounded-xl border px-4 py-3 border-[var(--color-border-custom)] opacity-50 cursor-not-allowed transition-all"
                   >
                     <input
                       type="radio"
@@ -438,6 +433,7 @@ export default function CustomOrderPage() {
                       value={key}
                       checked={deliveryTime === key}
                       onChange={() => setDeliveryTime(key)}
+                      disabled
                       className="accent-[#44944A]"
                     />
                     <span className="text-sm text-[var(--color-text-primary)]">

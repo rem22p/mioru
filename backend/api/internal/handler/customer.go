@@ -1391,11 +1391,12 @@ func (h *CustomerHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 
 // ── Cart & Favorites handlers ──
 
-// phoneRE matches a single optional leading '+' followed by 7-15
-// digits. Covers MDL (+373...), RUS (+7...), UA (+380...), EU
-// (+NN...) without being so loose it accepts nonsense like spaces,
-// letters or wildly long numbers.
-var phoneRE = regexp.MustCompile(`^\+?\d{7,15}$`)
+// phoneRE enforces the strict Moldova/PMR format: a fixed "+373" prefix
+// followed by exactly 8 subscriber digits (KAN-53). Both manager examples
+// (+373 60000000, +373 68192547) are 8 digits; the "9 digits" in the task
+// text is a typo. Mirror of apps/store/src/lib/phoneValidation.ts::PHONE_RE
+// — keep the two in sync.
+var phoneRE = regexp.MustCompile(`^\+373\d{8}$`)
 
 const (
 	maxCartItems      = 200

@@ -131,3 +131,58 @@ describe("CustomOrderPage — Telegram order gate", () => {
     expect(screen.getByTestId("custom-order-submit")).toBeEnabled();
   });
 });
+
+describe("CustomOrderPage — delivery time (KAN-59)", () => {
+  beforeEach(() => {
+    useAuthStore.setState({ isAuthenticated: true, user: makeUser(true), loading: false, error: null });
+  });
+
+  it("delivery-time radios are rendered but disabled (manager quotes the price)", () => {
+    renderPage(true);
+    // All three tariff radios exist but are not selectable.
+    const radios = screen
+      .getAllByRole("radio")
+      .filter((r) => r.getAttribute("name") === "deliveryTime");
+    expect(radios.length).toBe(3);
+    for (const r of radios) {
+      expect(r).toBeDisabled();
+    }
+  });
+});
+
+describe("CustomOrderPage — guest access (KAN: form opens without login)", () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+    globalThis.URL.createObjectURL = vi.fn(() => "blob:preview");
+    useAuthStore.setState({ isAuthenticated: false, user: null, loading: false, error: null });
+  });
+
+  it("guest can open the form — no redirect to /profile", () => {
+    useAuthStore.setState({ isAuthenticated: false, user: null, loading: false, error: null });
+    render(
+      <HelmetProvider>
+        <MemoryRouter>
+          <CustomOrderPage />
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+    // The form is shown, not a login bounce
+    expect(mockNavigate).not.toHaveBeenCalledWith(
+      "/profile?redirect=/custom-order",
+      expect.anything(),
+    );
+    expect(screen.getByTestId("custom-order-submit")).toBeInTheDocument();
+  });
+
+  it("guest cannot submit — button stays disabled until login + Telegram", () => {
+    useAuthStore.setState({ isAuthenticated: false, user: null, loading: false, error: null });
+    render(
+      <HelmetProvider>
+        <MemoryRouter>
+          <CustomOrderPage />
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+    expect(screen.getByTestId("custom-order-submit")).toBeDisabled();
+  });
+});

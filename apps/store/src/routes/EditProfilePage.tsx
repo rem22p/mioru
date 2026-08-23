@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Helmet } from "@dr.pogodin/react-helmet";
 import { useAuthStore } from "@/stores/authStore";
 import { fetchStoreCustomerUpdate } from "@/lib/api";
+import PhoneInput from "@/components/PhoneInput";
 
 export default function EditProfilePage() {
   const { t } = useTranslation();
@@ -113,12 +114,11 @@ export default function EditProfilePage() {
             <label className="block text-xs font-mono uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
               {t("profile.phone")}
             </label>
-            <input
-              type="tel"
+            <PhoneInput
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={setPhone}
               className={inputClass}
-              placeholder="+7 ..."
+              placeholder="60000000"
             />
           </div>
 

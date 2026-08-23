@@ -347,20 +347,27 @@ func newCustomerHandlerForTestWithToken(fs customerStore, botToken string) *Cust
 }
 
 func TestPhoneValidation(t *testing.T) {
+	// KAN-53: strict +373 + exactly 8 digits. Mirror of the frontend
+	// PHONE_RE test (apps/store/src/lib/phoneValidation.test.ts).
 	tests := []struct {
 		phone string
 		valid bool
 	}{
-		{"+37369123456", true},
+		{"+37369123456", true},  // canonical МД mobile
+		{"+37360000000", true},  // manager example (ПМР)
+		{"+37368192547", true},  // manager example (МД)
+		{"+37360000000", true},  // 8 digits — used across integration tests
 		{"+373 69 123 456", false}, // spaces not allowed
-		{"+3736912345", true},      // 7 digits after + (valid: 7-15 digits total)
-		{"+1234567", true},         // minimal: + and 7 digits
-		{"+123456789012345", true}, // maximal: + and 15 digits
-		{"+1234567890123456", false}, // 16 digits — too many
-		{"069123456", true},        // no + prefix, 9 digits
+		{"+3736912345", false},  // 7 digits after +373 — too few
+		{"+373777908542", false}, // 9 digits after +373 — too many
+		{"37369123456", false},  // missing leading +
+		{"69123456", false},     // no +373 prefix at all
+		{"+769123456", false},   // non-+373 country code (RUS)
+		{"+38068192547", false}, // non-+373 country code (UA)
 		{"abc", false},
 		{"", false},
 		{"+", false},
+		{"+373", false}, // prefix only, no digits
 	}
 	for _, tt := range tests {
 		got := phoneRE.MatchString(tt.phone)

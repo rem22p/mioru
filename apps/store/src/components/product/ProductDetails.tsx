@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Package, Truck, RotateCcw, Shirt, Droplets, Info } from 'lucide-react';
+import { Package, Truck, RotateCcw, Shirt, Droplets } from 'lucide-react';
 import { Product } from '@/types';
 import { useTranslation } from 'react-i18next';
 
@@ -8,14 +8,15 @@ interface ProductDetailsProps {
   product: Product;
 }
 
-type TabId = 'description' | 'material' | 'delivery';
+type TabId = 'material' | 'delivery';
 
 export default function ProductDetails({ product }: ProductDetailsProps) {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<TabId>('description');
+  // KAN-57: the duplicated "description" tab was removed — open on
+  // "Состав и уход" (material) so care recommendations show immediately.
+  const [activeTab, setActiveTab] = useState<TabId>('material');
 
   const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
-    { id: 'description', label: t('product.tabs.description'), icon: <Info className="h-4 w-4" /> },
     { id: 'material', label: t('product.tabs.material'), icon: <Shirt className="h-4 w-4" /> },
     { id: 'delivery', label: t('product.tabs.delivery'), icon: <Truck className="h-4 w-4" /> },
   ];
@@ -48,40 +49,6 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
 
       {/* Content */}
       <div className="py-8">
-        {activeTab === 'description' && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <p className="text-[var(--color-text-secondary)] leading-relaxed text-base">{product.description}</p>
-
-            {product.fit && (
-              <div className="mt-6 flex items-center gap-3 p-4 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)]">
-                <div className="w-10 h-10 rounded-lg bg-[#44944A]/10 flex items-center justify-center shrink-0">
-                  <Shirt className="h-5 w-5 text-[#44944A]" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                    {t('product.fit.title')}: {
-                      product.fit === 'slim' ? t('product.fit.slim') :
-                      product.fit === 'regular' ? t('product.fit.regular') :
-                      product.fit === 'oversized' ? t('product.fit.oversized') :
-                      t('product.fit.loose')
-                    }
-                  </p>
-                  <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-                    {product.fit === 'slim' && 'Плотно облегает фигуру'}
-                    {product.fit === 'regular' && 'Классическая посадка'}
-                    {product.fit === 'oversized' && 'Увеличенный объём и ширина'}
-                    {product.fit === 'loose' && 'Свободный силуэт без объёма'}
-                  </p>
-                </div>
-              </div>
-            )}
-          </motion.div>
-        )}
-
         {activeTab === 'material' && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}

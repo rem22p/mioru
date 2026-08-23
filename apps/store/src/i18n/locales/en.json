@@ -39,7 +39,7 @@
     "city": "City",
     "cityPlaceholder": "Enter your city",
     "deliveryTime": "Delivery time",
-    "deliveryTimeInfo": "The final price depends on the chosen delivery timeframe. Sometimes your size may not be available under certain rates — the manager will let you know.",
+    "deliveryTimeInfo": "The manager will quote the price for each tariff in a Telegram private message along with all the order details.",
     "deliveryTimeOptions": {
       "fast": "3-5 days",
       "medium": "8-10 days",

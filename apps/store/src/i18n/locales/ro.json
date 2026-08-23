@@ -39,7 +39,7 @@
     "city": "Oraș",
     "cityPlaceholder": "Introdu orașul tău",
     "deliveryTime": "Termen de livrare",
-    "deliveryTimeInfo": "Prețul final depinde de termenul de livrare ales. Uneori mărimea ta poate să nu fie disponibilă pentru anumite tarife — managerul te va informa.",
+    "deliveryTimeInfo": "Managerul va comunica prețul pentru fiecare tarif în mesaj privat pe Telegram împreună cu toate detaliile comenzii.",
     "deliveryTimeOptions": {
       "fast": "3-5 zile",
       "medium": "8-10 zile",

@@ -222,3 +222,27 @@ describe("CheckoutPage — Telegram order gate", () => {
     expect(screen.getByTestId("checkout-confirm")).toBeEnabled();
   });
 });
+
+describe("CheckoutPage — guest access (KAN: form opens without login)", () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+    useCartStore.setState({ items: [cartItem] });
+    useAuthStore.setState({ isAuthenticated: false, user: null, loading: false, error: null });
+  });
+
+  it("guest can open the checkout form — no redirect to /profile", () => {
+    render(
+      <HelmetProvider>
+        <MemoryRouter>
+          <CheckoutPage />
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+    expect(mockNavigate).not.toHaveBeenCalledWith(
+      "/profile?redirect=/checkout",
+      expect.anything(),
+    );
+    // Step 1 (address) is visible — the guest can start filling the form
+    expect(screen.getByTestId("checkout-phone")).toBeInTheDocument();
+  });
+});

@@ -12,6 +12,7 @@ import { isDeliveryBlocked as isMethodBlocked } from "@/lib/deliveryRules";
 import { isValidPhone } from "@/lib/phoneValidation";
 import { Helmet } from "@dr.pogodin/react-helmet";
 import CityAutocomplete from "@/components/ui/CityAutocomplete";
+import PhoneInput from "@/components/PhoneInput";
 
 const deliveryMethods = [
   { key: "personal", priceFree: true, priceColor: "text-[#44944A]" },
@@ -41,11 +42,10 @@ export default function CheckoutPage() {
   const clearCart = useCartStore((state) => state.clearCart);
   const removeItem = useCartStore((state) => state.removeItem);
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate("/profile?redirect=/checkout", { replace: true });
-    }
-  }, [isAuthenticated, navigate]);
+  // Guests can open and fill the checkout form — login is required only on
+  // order confirmation (see the !telegramLinked gate on submitOrder and the
+  // disabled confirm button below). The previous top-level redirect to
+  // /profile bounced guests before they could even see the form.
 
   // Telegram is required to place an order. The backend enforces this
   // (403 TELEGRAM_REQUIRED); the UI gates earlier and explains why.
@@ -225,13 +225,10 @@ export default function CheckoutPage() {
                   </button>
                 )}
               </div>
-              <input
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
+              <PhoneInput
                 value={formData.phone}
-                onChange={(e) => updateField("phone", e.target.value)}
-                placeholder={t("checkout.phonePlaceholder")}
+                onChange={(full) => updateField("phone", full)}
+                placeholder="60000000"
                 data-testid="checkout-phone"
                 className={inputBaseClass}
               />
