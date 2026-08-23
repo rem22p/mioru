@@ -156,6 +156,36 @@ func TestParseProductFromFormBrands(t *testing.T) {
 		}
 	})
 
+	t.Run("a 60-character Cyrillic brand is accepted", func(t *testing.T) {
+		// The bound is documented in characters; measuring bytes would cut
+		// non-Latin brands at half the promised length.
+		long := strings.Repeat("я", maxBrandLen)
+		p, err := parseProductFromForm(build([]string{long}, ""))
+		if err != nil {
+			t.Fatalf("parseProductFromForm: %v", err)
+		}
+		if len(p.Brands) != 1 || p.Brands[0] != long {
+			t.Errorf("Brands = %v, want the %d-character brand", p.Brands, maxBrandLen)
+		}
+	})
+
+	t.Run("a brand longer than the bound is rejected in characters too", func(t *testing.T) {
+		if _, err := parseProductFromForm(build([]string{strings.Repeat("я", maxBrandLen+1)}, "")); err == nil {
+			t.Fatalf("expected an error for a %d-character brand", maxBrandLen+1)
+		}
+	})
+
+	t.Run("normalisation leaves the parsed form untouched", func(t *testing.T) {
+		req := build([]string{" Bape ", "Mastermind"}, "")
+		if _, err := parseProductFromForm(req); err != nil {
+			t.Fatalf("parseProductFromForm: %v", err)
+		}
+		raw := req.Form["brands[]"]
+		if len(raw) != 2 || raw[0] != " Bape " || raw[1] != "Mastermind" {
+			t.Errorf("r.Form[\"brands[]\"] = %q after parsing, want the values as sent", raw)
+		}
+	})
+
 	t.Run("too many brands rejected", func(t *testing.T) {
 		_, err := parseProductFromForm(build([]string{"A", "B", "C", "D", "E", "F"}, ""))
 		if err == nil {

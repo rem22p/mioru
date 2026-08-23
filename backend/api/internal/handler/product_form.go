@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"mioru/internal/model"
 )
@@ -66,7 +67,7 @@ func parseProductFromForm(r *http.Request) (model.Product, error) {
 	}
 	// Normalise: trim, drop empties, dedupe preserving order.
 	seen := make(map[string]bool, len(p.Brands))
-	normalized := p.Brands[:0]
+	normalized := make([]string, 0, len(p.Brands))
 	for _, b := range p.Brands {
 		b = strings.TrimSpace(b)
 		if b == "" || seen[b] {
@@ -108,7 +109,7 @@ func parseProductFromForm(r *http.Request) (model.Product, error) {
 		return p, fmt.Errorf("brands: max %d", maxBrandsPerProduct)
 	}
 	for _, b := range p.Brands {
-		if len(b) > maxBrandLen {
+		if utf8.RuneCountInString(b) > maxBrandLen {
 			return p, fmt.Errorf("brands: each brand max %d characters", maxBrandLen)
 		}
 	}
