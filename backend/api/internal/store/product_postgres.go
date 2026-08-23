@@ -241,7 +241,13 @@ func (s *PostgresStore) ListProducts(ctx context.Context, filter model.ProductFi
 				if desc {
 					dir = "DESC"
 				}
-				order = "p." + col + " " + dir
+				if col == "brand" {
+					// KAN-14: the brand column is gone; sort by the same
+					// display name the client is shown.
+					order = "array_to_string(p.brands, ' x ') " + dir
+				} else {
+					order = "p." + col + " " + dir
+				}
 			}
 		}
 	}
@@ -634,7 +640,7 @@ func (s *PostgresStore) ListProductFacets(ctx context.Context, filter model.Prod
 	}
 
 	// KAN-14: unnest brands so collaborations surface as individual brands.
-	brandQ := `SELECT DISTINCT b FROM products p, unnest(p.brands) AS b ` + where + ` ORDER BY b`
+	brandQ := `SELECT DISTINCT b FROM products p, unnest(p.brands) AS b ` + where + ` AND b <> '' ORDER BY b`
 	rows, err := s.pool.Query(ctx, brandQ, args...)
 	if err != nil {
 		return facets, fmt.Errorf("query brand facets: %w", err)

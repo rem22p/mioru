@@ -104,3 +104,63 @@ func slugsOf(ps []model.Product) []string {
 	}
 	return out
 }
+
+// TestCollabBrandsSortByBrand pins the storefront sort contract across the
+// column change: "sort=brand" was served by the dropped `brand` column, so it
+// has to be answered by the derived display name now.
+func TestCollabBrandsSortByBrand(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	mustCreateProduct(t, s, model.Product{
+		Slug: "sort-z", CategoryID: 2, Brands: []string{"Zara"},
+		Name: "Z", Price: 100, Status: "in_stock", InStock: true,
+	})
+	mustCreateProduct(t, s, model.Product{
+		Slug: "sort-a", CategoryID: 2, Brands: []string{"Adidas", "Bape"},
+		Name: "A", Price: 100, Status: "in_stock", InStock: true,
+	})
+
+	got, _, err := s.ListProducts(ctx, model.ProductFilter{Sort: "brand", Page: 1, PerPage: 20})
+	if err != nil {
+		t.Fatalf("ListProducts(sort=brand): %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("got %d products, want 2", len(got))
+	}
+	// "Adidas x Bape" sorts before "Zara" — the display name is the key.
+	if got[0].Brand != "Adidas x Bape" || got[1].Brand != "Zara" {
+		t.Errorf("order = [%q %q], want [\"Adidas x Bape\" \"Zara\"]", got[0].Brand, got[1].Brand)
+	}
+
+	desc, _, err := s.ListProducts(ctx, model.ProductFilter{Sort: "-brand", Page: 1, PerPage: 20})
+	if err != nil {
+		t.Fatalf("ListProducts(sort=-brand): %v", err)
+	}
+	if desc[0].Brand != "Zara" {
+		t.Errorf("descending order starts with %q, want \"Zara\"", desc[0].Brand)
+	}
+}
+
+// TestCollabBrandsFacetsSkipEmpty pins that an empty array element never
+// reaches the facet list — the 028 backfill can produce one from a legacy
+// value like "Bape x " (string_to_array leaves a trailing empty element).
+func TestCollabBrandsFacetsSkipEmpty(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	mustCreateProduct(t, s, model.Product{
+		Slug: "facet-empty", CategoryID: 2, Brands: []string{"Bape", ""},
+		Name: "FE", Price: 100, Status: "in_stock", InStock: true,
+	})
+
+	facets, err := s.ListProductFacets(ctx, model.ProductFilter{})
+	if err != nil {
+		t.Fatalf("ListProductFacets: %v", err)
+	}
+	for _, b := range facets.Brands {
+		if b == "" {
+			t.Fatalf("empty brand surfaced in facets: %q", facets.Brands)
+		}
+	}
+}
