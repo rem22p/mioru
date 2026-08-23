@@ -176,8 +176,6 @@ test.describe("Header — visual states", () => {
     const header = page.locator("header");
     await expect(header).toHaveScreenshot("header-top.png");
   });
-
-
 });
 
 // The no-overlap margin is narrowest at the smallest lg width in the longest
@@ -216,7 +214,14 @@ for (const [locale, lng] of [
         ).toBeLessThanOrEqual(width - 24);
 
         const nav = page.locator("header nav");
-        if (await nav.isVisible()) {
+        const burger = page.locator('header button[aria-label="Menu"]');
+        const navVisible = await nav.isVisible();
+        expect(navVisible, `nav visibility - ${at}`).toBe(width >= 1024);
+        expect(await burger.isVisible(), `burger visibility - ${at}`).toBe(
+          width < 1024,
+        );
+
+        if (navVisible) {
           const navBox = await nav.boundingBox();
           const cartBox = await page
             .locator('header a[href="/cart"]')
