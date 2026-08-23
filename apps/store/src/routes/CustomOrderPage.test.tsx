@@ -132,21 +132,25 @@ describe("CustomOrderPage — Telegram order gate", () => {
   });
 });
 
-describe("CustomOrderPage — delivery time (KAN-59)", () => {
+describe("CustomOrderPage — delivery time removed (KAN-59 follow-up)", () => {
   beforeEach(() => {
     useAuthStore.setState({ isAuthenticated: true, user: makeUser(true), loading: false, error: null });
   });
 
-  it("delivery-time radios are rendered but disabled (manager quotes the price)", () => {
+  it("has no delivery-time radios — the section is gone entirely", () => {
     renderPage(true);
-    // All three tariff radios exist but are not selectable.
-    const radios = screen
+    const timeRadios = screen
       .getAllByRole("radio")
       .filter((r) => r.getAttribute("name") === "deliveryTime");
-    expect(radios.length).toBe(3);
-    for (const r of radios) {
-      expect(r).toBeDisabled();
-    }
+    expect(timeRadios.length).toBe(0);
+  });
+
+  it("keeps the delivery-method radios (personal/address/…)", () => {
+    renderPage(true);
+    const methodRadios = screen
+      .getAllByRole("radio")
+      .filter((r) => r.getAttribute("name") === "deliveryMethod");
+    expect(methodRadios.length).toBeGreaterThan(0);
   });
 });
 

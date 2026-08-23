@@ -38,13 +38,6 @@
     "weight": "Weight (kg)",
     "city": "City",
     "cityPlaceholder": "Enter your city",
-    "deliveryTime": "Delivery time",
-    "deliveryTimeInfo": "The manager will quote the price for each tariff in a Telegram private message along with all the order details.",
-    "deliveryTimeOptions": {
-      "fast": "3-5 days",
-      "medium": "8-10 days",
-      "slow": "25-30 days"
-    },
     "deliveryMethod": "Delivery method",
     "deliveryMethods": {
       "personal": "Personal meeting",
@@ -345,14 +338,8 @@
       "express": "Express mail",
       "moldovaPost": "Moldova Post"
     },
-    "deliveryTime": {
-      "fast": "As soon as possible",
-      "medium": "Within a week",
-      "slow": "Within a month"
-    },
     "orderDetail": {
       "parameters": "Parameters",
-      "timeframes": "Timeframes",
       "comment": "Comment",
       "deliveryAddress": "Delivery address",
       "heightCm": "Height {{value}} cm",

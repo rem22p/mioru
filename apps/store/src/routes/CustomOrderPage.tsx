@@ -11,8 +11,6 @@ import { useAuthStore } from "@/stores/authStore";
 import { isDeliveryBlocked } from "@/lib/deliveryRules";
 import { isValidPhone, usableStoredPhone } from "@/lib/phoneValidation";
 
-const deliveryTimeOptions = ["fast", "medium", "slow"] as const;
-
 const deliveryMethods = [
   { key: "personal", price: "Бесплатно", priceColor: "text-[#44944A]" },
   {
@@ -61,7 +59,6 @@ export default function CustomOrderPage() {
   const [weight, setWeight] = useState("");
   const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
-  const [deliveryTime, setDeliveryTime] = useState<string>("");
   const [deliveryMethod, setDeliveryMethod] = useState("");
 
   // Reset delivery method if the user changed the city and their
@@ -154,7 +151,6 @@ export default function CustomOrderPage() {
           total_minor: 0,
           height: height ? parseFloat(height) : undefined,
           weight: weight ? parseFloat(weight) : undefined,
-          delivery_time: deliveryTime ? [deliveryTime] : [],
           comment,
           photos: photoUrls,
         },
@@ -414,40 +410,6 @@ export default function CustomOrderPage() {
               {touched.city && errors.city && (
                 <p className="text-xs text-red-400 mt-1">{errors.city}</p>
               )}
-            </div>
-
-            {/* Delivery time */}
-            <div>
-              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                {t("customOrder.deliveryTime")}
-              </label>
-              {/* KAN-59: delivery-time options are shown but NOT selectable —
-                  the manager quotes the price per tariff. */}
-              <div className="space-y-2">
-                {deliveryTimeOptions.map((key) => (
-                  <label
-                    key={key}
-                    aria-disabled="true"
-                    className="flex items-center gap-3 rounded-xl border px-4 py-3 border-[var(--color-border-custom)] opacity-50 cursor-not-allowed transition-all"
-                  >
-                    <input
-                      type="radio"
-                      name="deliveryTime"
-                      value={key}
-                      checked={deliveryTime === key}
-                      onChange={() => setDeliveryTime(key)}
-                      disabled
-                      className="accent-[#44944A]"
-                    />
-                    <span className="text-sm text-[var(--color-text-primary)]">
-                      {t(`customOrder.deliveryTimeOptions.${key}`)}
-                    </span>
-                  </label>
-                ))}
-              </div>
-              <p className="mt-3 text-xs text-[var(--color-text-muted)] leading-relaxed">
-                {t("customOrder.deliveryTimeInfo")}
-              </p>
             </div>
 
             {/* Delivery method */}

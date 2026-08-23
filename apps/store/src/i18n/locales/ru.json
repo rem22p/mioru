@@ -38,13 +38,6 @@
     "weight": "Вес (кг)",
     "city": "Город",
     "cityPlaceholder": "Введите ваш город",
-    "deliveryTime": "Срок доставки",
-    "deliveryTimeInfo": "Менеджер распишет цену по каждому тарифу в личных сообщениях Telegram вместе со всей информацией по заказу.",
-    "deliveryTimeOptions": {
-      "fast": "3-5 дней",
-      "medium": "8-10 дней",
-      "slow": "25-30 дней"
-    },
     "deliveryMethod": "Способ доставки",
     "deliveryMethods": {
       "personal": "Личная встреча",
@@ -345,14 +338,8 @@
       "express": "Экспресс-почта",
       "moldovaPost": "Почта Молдовы"
     },
-    "deliveryTime": {
-      "fast": "Как можно быстрее",
-      "medium": "В течение недели",
-      "slow": "В течение месяца"
-    },
     "orderDetail": {
       "parameters": "Параметры",
-      "timeframes": "Сроки",
       "comment": "Комментарий",
       "deliveryAddress": "Адрес доставки",
       "heightCm": "Рост {{value}} см",

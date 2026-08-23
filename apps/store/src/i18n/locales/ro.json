@@ -38,13 +38,6 @@
     "weight": "Greutate (kg)",
     "city": "Oraș",
     "cityPlaceholder": "Introdu orașul tău",
-    "deliveryTime": "Termen de livrare",
-    "deliveryTimeInfo": "Managerul va comunica prețul pentru fiecare tarif în mesaj privat pe Telegram împreună cu toate detaliile comenzii.",
-    "deliveryTimeOptions": {
-      "fast": "3-5 zile",
-      "medium": "8-10 zile",
-      "slow": "25-30 zile"
-    },
     "deliveryMethod": "Mod de livrare",
     "deliveryMethods": {
       "personal": "Întâlnire personală",
@@ -345,14 +338,8 @@
       "express": "Poștă express",
       "moldovaPost": "Poșta Moldovei"
     },
-    "deliveryTime": {
-      "fast": "Cât mai repede",
-      "medium": "În decurs de o săptămână",
-      "slow": "În decurs de o lună"
-    },
     "orderDetail": {
       "parameters": "Parametri",
-      "timeframes": "Termene",
       "comment": "Comentariu",
       "deliveryAddress": "Adresă de livrare",
       "heightCm": "Înălțime {{value}} cm",
