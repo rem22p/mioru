@@ -305,9 +305,8 @@ test.describe("Theme & i18n", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
 
-    // Click language globe
-    await page.click('button[aria-label="Change language"]');
-    await page.click('button:has-text("EN")');
+    // KAN-56: globe dropdown removed — language is switched via the header pill toggle
+    await page.click('[data-testid="language-toggle-en"]');
     await page.waitForTimeout(500);
 
     // Catalog link should now be in English. The nav uppercases labels via CSS

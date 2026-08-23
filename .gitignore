@@ -59,6 +59,10 @@ next-app/
 !apps/store/e2e/**/*-snapshots/
 !apps/store/e2e/**/*-snapshots/**
 
+# apple-touch-icon.png is a required runtime asset (referenced in index.html),
+# not a screenshot — re-include it despite the broad *.png ignores.
+!apps/store/public/apple-touch-icon.png
+
 # Local tooling artifacts
 .claude/
 .tldr/
@@ -67,3 +71,6 @@ next-app/
 dist.tar.gz
 dump.rdb
 .envrc
+
+# Local Playwright browser cache (dev-only)
+.pw-browsers/

@@ -38,7 +38,6 @@ function ScrollToTop() {
 }
 
 export default function App() {
-  const { i18n } = useTranslation();
   const [theme, setTheme] = useState<"dark" | "light">(
     () => (localStorage.getItem("theme") as "dark" | "light") || "dark",
   );
@@ -59,10 +58,6 @@ export default function App() {
     }
   }, [theme]);
 
-  const changeLanguage = (lng: string) => {
-    i18n.changeLanguage(lng);
-  };
-
   // Check auth on mount
   const fetchMe = useAuthStore((s) => s.fetchMe);
   useEffect(() => { fetchMe(); }, [fetchMe]);
@@ -74,7 +69,6 @@ export default function App() {
         <Header
           theme={theme}
           toggleTheme={toggleTheme}
-          changeLanguage={changeLanguage}
         />
         <main className="flex-1 flex flex-col">
           <ScrollToTop />

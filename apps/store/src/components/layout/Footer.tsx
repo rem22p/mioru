@@ -13,7 +13,6 @@ export default function Footer() {
   const navLinks = [
     { labelKey: "nav.inStock", href: "/catalog" },
     { labelKey: "nav.customOrder", href: "/custom-order" },
-    { labelKey: "nav.avatar", href: "/avatar" },
     { labelKey: "nav.cart", href: "/cart" },
   ];
 
