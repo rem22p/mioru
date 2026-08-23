@@ -6,13 +6,10 @@ import { useCartStore } from "@/stores/cartStore";
 import { LanguageToggle, CurrencyToggle } from "./PreferenceToggles";
 import { motion, AnimatePresence } from "framer-motion";
 
-const desktopLinks = [
-  { href: "/catalog", labelKey: "nav.inStock" },
-  { href: "/custom-order", labelKey: "nav.customOrder" },
-  { href: "/favorites", labelKey: "nav.favorites" },
-];
-
-const mobileLinks = [
+// Desktop nav and the burger-menu links are the same set (KAN-56 removed the
+// avatar/cart divergence). One source of truth — desktop/mobile differ only by
+// the responsive classes on their <nav> wrappers, not by the link set.
+const navLinks = [
   { href: "/catalog", labelKey: "nav.inStock" },
   { href: "/custom-order", labelKey: "nav.customOrder" },
   { href: "/favorites", labelKey: "nav.favorites" },
@@ -63,8 +60,8 @@ export default function Header({
         }`}
       >
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-8">
-          {/* Logo */}
-          <Link to="/">
+          {/* Logo — shrink-0 so it never collapses when the row is tight */}
+          <Link to="/" className="shrink-0">
             <motion.img
               src={isLight ? "/favicon-black.ico" : "/favicon.ico"}
               alt="MIORU"
@@ -73,10 +70,15 @@ export default function Header({
             />
           </Link>
 
-          {/* Desktop Nav — centered in flow (no absolute positioning, so the
-              right-side cluster can never overlap it at any viewport) */}
-          <nav className="hidden md:flex items-center gap-8 lg:gap-10">
-            {desktopLinks.map((link) => (
+          {/* Desktop Nav — in-flow (not absolute-centered). Dead-centering the
+              nav is incompatible with the wide preference-toggle cluster the
+              manager asked for (KAN-56): at ≤1280 a centered nav overlaps the
+              cluster. In-flow justify-between makes overlap impossible; the nav
+              sits left-of-center. Shown only at lg+ so the 768–1023 band is
+              served by the burger menu (pills live at the bottom of that
+              overlay), avoiding the logo-collapse/profile-off-screen regression. */}
+          <nav className="hidden lg:flex items-center gap-8 lg:gap-10">
+            {navLinks.map((link) => (
               <Link
                 key={link.href}
                 to={link.href}
@@ -92,8 +94,8 @@ export default function Header({
             ))}
           </nav>
 
-          {/* Right-side icons */}
-          <div className="flex items-center gap-1">
+          {/* Right-side icons — shrink-0 so the cluster never collapses */}
+          <div className="flex items-center gap-1 shrink-0">
             {/* Cart — always visible (KAN-56: replaces the globe on mobile) */}
             <Link
               to="/cart"
@@ -108,8 +110,8 @@ export default function Header({
               )}
             </Link>
 
-            {/* Language & currency pill toggles — desktop inline */}
-            <div className="hidden md:flex items-center gap-2 px-2">
+            {/* Language & currency pill toggles — desktop inline (lg+) */}
+            <div className="hidden lg:flex items-center gap-2 px-2">
               <LanguageToggle />
               <CurrencyToggle />
             </div>
@@ -143,9 +145,9 @@ export default function Header({
               <User className="h-5 w-5" />
             </Link>
 
-            {/* Mobile menu button */}
+            {/* Mobile menu button — shown below lg (768–1023 uses the burger) */}
             <button
-              className="h-11 w-11 flex items-center justify-center md:hidden transition-colors rounded-lg text-[var(--color-text-primary)]"
+              className="h-11 w-11 flex items-center justify-center lg:hidden transition-colors rounded-lg text-[var(--color-text-primary)]"
               onClick={() => setMenuOpen(!menuOpen)}
               aria-label={menuOpen ? t("common.close") : "Menu"}
             >
@@ -168,12 +170,12 @@ export default function Header({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className={`fixed inset-0 z-40 md:hidden ${
+            className={`fixed inset-0 z-40 lg:hidden ${
               isLight ? "bg-white/98" : "bg-[var(--color-bg-primary)]/98"
             } backdrop-blur-xl`}
           >
             <nav className="flex h-full flex-col items-center justify-center gap-8">
-              {mobileLinks.map((link, i) => (
+              {navLinks.map((link, i) => (
                 <motion.div
                   key={link.href}
                   initial={{ opacity: 0, y: 20 }}

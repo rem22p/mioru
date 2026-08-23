@@ -177,22 +177,25 @@ test.describe("Header — visual states", () => {
     await expect(header).toHaveScreenshot("header-top.png");
   });
 
-  test("Nav links centered — within 10px tolerance", async ({ page }) => {
+  test("Nav does not overlap the right-side cluster (KAN-56)", async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await page.goto("/");
     await page.waitForLoadState("networkidle");
 
+    // KAN-56: the header is in-flow justify-between (not absolute-centered),
+    // because dead-centering the nav overlaps the wide preference-toggle
+    // cluster. The invariant we now codify is "no overlap": the nav's right
+    // edge must sit left of the cluster's first element (the cart link).
     const nav = page.locator("header nav");
     const navBox = await nav.boundingBox();
-    const viewportWidth = DESKTOP.width;
+    const cartBox = await page.locator('header a[href="/cart"]').first().boundingBox();
 
-    if (navBox) {
-      const navCenter = navBox.x + navBox.width / 2;
-      const screenCenter = viewportWidth / 2;
-      const offset = Math.abs(navCenter - screenCenter);
-
-      // Allow 10px tolerance for font rendering differences
-      expect(offset).toBeLessThanOrEqual(10);
+    expect(navBox).toBeTruthy();
+    expect(cartBox).toBeTruthy();
+    if (navBox && cartBox) {
+      expect(navBox.width).toBeGreaterThan(0);
+      const navRight = navBox.x + navBox.width;
+      expect(navRight).toBeLessThanOrEqual(cartBox.x + 1);
     }
   });
 });
