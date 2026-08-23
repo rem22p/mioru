@@ -9,8 +9,13 @@ import (
 	"mioru/internal/model"
 )
 
-// normalizeProductStatus maps whatever the admin SPA sends on the wire to
-// one of the three canonical values {in_stock, preorder, out_of_stock} that
+// KAN-14: brand bounds for the admin product form (multipart brands[]).
+const (
+	maxBrandsPerProduct = 5
+	maxBrandLen         = 60
+)
+
+// normalizeProductStatus maps whatever the admin SPA sends on the wire to// one of the three canonical values {in_stock, preorder, out_of_stock} that
 // the products_status_chk CHECK constraint accepts. The SPA predates the
 // constraint, so it can still emit "pre_order" (with underscore) and "none";
 // rather than break the admin by forcing a frontend rename, we translate on
@@ -48,10 +53,29 @@ func parseProductFromForm(r *http.Request) (model.Product, error) {
 		Slug:        strings.TrimSpace(r.FormValue("slug")),
 		Name:        strings.TrimSpace(r.FormValue("name")),
 		Description: strings.TrimSpace(r.FormValue("description")),
-		Brand:       strings.TrimSpace(r.FormValue("brand")),
 		Color:       strings.TrimSpace(r.FormValue("color")),
 		Material:    strings.TrimSpace(r.FormValue("material")),
 	}
+
+	// KAN-14: brands arrive as a multipart array (brands[]). Fall back to
+	// the legacy single "brand" field so an old admin draft still parses.
+	if raw := r.Form["brands[]"]; raw != nil {
+		p.Brands = raw
+	} else if legacy := strings.TrimSpace(r.FormValue("brand")); legacy != "" {
+		p.Brands = []string{legacy}
+	}
+	// Normalise: trim, drop empties, dedupe preserving order.
+	seen := make(map[string]bool, len(p.Brands))
+	normalized := p.Brands[:0]
+	for _, b := range p.Brands {
+		b = strings.TrimSpace(b)
+		if b == "" || seen[b] {
+			continue
+		}
+		seen[b] = true
+		normalized = append(normalized, b)
+	}
+	p.Brands = normalized
 
 	if v, err := strconv.Atoi(r.FormValue("price")); err == nil {
 		p.Price = v
@@ -77,6 +101,16 @@ func parseProductFromForm(r *http.Request) (model.Product, error) {
 	}
 	if p.CategoryID <= 0 {
 		return p, fmt.Errorf("category_id is required")
+	}
+	// KAN-14: brand bounds — collaborations carry at most a handful of
+	// brands, each of a sane length (input validation, never unbounded).
+	if len(p.Brands) > maxBrandsPerProduct {
+		return p, fmt.Errorf("brands: max %d", maxBrandsPerProduct)
+	}
+	for _, b := range p.Brands {
+		if len(b) > maxBrandLen {
+			return p, fmt.Errorf("brands: each brand max %d characters", maxBrandLen)
+		}
 	}
 
 	// Sizes

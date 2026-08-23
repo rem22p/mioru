@@ -25,6 +25,18 @@ func (s *PostgresStore) CreateProduct(ctx context.Context, p model.Product) (int
 		inStock = 1
 	}
 
+	// Normalise brands (KAN-14): the display name is always derived from the
+	// brands array. A legacy caller that sets only Brand gets a single-brand
+	// array; a nil slice becomes '{}' (NOT NULL column, nil would encode as
+	// SQL NULL).
+	brands := p.Brands
+	if len(brands) == 0 && p.Brand != "" {
+		brands = []string{p.Brand}
+	}
+	if brands == nil {
+		brands = []string{}
+	}
+
 	// Stock_quantity is the sum of per-size stocks; the admin no longer
 	// sends a separate top-level field.
 	totalQty := 0
@@ -35,10 +47,10 @@ func (s *PostgresStore) CreateProduct(ctx context.Context, p model.Product) (int
 
 	var productID int64
 	err = tx.QueryRow(ctx, `
-		INSERT INTO products (slug, category_id, brand, name, price, color, material, care, description, xp_reward, in_stock, status, stock_quantity, created_by)
+		INSERT INTO products (slug, category_id, brands, name, price, color, material, care, description, xp_reward, in_stock, status, stock_quantity, created_by)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING id`,
-		p.Slug, p.CategoryID, p.Brand, p.Name, p.Price, p.Color, p.Material, string(careJSON), p.Description, p.XPReward, inStock, p.Status, p.StockQty, p.CreatedBy,
+		p.Slug, p.CategoryID, brands, p.Name, p.Price, p.Color, p.Material, string(careJSON), p.Description, p.XPReward, inStock, p.Status, p.StockQty, p.CreatedBy,
 	).Scan(&productID)
 	if err != nil {
 		return 0, fmt.Errorf("insert product: %w", err)
@@ -99,6 +111,15 @@ func (s *PostgresStore) UpdateProduct(ctx context.Context, slug string, p model.
 		inStock = 1
 	}
 
+	// Normalise brands — same fallback as CreateProduct (KAN-14).
+	brands := p.Brands
+	if len(brands) == 0 && p.Brand != "" {
+		brands = []string{p.Brand}
+	}
+	if brands == nil {
+		brands = []string{}
+	}
+
 	totalQty := 0
 	for _, sz := range p.Sizes {
 		totalQty += sz.StockQuantity
@@ -106,9 +127,9 @@ func (s *PostgresStore) UpdateProduct(ctx context.Context, slug string, p model.
 	p.StockQty = totalQty
 
 	_, err = tx.Exec(ctx, `
-		UPDATE products SET slug=$1, category_id=$2, brand=$3, name=$4, price=$5, color=$6, material=$7, care=$8, description=$9, xp_reward=$10, in_stock=$11, status=$12, stock_quantity=$13, updated_at=NOW()
+		UPDATE products SET slug=$1, category_id=$2, brands=$3, name=$4, price=$5, color=$6, material=$7, care=$8, description=$9, xp_reward=$10, in_stock=$11, status=$12, stock_quantity=$13, updated_at=NOW()
 		WHERE id=$14`,
-		p.Slug, p.CategoryID, p.Brand, p.Name, p.Price, p.Color, p.Material, string(careJSON), p.Description, p.XPReward, inStock, p.Status, p.StockQty, productID,
+		p.Slug, p.CategoryID, brands, p.Name, p.Price, p.Color, p.Material, string(careJSON), p.Description, p.XPReward, inStock, p.Status, p.StockQty, productID,
 	)
 	if err != nil {
 		return fmt.Errorf("update product: %w", err)
@@ -292,7 +313,7 @@ func (s *PostgresStore) listProductsByIDs(ctx context.Context, ids []int64) ([]m
 		var inStock int16
 		if err := rows.Scan(
 			&p.ID, &p.Slug, &p.CategoryID, &p.CategoryName,
-			&p.Brand, &p.Name, &p.Price, &p.Color, &p.Material, &careJSON,
+			&p.Brand, &p.Brands, &p.Name, &p.Price, &p.Color, &p.Material, &careJSON,
 			&p.Description, &p.XPReward, &inStock, &p.Status, &p.StockQty, &p.PopularityRank, &p.PopularityRankPreorder, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan product: %w", err)
@@ -399,7 +420,7 @@ func (s *PostgresStore) attachImages(ctx context.Context, byID map[int64]*model.
 // productSelectBase is the shared SELECT (with category name joined) for reading
 // products. Append a WHERE clause to it. Column order matches scanProduct.
 const productSelectBase = `SELECT p.id, p.slug, p.category_id, COALESCE(c.name, '') as category_name,
-	p.brand, p.name, p.price, p.color, p.material, p.care,
+	array_to_string(p.brands, ' x ') as brand, p.brands, p.name, p.price, p.color, p.material, p.care,
 	p.description, p.xp_reward, p.in_stock, p.status, p.stock_quantity,
 	p.popularity_rank, p.popularity_rank_preorder, p.created_by,
 	COALESCE(p.created_at::text, '') as created_at, COALESCE(p.updated_at::text, '') as updated_at
@@ -415,7 +436,7 @@ func (s *PostgresStore) queryProduct(ctx context.Context, whereClause string, ar
 	var inStock int16
 	if err := s.pool.QueryRow(ctx, query, arg).Scan(
 		&p.ID, &p.Slug, &p.CategoryID, &p.CategoryName,
-		&p.Brand, &p.Name, &p.Price, &p.Color, &p.Material, &careJSON,
+		&p.Brand, &p.Brands, &p.Name, &p.Price, &p.Color, &p.Material, &careJSON,
 		&p.Description, &p.XPReward, &inStock, &p.Status, &p.StockQty, &p.PopularityRank, &p.PopularityRankPreorder, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
 	); err != nil {
 		if strings.Contains(err.Error(), "no rows") {
@@ -547,21 +568,24 @@ func buildProductFilterWhere(filter model.ProductFilter, startIdx int) (where st
 			s = s[:200]
 		}
 		// Trigram fuzzy match via % operator (uses GIN index) +
-		// ILIKE fallback for substrings pg_trgm might miss.
+		// ILIKE fallback for substrings pg_trgm might miss. Brand search
+		// matches the display name ("Bape x Mastermind").
 		// Threshold 0.2 set via AfterConnect (postgres.go).
-		where += fmt.Sprintf(" AND (p.name %% $%d OR p.name ILIKE $%d OR p.brand ILIKE $%d OR p.slug ILIKE $%d)",
+		where += fmt.Sprintf(" AND (p.name %% $%d OR p.name ILIKE $%d OR array_to_string(p.brands, ' x ') ILIKE $%d OR p.slug ILIKE $%d)",
 			argIdx, argIdx+1, argIdx+2, argIdx+3)
 		args = append(args, s, "%"+s+"%", "%"+s+"%", "%"+s+"%")
 		argIdx += 4
 	}
-	// Brand (legacy single) + Brands (multi) collapse to a single ANY clause so
-	// the storefront can pass either without surprise.
+	// Brand (legacy single) + Brands (multi) collapse to a single overlap
+	// clause: a product matches when ANY of the selected brands is in its
+	// brands array — picking "Bape" or "Mastermind" both surface the
+	// "Bape x Mastermind" collaboration (KAN-14).
 	brands := filter.Brands
 	if filter.Brand != "" {
 		brands = append(brands, filter.Brand)
 	}
 	if len(brands) > 0 {
-		where += fmt.Sprintf(" AND p.brand = ANY($%d::text[])", argIdx)
+		where += fmt.Sprintf(" AND p.brands && $%d::text[]", argIdx)
 		args = append(args, brands)
 		argIdx++
 	}
@@ -609,7 +633,8 @@ func (s *PostgresStore) ListProductFacets(ctx context.Context, filter model.Prod
 		Sizes:  []string{},
 	}
 
-	brandQ := `SELECT DISTINCT p.brand FROM products p ` + where + ` AND p.brand <> '' ORDER BY p.brand`
+	// KAN-14: unnest brands so collaborations surface as individual brands.
+	brandQ := `SELECT DISTINCT b FROM products p, unnest(p.brands) AS b ` + where + ` ORDER BY b`
 	rows, err := s.pool.Query(ctx, brandQ, args...)
 	if err != nil {
 		return facets, fmt.Errorf("query brand facets: %w", err)

@@ -13,10 +13,10 @@ import (
 // size_stocks[] form field is parsed correctly alongside sizes[].
 func TestParseProductFromFormMultiValueStock(t *testing.T) {
 	tests := []struct {
-		name     string
-		sizes    []string
-		stocks   []string
-		want     []model.ProductSize
+		name   string
+		sizes  []string
+		stocks []string
+		want   []model.ProductSize
 	}{
 		{
 			name:   "single size with stock",
@@ -96,4 +96,88 @@ func TestParseProductFromFormMultiValueStock(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestParseProductFromFormBrands pins KAN-14: brands arrive as a multipart
+// brands[] array, are trimmed/deduped, and the legacy single "brand" field
+// still parses as a one-element array.
+func TestParseProductFromFormBrands(t *testing.T) {
+	build := func(brands []string, legacy string) *http.Request {
+		form := url.Values{}
+		form["slug"] = []string{"brands-case"}
+		form["category_id"] = []string{"2"}
+		form["name"] = []string{"Brands Case"}
+		form["price"] = []string{"100"}
+		if legacy != "" {
+			form["brand"] = []string{legacy}
+		}
+		for _, b := range brands {
+			form.Add("brands[]", b)
+		}
+		req, _ := http.NewRequest("POST", "/", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		_ = req.ParseForm()
+		return req
+	}
+
+	t.Run("brands[] array is parsed and normalised", func(t *testing.T) {
+		p, err := parseProductFromForm(build([]string{" Bape ", "Mastermind", "Bape", " "}, ""))
+		if err != nil {
+			t.Fatalf("parseProductFromForm: %v", err)
+		}
+		want := []string{"Bape", "Mastermind"}
+		if len(p.Brands) != len(want) {
+			t.Fatalf("Brands = %v, want %v", p.Brands, want)
+		}
+		for i := range want {
+			if p.Brands[i] != want[i] {
+				t.Errorf("Brands[%d] = %q, want %q", i, p.Brands[i], want[i])
+			}
+		}
+	})
+
+	t.Run("legacy brand field falls back to a single brand", func(t *testing.T) {
+		p, err := parseProductFromForm(build(nil, "Nike"))
+		if err != nil {
+			t.Fatalf("parseProductFromForm: %v", err)
+		}
+		if len(p.Brands) != 1 || p.Brands[0] != "Nike" {
+			t.Errorf("Brands = %v, want [Nike]", p.Brands)
+		}
+	})
+
+	t.Run("brands[] wins over the legacy brand field", func(t *testing.T) {
+		p, err := parseProductFromForm(build([]string{"Bape"}, "Nike"))
+		if err != nil {
+			t.Fatalf("parseProductFromForm: %v", err)
+		}
+		if len(p.Brands) != 1 || p.Brands[0] != "Bape" {
+			t.Errorf("Brands = %v, want [Bape]", p.Brands)
+		}
+	})
+
+	t.Run("too many brands rejected", func(t *testing.T) {
+		_, err := parseProductFromForm(build([]string{"A", "B", "C", "D", "E", "F"}, ""))
+		if err == nil {
+			t.Fatal("expected an error for 6 brands")
+		}
+	})
+
+	t.Run("overlong brand rejected", func(t *testing.T) {
+		long := strings.Repeat("x", maxBrandLen+1)
+		_, err := parseProductFromForm(build([]string{long}, ""))
+		if err == nil {
+			t.Fatal("expected an error for an overlong brand")
+		}
+	})
+
+	t.Run("empty brands array is allowed (brands default to empty)", func(t *testing.T) {
+		p, err := parseProductFromForm(build([]string{"   "}, ""))
+		if err != nil {
+			t.Fatalf("parseProductFromForm: %v", err)
+		}
+		if len(p.Brands) != 0 {
+			t.Errorf("Brands = %v, want empty", p.Brands)
+		}
+	})
 }

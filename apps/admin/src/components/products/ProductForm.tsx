@@ -92,7 +92,25 @@ export default function ProductForm({
   const [name, setName] = useState(product?.name || "");
   const [slug, setSlug] = useState(product?.slug || "");
   const [description, setDescription] = useState(product?.description || "");
-  const [brand, setBrand] = useState(product?.brand || "");
+  // KAN-14: brands are a structured list; the display name shown on the card
+  // is "A x B". A product loaded without brands (legacy shape) falls back to
+  // its single display brand.
+  const [brands, setBrands] = useState<string[]>(() =>
+    product?.brands && product.brands.length > 0
+      ? product.brands
+      : product?.brand
+        ? [product.brand]
+        : [],
+  );
+  const [brandInput, setBrandInput] = useState("");
+
+  // KAN-14: add a brand chip from the input (trimmed, deduped).
+  const addBrand = () => {
+    const v = brandInput.trim();
+    if (!v) return;
+    setBrands((prev) => (prev.includes(v) ? prev : [...prev, v]));
+    setBrandInput("");
+  };
   const [price, setPrice] = useState(
     product?.price ? String(product.price) : "",
   );
@@ -226,7 +244,7 @@ export default function ProductForm({
       name,
       slug,
       description,
-      brand,
+      brands,
       price,
       xpReward,
       inStock,
@@ -257,7 +275,7 @@ export default function ProductForm({
     name,
     slug,
     description,
-    brand,
+    brands,
     price,
     xpReward,
     inStock,
@@ -433,7 +451,8 @@ export default function ProductForm({
       fd.append("name", name.trim());
       fd.append("slug", slug || generateSlug(name));
       fd.append("description", description);
-      if (showBrand || brand) fd.append("brand", brand);
+      if (showBrand || brands.length > 0)
+        brands.forEach((b) => fd.append("brands[]", b.trim()));
       fd.append("price", price);
       fd.append("xp_reward", xpReward || "0");
       fd.append("category_id", String(selectedCategoryId));
@@ -519,7 +538,15 @@ export default function ProductForm({
     setName(d.name);
     setSlug(d.slug);
     setDescription(d.description);
-    setBrand(d.brand);
+    // Old drafts carry a single `brand` string — fold it into a one-element
+    // brands list on hydrate (KAN-14).
+    setBrands(
+      (d.brands && d.brands.length > 0
+        ? d.brands
+        : (d as unknown as { brand?: string }).brand
+          ? [(d as unknown as { brand?: string }).brand as string]
+          : []),
+    );
     setPrice(d.price);
     setXpReward(d.xpReward);
     setInStock(d.inStock);
@@ -696,19 +723,58 @@ export default function ProductForm({
                 )}
               </div>
 
-              {/* Dynamic: Brand */}
+              {/* Dynamic: Brand — multi-brand editor (KAN-14 collaborations) */}
               {showBrand && (
                 <div>
                   <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
-                    Бренд
+                    Бренды
                   </label>
-                  <input
-                    type="text"
-                    value={brand}
-                    onChange={(e) => setBrand(e.target.value)}
-                    placeholder="Nike, Adidas..."
-                    className={TEXT_FIELD_STYLE}
-                  />
+                  <div
+                    data-testid="brand-editor"
+                    className="flex flex-wrap gap-2 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-3 py-2"
+                  >
+                    {brands.map((b) => (
+                      <span
+                        key={b}
+                        data-testid={`brand-chip-${b}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#44944A]/15 px-2.5 py-1 text-sm text-[var(--color-text-primary)]"
+                      >
+                        {b}
+                        <button
+                          type="button"
+                          data-testid={`brand-remove-${b}`}
+                          aria-label={`Удалить бренд ${b}`}
+                          onClick={() =>
+                            setBrands((prev) => prev.filter((x) => x !== b))
+                          }
+                          className="text-[var(--color-text-muted)] hover:text-red-400 transition-colors"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      type="text"
+                      value={brandInput}
+                      onChange={(e) => setBrandInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addBrand();
+                        }
+                      }}
+                      placeholder={
+                        brands.length === 0 ? "Nike, Adidas… (Enter — добавить)" : "Добавить бренд"
+                      }
+                      data-testid="brand-input"
+                      className="flex-1 min-w-[8rem] bg-transparent outline-none text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)]"
+                    />
+                  </div>
+                  {brands.length > 0 && (
+                    <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                      В карточке: {brands.join(" x ")}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -1160,7 +1226,7 @@ export default function ProductForm({
               name,
               price: Number(price) || 0,
               description,
-              brand,
+              brand: brands.join(" x "),
               material,
               care: careInstructions,
               sizes: selectedSizes.map(s => ({label: s.label, stock_quantity: s.stock})),

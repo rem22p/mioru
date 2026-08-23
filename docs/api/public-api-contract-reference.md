@@ -45,9 +45,9 @@ sets it explicitly.
 - **DELETE /api/admin/users/{username}** — `authH.DeleteUser`, super-admin. Caller==target→**400 VALIDATION_FAILED**; not found→**404 NOT_FOUND**; success **204** (no body). No last-admin guard.
 - **GET /api/admin/categories** — `productH.Categories`, admin. `?flat=1`→flat list w/ `parent_id`; else tree. **200** `[]model.Category`.
 - **GET /api/admin/products** — `productH.List`, admin. `category_id,search,brand,sort,page,per_page`. **200** `{products:[...],total,page,per_page}` (key `products`).
-- **POST /api/admin/products** — `productH.Create`, admin, **multipart**. Required `slug,name,category_id>0`. Status normalized (`in_stock|preorder|out_of_stock`). Success **201** `{id,product}`.
+- **POST /api/admin/products** — `productH.Create`, admin, **multipart**. Required `slug,name,category_id>0`. Status normalized (`in_stock|preorder|out_of_stock`). **Brands (KAN-14):** multipart `brands[]` array — each ≤60 chars, max 5, trimmed/deduped; the legacy single `brand` field is accepted as a one-element fallback. Response product carries `brand` (display name `A x B`, derived as `array_to_string(brands,' x ')`) + `brands` (array). Success **201** `{id,product}`.
 - **GET /api/admin/products/{slug}** — `productH.Get`, admin. **200** product; missing→404.
-- **PUT /api/admin/products/{slug}** — `productH.Update`, admin, multipart (cap 32MiB). Required `slug,name,category_id`. Not found→**404 NOT_FOUND**; dup slug→**409 CONFLICT**; `existing_images[]`≤20 each ≤500 & prefix `/uploads/`|`https://`. Success **200** full product.
+- **PUT /api/admin/products/{slug}** — `productH.Update`, admin, multipart (cap 32MiB). Required `slug,name,category_id`. Brands: same `brands[]` contract as Create (KAN-14). Not found→**404 NOT_FOUND**; dup slug→**409 CONFLICT**; `existing_images[]`≤20 each ≤500 & prefix `/uploads/`|`https://`. Success **200** full product.
 - **DELETE /api/admin/products/{slug}** — `productH.Delete`, admin. Success **200** `{ok:true}` (not 204); missing→**404**.
 - **GET /api/admin/orders** — `adminOrderH.ListAll`, admin. `page,per_page(≤100),status?,type?`. **200** `{orders:[...],total,page,per_page}`; each order carries joined `customer_email`,`customer_first_name`; items batch-loaded with `product_name`. Cross-customer (all orders).
 - **PATCH /api/admin/orders/{id}/status** — `adminOrderH.UpdateStatus`, admin. `{status}` ∈ `{pending,processing,shipped,delivered,cancelled}`. Non-numeric id / empty / not-in-enum → **400 VALIDATION_FAILED**. Success **200** `{ok:true}`.
@@ -55,7 +55,7 @@ sets it explicitly.
 
 ## Store public / infra
 
-- **GET /api/products/facets** — `storeH.ListFacets`. Same params as `/api/products`. **Drops** `brand/brands/colors/sizes` before facet query (selecting a facet does not hide its siblings); keeps `status`. **200** `{brands,colors,sizes}`. Bad status→**400**.
+- **GET /api/products/facets** — `storeH.ListFacets`. Same params as `/api/products`. **Drops** `brand/brands/colors/sizes` before facet query (selecting a facet does not hide its siblings); keeps `status`. **200** `{brands,colors,sizes}`. KAN-14: the brands facet lists each collaboration brand individually (`unnest(brands)`), never the joined `A x B` string. Bad status→**400**.
 - **GET /api/health** — inline, no mw. **200** `{status:"ok"}`.
 - **GET /uploads/** — `uploadsSecurity`+FileServer. Sets `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; sandbox`. Path traversal blocked by stdlib `http.FileServer`/`path.Clean`.
 - **OPTIONS /api/** — inline preflight. Allowlisted `Origin`→`Access-Control-Allow-Origin: <origin>` + `Allow-Credentials: true` + `Vary: Origin`; non-allowlisted→no ACAO. Always `Allow-Methods: GET,POST,PUT,PATCH,DELETE,OPTIONS`, `Allow-Headers: Content-Type, X-CSRF-Token, Idempotency-Key`. **204**.

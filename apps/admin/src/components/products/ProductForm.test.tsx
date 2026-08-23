@@ -59,7 +59,7 @@ const emptyPayload = (over: Partial<DraftPayload> = {}): DraftPayload => ({
   name: "",
   slug: "",
   description: "",
-  brand: "",
+  brands: [],
   price: "",
   xpReward: "",
   inStock: true,
@@ -171,5 +171,44 @@ describe("ProductForm — image upload validation", () => {
     const errors = await screen.findByTestId("pf-image-errors");
     expect(errors).toHaveTextContent("notes.txt");
     expect(uploadImage).not.toHaveBeenCalled();
+  });
+});
+
+describe("ProductForm — brand editor (KAN-14)", () => {
+  const renderWithCategory = async () => {
+    render(<ProductForm product={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await screen.findByTestId("pf-name");
+    // Select the mocked category whose criteria include "brand".
+    fireEvent.change(screen.getByTestId("pf-category"), {
+      target: { value: "1" },
+    });
+    return screen.getByTestId("brand-input");
+  };
+
+  it("adds brands as chips and shows the joined card name", async () => {
+    const input = await renderWithCategory();
+    await userEvent.type(input, "Bape{enter}");
+    await userEvent.type(input, "Mastermind{enter}");
+
+    expect(screen.getByTestId("brand-chip-Bape")).toBeInTheDocument();
+    expect(screen.getByTestId("brand-chip-Mastermind")).toBeInTheDocument();
+    expect(
+      screen.getByText("В карточке: Bape x Mastermind"),
+    ).toBeInTheDocument();
+  });
+
+  it("removes a brand chip via its × button", async () => {
+    const input = await renderWithCategory();
+    await userEvent.type(input, "Bape{enter}");
+    await userEvent.click(screen.getByTestId("brand-remove-Bape"));
+    expect(screen.queryByTestId("brand-chip-Bape")).toBeNull();
+    expect(screen.queryByText("В карточке: Bape")).toBeNull();
+  });
+
+  it("dedupes brands entered twice", async () => {
+    const input = await renderWithCategory();
+    await userEvent.type(input, "Bape{enter}");
+    await userEvent.type(input, "Bape{enter}");
+    expect(screen.getAllByTestId("brand-chip-Bape")).toHaveLength(1);
   });
 });
