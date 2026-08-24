@@ -59,7 +59,9 @@ const TEXT_FIELD_STYLE =
 // a setState to land — derive the same list from the same input.
 function withBrand(list: string[], raw: string): string[] {
   const v = raw.trim();
-  if (!v || list.includes(v)) return list;
+  // Server bounds: max 5 brands (maxBrandsPerProduct); the 60-char limit is
+  // enforced by maxLength on the input, server validation is the backstop.
+  if (!v || list.includes(v) || list.length >= 5) return list;
   return [...list, v];
 }
 
@@ -776,11 +778,17 @@ export default function ProductForm({
                         }
                       }}
                       onBlur={addBrand}
+                      maxLength={60}
+                      disabled={brands.length >= 5}
                       placeholder={
-                        brands.length === 0 ? "Nike, Adidas… (Enter — добавить)" : "Добавить бренд"
+                        brands.length >= 5
+                          ? "Максимум 5 брендов"
+                          : brands.length === 0
+                            ? "Nike, Adidas… (Enter — добавить)"
+                            : "Добавить бренд"
                       }
                       data-testid="brand-input"
-                      className="flex-1 min-w-[8rem] bg-transparent outline-none text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)]"
+                      className="flex-1 min-w-[8rem] bg-transparent outline-none text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] disabled:opacity-50"
                     />
                   </div>
                   {brands.length > 0 && (

@@ -19,8 +19,9 @@ import (
 //
 // The backfill is the one step of 028 that never runs in any other test: the
 // harness applies 001..head to an empty database, so no legacy row exists when
-// the UPDATE executes. It is also one-way — 028 drops the source column — so
-// its parsing is verified here or nowhere.
+// the UPDATE executes. It is also effectively one-way for parsing purposes
+// (B2: the legacy column is dropped by a separate migration in the next
+// release, not by 028), so its parsing is verified here or nowhere.
 func legacyBrandDB(t *testing.T) (*pgx.Conn, *migrate.Migrator) {
 	t.Helper()
 
@@ -74,7 +75,7 @@ func legacyBrandDB(t *testing.T) (*pgx.Conn, *migrate.Migrator) {
 	return conn, m
 }
 
-// TestMigration028BacksfillsLegacyBrands pins how the one-way split reads the
+// TestMigration028BacksfillsLegacyBrands pins how the split reads the
 // legacy free-text brand column: the separator is " x " however it was padded,
 // values are trimmed, and nothing empty survives into the array.
 func TestMigration028BacksfillsLegacyBrands(t *testing.T) {

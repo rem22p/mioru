@@ -248,4 +248,32 @@ describe("ProductForm — brand editor (KAN-14)", () => {
 
     expect(await submittedBrands()).toEqual(["Nike"]);
   });
+
+  it("caps the chip list at 5 brands and disables the input (R1)", async () => {
+    const input = await renderWithCategory();
+    for (const b of ["A", "B", "C", "D", "E"]) {
+      await userEvent.type(input, `${b}{enter}`);
+    }
+    expect(screen.getByTestId("brand-input")).toBeDisabled();
+    const chips = document.querySelectorAll('[data-testid^="brand-chip-"]');
+    expect(chips).toHaveLength(5);
+  });
+
+  it("hydrates a pre-KAN-14 draft that stored a single brand string (R3)", async () => {
+    const legacy: StoredDraft = {
+      data: {
+        ...emptyPayload({ selectedCategoryId: 1 }),
+        // Legacy drafts predate the brands[] field and stored `brand: string`.
+        brand: "OldBrand",
+      } as unknown as DraftPayload,
+      savedAt: "2026-07-01T10:00:00.000Z",
+    };
+    localStorage.setItem(NEW_SLOT_KEY, JSON.stringify(legacy));
+
+    render(<ProductForm product={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await screen.findByTestId("pf-restore-dialog");
+    await userEvent.click(screen.getByTestId("pf-restore-confirm"));
+
+    expect(screen.getByTestId("brand-chip-OldBrand")).toBeInTheDocument();
+  });
 });
