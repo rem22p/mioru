@@ -13,20 +13,21 @@
 
 ALTER TABLE products ADD COLUMN IF NOT EXISTS brands TEXT[] NOT NULL DEFAULT '{}';
 
--- Backfill from the legacy single-string brand column. The admin used " x "
--- (spaces around x) as the collaboration separator.
--- The split is one-way (the source column is dropped in a later migration),
--- so it normalises as it goes rather than preserving whatever the legacy
--- free-text field held:
--- \s+x\s+ absorbs padded separators ("Bape  x  Mastermind"), btrim strips the
--- leading/trailing space a hand-typed value carries, and empty elements — left
--- behind by an edge separator ("Bape x ") or by an empty brand — are dropped.
--- Without this an element like 'Bape ' becomes its own facet chip that the
--- overlap filter (element equality) can never match.
+-- Backfill from the legacy single-string brand column. Two separators were
+-- used historically: the admin's " x " (space-x-space, B1 review preflight on
+-- prod found zero rows — uppercase " X " does not occur) and, crucially, the
+-- semicolon: prod has "Bape; Mastermind". Splitting on \s*;\s* absorbs that
+-- form ("Bape;Mastermind" too). The split is one-way (the source column is
+-- dropped in a later migration), so it normalises as it goes rather than
+-- preserving whatever the legacy free-text field held: btrim strips the
+-- leading/trailing space a hand-typed value carries, and empty elements —
+-- left behind by an edge separator ("Bape x ") or by an empty brand — are
+-- dropped. Without this an element like 'Bape ' becomes its own facet chip
+-- that the overlap filter (element equality) can never match.
 UPDATE products
    SET brands = ARRAY(
        SELECT btrim(v)
-         FROM unnest(regexp_split_to_array(brand, '\s+x\s+')) AS v
+         FROM unnest(regexp_split_to_array(brand, '\s*;\s*|\s+x\s+')) AS v
         WHERE btrim(v) <> ''
    );
 

@@ -95,6 +95,10 @@ func TestMigration028BacksfillsLegacyBrands(t *testing.T) {
 		{"leading separator", " x Mastermind", []string{"Mastermind"}},
 		{"empty brand", "", nil},
 		{"x inside a word", "Xerox Company", []string{"Xerox Company"}},
+		// Prod preflight (B1): the real legacy collaboration separator is the
+		// semicolon — prod carries "Bape; Mastermind".
+		{"semicolon separator", "Bape; Mastermind", []string{"Bape", "Mastermind"}},
+		{"semicolon without spaces", "Bape;Mastermind", []string{"Bape", "Mastermind"}},
 	}
 
 	for i, c := range cases {
