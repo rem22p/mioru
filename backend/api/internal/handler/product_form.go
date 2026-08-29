@@ -16,7 +16,8 @@ const (
 	maxBrandLen         = 60
 )
 
-// normalizeProductStatus maps whatever the admin SPA sends on the wire to// one of the three canonical values {in_stock, preorder, out_of_stock} that
+// normalizeProductStatus maps whatever the admin SPA sends on the wire to
+// one of the three canonical values {in_stock, preorder, out_of_stock} that
 // the products_status_chk CHECK constraint accepts. The SPA predates the
 // constraint, so it can still emit "pre_order" (with underscore) and "none";
 // rather than break the admin by forcing a frontend rename, we translate on
