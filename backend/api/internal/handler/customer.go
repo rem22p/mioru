@@ -895,11 +895,11 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		Weight         *float64 `json:"weight"`
 		// KAN-52: individual orders declare a category; shoes carry the
 		// insole length in cm.
-		Category       string   `json:"category"`
-		FootLength     *float64 `json:"foot_length"`
-		DeliveryTime   []string `json:"delivery_time"`
-		Photos         []string `json:"photos"`
-		Items          []struct {
+		Category     string   `json:"category"`
+		FootLength   *float64 `json:"foot_length"`
+		DeliveryTime []string `json:"delivery_time"`
+		Photos       []string `json:"photos"`
+		Items        []struct {
 			ProductID    int64                  `json:"product_id"`
 			SizeLabel    string                 `json:"size_label"`
 			Quantity     int                    `json:"quantity"`
@@ -1050,6 +1050,12 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 			jsonErrorCode(w, "category must be 'clothing', 'shoes' or 'accessories'", http.StatusBadRequest, "VALIDATION_FAILED")
 			return
 		}
+	}
+	// Individual-only fields; a crafted cart order otherwise hits the
+	// CHECK constraint as a 500 or silently persists invalid semantics.
+	if req.Type != "individual" && (req.Category != "" || req.FootLength != nil) {
+		jsonErrorCode(w, "category/foot_length are only valid for individual orders", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
 	}
 	if req.FootLength != nil && (*req.FootLength < minFootLengthCm || *req.FootLength > maxFootLengthCm) {
 		jsonErrorCode(w, fmt.Sprintf("foot_length out of range (%g-%g cm)", minFootLengthCm, maxFootLengthCm), http.StatusBadRequest, "VALIDATION_FAILED")

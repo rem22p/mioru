@@ -231,10 +231,10 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 		if o.Photos == nil {
 			o.Photos = []string{}
 		}
-		// KAN-52: category is set only on individual orders; cart orders
-		// must store NULL (the CHECK constraint rejects the empty string).
+		// Individual-only column; without the type gate a stray category
+		// on a cart order breaks the CHECK constraint or corrupts semantics.
 		var category any
-		if o.Category != "" {
+		if o.Type == "individual" && o.Category != "" {
 			category = o.Category
 		}
 

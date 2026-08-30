@@ -148,6 +148,57 @@ func TestIntegrationCustomerListOrdersIncludesFullDetails(t *testing.T) {
 			t.Errorf("items[%d].size_label is empty", i)
 		}
 	}
+
+	// KAN-52: ProfilePage renders category/foot_length/photos on
+	// individual orders — pin them on the individual branch of the
+	// same endpoint (cart orders omit them via omitempty).
+	indBody := map[string]any{
+		"type":            "individual",
+		"phone":           "+37377790854",
+		"city":            "Тирасполь",
+		"delivery_method": "personal",
+		"payment_method":  "card",
+		"category":        "shoes",
+		"foot_length":     27,
+		"photos":          []string{"/uploads/cust-photo.png"},
+	}
+	indRR := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+		reqOpts{sess: alice, csrfCookieName: cookieauth.StoreCSRFCookie, idempotencyKey: "key-listorders-ind-1", body: indBody})
+	if indRR.Code != http.StatusCreated {
+		t.Fatalf("individual CreateOrder: want 201, got %d (%s)", indRR.Code, indRR.Body.String())
+	}
+	listRR2 := e.do(t, e.wrapCustomer(e.customerH.ListOrders), http.MethodGet, "/api/store/customers/me/orders?per_page=20",
+		reqOpts{sess: alice})
+	if listRR2.Code != http.StatusOK {
+		t.Fatalf("ListOrders (round 2): want 200, got %d (%s)", listRR2.Code, listRR2.Body.String())
+	}
+	var resp2 struct {
+		Orders []map[string]any `json:"orders"`
+	}
+	decode(t, listRR2, &resp2)
+	var ind map[string]any
+	for _, o := range resp2.Orders {
+		if o["type"] == "individual" {
+			ind = o
+			break
+		}
+	}
+	if ind == nil {
+		t.Fatalf("no individual order in list (orders: %v)", resp2.Orders)
+	}
+	if got := ind["category"]; got != "shoes" {
+		t.Errorf("individual order category = %v, want shoes", got)
+	}
+	if got := ind["foot_length"]; got != float64(27) {
+		t.Errorf("individual order foot_length = %v, want 27", got)
+	}
+	photos, _ := ind["photos"].([]any)
+	if len(photos) != 1 || photos[0] != "/uploads/cust-photo.png" {
+		t.Errorf("individual order photos = %v, want [/uploads/cust-photo.png]", ind["photos"])
+	}
+	if v, ok := ind["customer_id"]; ok && v != nil && v != float64(0) {
+		t.Errorf("individual order customer_id should be scrubbed, got %v", v)
+	}
 }
 
 func mapKeys(m map[string]any) []string {
