@@ -156,6 +156,15 @@ func TestIntegrationCategoryProductCounts(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("insert child product: %v", err)
 	}
+	// Depth-3: 16 (Аксессуары) → 20 (Ювелирные) → 21 (Браслеты). The
+	// parent badge must include the grandchild (the grid filters all
+	// descendants when the parent is selected).
+	if _, err := e.st.CreateProduct(ctx, model.Product{
+		Slug: "cnt-grandchild", CategoryID: 21, Brands: []string{"CntBrand"},
+		Name: "Bracelet P", Price: 100, Status: "in_stock", InStock: true,
+	}); err != nil {
+		t.Fatalf("insert grandchild product: %v", err)
+	}
 
 	rr := e.do(t, http.HandlerFunc(e.storeH.ListCategories), http.MethodGet, "/api/categories", reqOpts{})
 	if rr.Code != http.StatusOK {
@@ -164,16 +173,24 @@ func TestIntegrationCategoryProductCounts(t *testing.T) {
 	var cats []model.Category
 	decode(t, rr, &cats)
 
-	var clothing *model.Category
-	for i := range cats {
-		if cats[i].ID == 1 {
-			clothing = &cats[i]
+	counts := map[int]int{}
+	var collect func(cs []model.Category)
+	collect = func(cs []model.Category) {
+		for _, c := range cs {
+			counts[c.ID] = c.ProductsCount
+			collect(c.Children)
 		}
 	}
-	if clothing == nil {
-		t.Fatal("clothing category not found")
+	collect(cats)
+	// Harness truncates data tables before each test, so the counts are
+	// exactly the products seeded above.
+	if got := counts[1]; got != 2 {
+		t.Errorf("clothing products_count = %d, want 2 (own + child)", got)
 	}
-	if clothing.ProductsCount < 2 {
-		t.Errorf("clothing products_count = %d, want >= 2 (own + child)", clothing.ProductsCount)
+	if got := counts[20]; got != 1 {
+		t.Errorf("jewelry products_count = %d, want 1 (grandchild)", got)
+	}
+	if got := counts[16]; got != 1 {
+		t.Errorf("accessories products_count = %d, want 1 (depth-3 descendant)", got)
 	}
 }
