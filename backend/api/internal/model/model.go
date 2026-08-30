@@ -30,29 +30,32 @@ type Category struct {
 
 // Product represents a product in the catalog
 type Product struct {
-	ID           int64          `json:"id"`
-	Slug         string         `json:"slug"`
-	CategoryID   int64          `json:"category_id"`
-	CategoryName string         `json:"category_name"`
-	Brand        string         `json:"brand"`
-	Name         string         `json:"name"`
-	Price        int            `json:"price"`
-	Color        string         `json:"color"`
-	Material     string         `json:"material"`
-	Care         []string       `json:"care"`
-	Description  string         `json:"description"`
-	XPReward     int            `json:"xp_reward"`
-	InStock      bool           `json:"in_stock"`
-	Status       string         `json:"status"`
-	StockQty     int            `json:"stock_quantity"`
-	PopularityRank *int         `json:"popularity_rank"`
-	PopularityRankPreorder *int `json:"popularity_rank_preorder"`
-	CreatedBy    string         `json:"created_by"`
-	CreatedAt    string         `json:"created_at"`
-	UpdatedAt    string         `json:"updated_at"`
-	Sizes        []ProductSize  `json:"sizes"`
-	SizeChart    []SizeChartRow `json:"size_chart"`
-	Images       []ProductImage `json:"images"`
+	ID           int64  `json:"id"`
+	Slug         string `json:"slug"`
+	CategoryID   int64  `json:"category_id"`
+	CategoryName string `json:"category_name"`
+	Brand        string `json:"brand"`
+	// Brands is the structured list behind Brand (KAN-14). Brand is the
+	// display name derived in SQL as array_to_string(brands, ' x ').
+	Brands                 []string       `json:"brands,omitempty"`
+	Name                   string         `json:"name"`
+	Price                  int            `json:"price"`
+	Color                  string         `json:"color"`
+	Material               string         `json:"material"`
+	Care                   []string       `json:"care"`
+	Description            string         `json:"description"`
+	XPReward               int            `json:"xp_reward"`
+	InStock                bool           `json:"in_stock"`
+	Status                 string         `json:"status"`
+	StockQty               int            `json:"stock_quantity"`
+	PopularityRank         *int           `json:"popularity_rank"`
+	PopularityRankPreorder *int           `json:"popularity_rank_preorder"`
+	CreatedBy              string         `json:"created_by"`
+	CreatedAt              string         `json:"created_at"`
+	UpdatedAt              string         `json:"updated_at"`
+	Sizes                  []ProductSize  `json:"sizes"`
+	SizeChart              []SizeChartRow `json:"size_chart"`
+	Images                 []ProductImage `json:"images"`
 }
 
 // ProductSize holds a single size variant with its stock level.
@@ -131,9 +134,9 @@ type CustomerOAuth struct {
 // Order represents a customer order. total_minor is in minor currency
 // units (kopecks/cents). Display as (total_minor / 100) with 2 decimal places.
 type Order struct {
-	ID        int64  `json:"id"`
-	OrderCode string `json:"order_code"`
-	CustomerID int64 `json:"customer_id"`
+	ID         int64  `json:"id"`
+	OrderCode  string `json:"order_code"`
+	CustomerID int64  `json:"customer_id"`
 	Type       string `json:"type"`
 	TotalMinor int64  `json:"total_minor"`
 	Status     string `json:"status"`
@@ -171,10 +174,10 @@ type OrderItem struct {
 	// ProductSlug + ImageURL are populated by the store via JOIN against
 	// `products` / `product_images` so the storefront can render a small
 	// thumbnail in the order history without a second round-trip.
-	ProductSlug string `json:"product_slug,omitempty"`
-	ImageURL    string `json:"image_url,omitempty"`
-	SizeLabel   string `json:"size_label"`
-	Quantity    int    `json:"quantity"`
-	PriceMinor   int64   `json:"price_minor"`
+	ProductSlug  string                 `json:"product_slug,omitempty"`
+	ImageURL     string                 `json:"image_url,omitempty"`
+	SizeLabel    string                 `json:"size_label"`
+	Quantity     int                    `json:"quantity"`
+	PriceMinor   int64                  `json:"price_minor"`
 	Measurements map[string]interface{} `json:"measurements,omitempty"` // PII (height/weight/foot_length etc). Stored with order indefinitely per financial retention requirements. Must NOT appear in logs. Admin access audit-logged.
 }

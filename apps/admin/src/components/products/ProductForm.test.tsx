@@ -12,7 +12,7 @@
  * so the test exercises ProductForm's own logic in isolation.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ProductForm from "./ProductForm";
 import {
@@ -22,9 +22,10 @@ import {
 } from "@/hooks/useProductDraft.storage";
 
 const uploadImage = vi.fn();
+const createProduct = vi.fn().mockResolvedValue({});
 
 vi.mock("@/lib/api", () => ({
-  createProduct: vi.fn().mockResolvedValue({}),
+  createProduct: (...args: unknown[]) => createProduct(...args),
   updateProduct: vi.fn().mockResolvedValue({}),
   uploadImage: (...args: unknown[]) => uploadImage(...args),
   getImageUrl: (u: string) => u,
@@ -59,7 +60,7 @@ const emptyPayload = (over: Partial<DraftPayload> = {}): DraftPayload => ({
   name: "",
   slug: "",
   description: "",
-  brand: "",
+  brands: [],
   price: "",
   xpReward: "",
   inStock: true,
@@ -171,5 +172,108 @@ describe("ProductForm — image upload validation", () => {
     const errors = await screen.findByTestId("pf-image-errors");
     expect(errors).toHaveTextContent("notes.txt");
     expect(uploadImage).not.toHaveBeenCalled();
+  });
+});
+
+describe("ProductForm — brand editor (KAN-14)", () => {
+  const renderWithCategory = async () => {
+    render(<ProductForm product={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await screen.findByTestId("pf-name");
+    // Select the mocked category whose criteria include "brand".
+    fireEvent.change(screen.getByTestId("pf-category"), {
+      target: { value: "1" },
+    });
+    return screen.getByTestId("brand-input");
+  };
+
+  it("adds brands as chips and shows the joined card name", async () => {
+    const input = await renderWithCategory();
+    await userEvent.type(input, "Bape{enter}");
+    await userEvent.type(input, "Mastermind{enter}");
+
+    expect(screen.getByTestId("brand-chip-Bape")).toBeInTheDocument();
+    expect(screen.getByTestId("brand-chip-Mastermind")).toBeInTheDocument();
+    expect(
+      screen.getByText("В карточке: Bape x Mastermind"),
+    ).toBeInTheDocument();
+  });
+
+  it("removes a brand chip via its × button", async () => {
+    const input = await renderWithCategory();
+    await userEvent.type(input, "Bape{enter}");
+    await userEvent.click(screen.getByTestId("brand-remove-Bape"));
+    expect(screen.queryByTestId("brand-chip-Bape")).toBeNull();
+    expect(screen.queryByText("В карточке: Bape")).toBeNull();
+  });
+
+  it("dedupes brands entered twice", async () => {
+    const input = await renderWithCategory();
+    await userEvent.type(input, "Bape{enter}");
+    await userEvent.type(input, "Bape{enter}");
+    expect(screen.getAllByTestId("brand-chip-Bape")).toHaveLength(1);
+  });
+
+  it("turns a brand typed without Enter into a chip on blur", async () => {
+    const input = await renderWithCategory();
+    await userEvent.type(input, "Nike");
+    fireEvent.blur(input);
+    expect(screen.getByTestId("brand-chip-Nike")).toBeInTheDocument();
+  });
+
+  const fillRequired = async () => {
+    await userEvent.type(screen.getByTestId("pf-name"), "Куртка");
+    await userEvent.type(screen.getByTestId("pf-price"), "1200");
+  };
+
+  const submittedBrands = async () => {
+    await userEvent.click(screen.getByTestId("pf-submit"));
+    await waitFor(() => expect(createProduct).toHaveBeenCalled());
+    const fd = createProduct.mock.calls[0][0] as FormData;
+    return fd.getAll("brands[]");
+  };
+
+  it("sends the committed chips as brands[]", async () => {
+    const input = await renderWithCategory();
+    await fillRequired();
+    await userEvent.type(input, "Bape{enter}");
+    await userEvent.type(input, "Mastermind{enter}");
+
+    expect(await submittedBrands()).toEqual(["Bape", "Mastermind"]);
+  });
+
+  it("does not drop a brand still sitting in the input on submit", async () => {
+    const input = await renderWithCategory();
+    await fillRequired();
+    await userEvent.type(input, "Nike"); // no Enter, straight to "Save"
+
+    expect(await submittedBrands()).toEqual(["Nike"]);
+  });
+
+  it("caps the chip list at 5 brands and disables the input (R1)", async () => {
+    const input = await renderWithCategory();
+    for (const b of ["A", "B", "C", "D", "E"]) {
+      await userEvent.type(input, `${b}{enter}`);
+    }
+    expect(screen.getByTestId("brand-input")).toBeDisabled();
+    const chips = document.querySelectorAll('[data-testid^="brand-chip-"]');
+    expect(chips).toHaveLength(5);
+  });
+
+  it("hydrates a pre-KAN-14 draft that stored a single brand string (R3)", async () => {
+    const legacy: StoredDraft = {
+      data: {
+        ...emptyPayload({ selectedCategoryId: 1 }),
+        // Legacy drafts predate the brands[] field and stored `brand: string`.
+        brand: "OldBrand",
+      } as unknown as DraftPayload,
+      savedAt: "2026-07-01T10:00:00.000Z",
+    };
+    localStorage.setItem(NEW_SLOT_KEY, JSON.stringify(legacy));
+
+    render(<ProductForm product={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await screen.findByTestId("pf-restore-dialog");
+    await userEvent.click(screen.getByTestId("pf-restore-confirm"));
+
+    expect(screen.getByTestId("brand-chip-OldBrand")).toBeInTheDocument();
   });
 });

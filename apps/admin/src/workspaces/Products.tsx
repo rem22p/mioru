@@ -93,7 +93,10 @@ export default function Products() {
       const fd = new FormData();
       fd.append("name", `${full.name} (копия)`);
       fd.append("description", full.description);
-      fd.append("brand", full.brand);
+      // KAN-14: duplicate sends the structured brand list (fall back to the
+      // display brand for products fetched from a legacy payload).
+      const brands = full.brands && full.brands.length > 0 ? full.brands : [full.brand];
+      brands.forEach((b) => fd.append("brands[]", b));
       fd.append("price", String(full.price));
       fd.append("category_id", String(full.category_id));
       fd.append("in_stock", String(full.in_stock));

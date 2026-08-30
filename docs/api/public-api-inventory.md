@@ -30,7 +30,7 @@ commands.
 | Method+Path | Auth | CSRF | RL | Success | Errors | Integration test |
 |---|---|---|---|---|---|---|
 | GET /api/products | — | — | — | 200 `{items,total,page,per_page}` | — | `TestIntegrationListProducts` (+ store-level paginate/filter) |
-| GET /api/products/facets | — | — | — | 200 `{brands,colors,sizes}` | 400 VALIDATION_FAILED | `TestIntegrationFacetsHappy`, `...DropsOwnSelection`, `...BadStatus` |
+| GET /api/products/facets | — | — | — | 200 `{brands,colors,sizes}` (KAN-14: collab brands listed individually) | 400 VALIDATION_FAILED | `TestIntegrationFacetsHappy`, `...DropsOwnSelection`, `...BadStatus`, `TestCollabBrandsFacetsSplit` |
 | GET /api/products/{slug} | — | — | — | 200 product | 404 NOT_FOUND | `TestIntegrationGetProductBySlug`, `...NotFound` |
 | GET /api/categories | — | — | — | 200 tree | — | `TestIntegrationListCategories` |
 
@@ -75,7 +75,7 @@ commands.
 | DELETE /api/admin/users/{username} | ✓ super_admin | ✓ | — | 204 | 400 VALIDATION_FAILED (self), 401/403, 404 NOT_FOUND | `TestIntegrationAdminDeleteUserHappy`, `...Self`, `...NotFound` |
 | GET /api/admin/categories | ✓ admin | — | — | 200 tree/flat | 401/403 | `TestIntegrationAdminCategoriesTree`, `...Flat` |
 | GET /api/admin/products | ✓ admin | — | — | 200 `{products,total,...}` | 401/403 | `TestIntegrationAdminListProducts` |
-| POST /api/admin/products | ✓ admin | ✓ | — | 201 `{id,product}` | 400/401/403 | `TestIntegrationAdminCreateAndGetProduct`, `...CreateProductCSRFGate` |
+| POST /api/admin/products | ✓ admin | ✓ | — | 201 `{id,product}` (KAN-14: multipart `brands[]`) | 400/401/403 | `TestIntegrationAdminCreateAndGetProduct`, `...CreateProductCSRFGate`, `TestParseProductFromFormBrands` |
 | GET /api/admin/products/{slug} | ✓ admin | — | — | 200 | 404 | `TestIntegrationAdminCreateAndGetProduct` |
 | PUT /api/admin/products/{slug} | ✓ admin | ✓ | — | 200 product | 400/401/403, 404 NOT_FOUND, 409 CONFLICT | `TestIntegrationAdminUpdateProductHappy`, `...NotFound`, `...DuplicateSlug` |
 | DELETE /api/admin/products/{slug} | ✓ admin | ✓ | — | 200 `{ok}` | 401/403, 404 NOT_FOUND | `TestIntegrationAdminDeleteProductHappy`, `...NotFound` |

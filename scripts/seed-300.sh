@@ -74,8 +74,8 @@ for i in $(seq 1 300); do
 
   name="$brand $cname #${i}"
 
-  echo "INSERT INTO products (slug, category_id, brand, name, price, color, material, description, xp_reward, in_stock, status, stock_quantity, created_by)"
-  echo "VALUES ('$slug', $cid, '$brand', '$name', $price, '$color', 'Премиальный материал', 'Качественный товар от $brand. Современный дизайн и комфорт на каждый день.', $((price/100)), 1, 'in_stock', $((RANDOM % 30 + 1)), 'seed');"
+  echo "INSERT INTO products (slug, category_id, brands, name, price, color, material, description, xp_reward, in_stock, status, stock_quantity, created_by)"
+  echo "VALUES ('$slug', $cid, ARRAY['$brand'], '$name', $price, '$color', 'Премиальный материал', 'Качественный товар от $brand. Современный дизайн и комфорт на каждый день.', $((price/100)), 1, 'in_stock', $((RANDOM % 30 + 1)), 'seed');"
 
   echo "INSERT INTO product_sizes (product_id, size_label) VALUES (currval(pg_get_serial_sequence('products','id')), unnest(ARRAY[$sz_sql]));"
 done

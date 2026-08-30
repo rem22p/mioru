@@ -51,6 +51,8 @@ export interface Product {
   slug: string;
   description: string;
   brand: string;
+  /** KAN-14: structured brand list; `brand` is the derived display name. */
+  brands?: string[];
   price: number;
   xp_reward: number;
   in_stock: boolean;

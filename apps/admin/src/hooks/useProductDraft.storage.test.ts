@@ -22,7 +22,7 @@ const samplePayload = (over: Partial<DraftPayload> = {}): DraftPayload => ({
   name: "Test Shirt",
   slug: "test-shirt",
   description: "A fine shirt.",
-  brand: "Acme",
+  brands: ["Acme"],
   price: "199",
   xpReward: "5",
   inStock: true,

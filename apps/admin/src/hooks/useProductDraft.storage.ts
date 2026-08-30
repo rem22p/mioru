@@ -42,7 +42,8 @@ export interface DraftPayload {
   name: string;
   slug: string;
   description: string;
-  brand: string;
+  /** KAN-14: structured brand list; display name is brands.join(" x "). */
+  brands: string[];
   price: string;
   xpReward: string;
   inStock: boolean;
