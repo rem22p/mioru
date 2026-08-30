@@ -685,10 +685,11 @@ export default function CatalogPage() {
                             placeholder={t("catalog.panel.priceFrom")}
                             defaultValue={priceMin}
                             onBlur={(e) => {
-                              // The backend silently drops non-positive values;
-                              // don't advertise a filter that isn't applied.
+                              // The backend parses Atoi — non-positive or
+                              // fractional values are silently dropped.
                               const v = e.target.value.trim();
-                              setParam("price_min", Number(v) > 0 ? v : null);
+                              const n = Number(v);
+                              setParam("price_min", Number.isInteger(n) && n > 0 ? v : null);
                             }}
                             className="flex-1 min-w-0 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
@@ -701,7 +702,8 @@ export default function CatalogPage() {
                             defaultValue={priceMax}
                             onBlur={(e) => {
                               const v = e.target.value.trim();
-                              setParam("price_max", Number(v) > 0 ? v : null);
+                              const n = Number(v);
+                              setParam("price_max", Number.isInteger(n) && n > 0 ? v : null);
                             }}
                             className="flex-1 min-w-0 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />

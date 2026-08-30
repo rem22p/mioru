@@ -44,13 +44,13 @@ const categories: Category[] = [
   },
 ];
 
-function setupStore() {
+function setupStore(total = 0) {
   const fetchProducts = vi.fn().mockResolvedValue({});
   const fetchFacets = vi.fn().mockResolvedValue({});
   const fetchCategories = vi.fn();
   useCatalogStore.setState({
     items: [],
-    total: 0,
+    total,
     loading: false,
     error: null,
     categories,
@@ -106,11 +106,14 @@ describe("CatalogPage — KAN-55 filter panel", () => {
   });
 
   it("resets page to 1 when a filter is toggled", () => {
-    const { fetchProducts } = setupStore();
+    const { fetchProducts } = setupStore(201);
     renderPage();
+    // Move to page 3 first, then toggle a filter — the fetch must
+    // carry page=1 again (without the reset it would carry page=3).
+    const page3Btn = screen.getAllByRole("button").find((b) => b.textContent?.trim() === "3");
+    expect(page3Btn).toBeDefined();
+    fireEvent.click(page3Btn!);
     fireEvent.click(screen.getByTestId("catalog-filter-button"));
-
-    // Toggle availability in the panel; the fetch must carry page=1.
     fireEvent.click(screen.getByTestId("catalog-availability-in_stock"));
     const calls = vi.mocked(fetchProducts).mock.calls;
     const last = calls[calls.length - 1]?.[0] as { page?: string } | undefined;
@@ -142,17 +145,34 @@ describe("CatalogPage — KAN-55 filter panel", () => {
     }
   });
 
-  it("drops a non-positive price instead of advertising a dead filter", () => {
+  it("drops a non-positive or fractional price instead of advertising a dead filter", () => {
     const { fetchProducts } = setupStore();
     renderPage();
     fireEvent.click(screen.getByTestId("catalog-filter-button"));
 
-    const priceInput = document.querySelector('input[placeholder="catalog.panel.priceFrom"]') as HTMLInputElement;
-    fireEvent.change(priceInput, { target: { value: "0" } });
-    fireEvent.blur(priceInput);
+    // The input is keyed by priceMin, so it remounts after every blur —
+    // re-query the node instead of caching it.
+    const priceInput = () =>
+      document.querySelector('input[placeholder="catalog.panel.priceFrom"]') as HTMLInputElement;
+    // A legal integer lands in the URL and drives the fetch.
+    fireEvent.change(priceInput(), { target: { value: "100" } });
+    fireEvent.blur(priceInput());
+    let calls = vi.mocked(fetchProducts).mock.calls;
+    let last = calls[calls.length - 1]?.[0] as { price_min?: string } | undefined;
+    expect(last?.price_min).toBe("100");
 
-    const calls = vi.mocked(fetchProducts).mock.calls;
-    const last = calls[calls.length - 1]?.[0] as { price_min?: string } | undefined;
+    // Zero and fractions are silently ignored by the backend — the
+    // URL must not advertise them.
+    fireEvent.change(priceInput(), { target: { value: "0" } });
+    fireEvent.blur(priceInput());
+    calls = vi.mocked(fetchProducts).mock.calls;
+    last = calls[calls.length - 1]?.[0] as { price_min?: string } | undefined;
+    expect(last?.price_min).toBeUndefined();
+
+    fireEvent.change(priceInput(), { target: { value: "49.5" } });
+    fireEvent.blur(priceInput());
+    calls = vi.mocked(fetchProducts).mock.calls;
+    last = calls[calls.length - 1]?.[0] as { price_min?: string } | undefined;
     expect(last?.price_min).toBeUndefined();
   });
 });
