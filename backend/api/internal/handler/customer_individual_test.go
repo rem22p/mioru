@@ -56,6 +56,7 @@ func TestCreateOrderIndividualRejectsCraftedItems(t *testing.T) {
 				"phone": "+37377711234",
 				"delivery_method": "personal",
 				"payment_method": "card",
+				"category": "clothing",
 				"items": [{"product_id": 105, "size_label": "M", "quantity": -100}],
 				"total_minor": 0
 			}`,
@@ -68,6 +69,7 @@ func TestCreateOrderIndividualRejectsCraftedItems(t *testing.T) {
 				"phone": "+37377711234",
 				"delivery_method": "personal",
 				"payment_method": "card",
+				"category": "clothing",
 				"items": [{"product_id": 105, "size_label": "M", "quantity": 0}],
 				"total_minor": 0
 			}`,
@@ -80,6 +82,7 @@ func TestCreateOrderIndividualRejectsCraftedItems(t *testing.T) {
 				"phone": "+37377711234",
 				"delivery_method": "personal",
 				"payment_method": "card",
+				"category": "clothing",
 				"items": [{"product_id": 0, "size_label": "M", "quantity": 1}],
 				"total_minor": 0
 			}`,
@@ -92,6 +95,7 @@ func TestCreateOrderIndividualRejectsCraftedItems(t *testing.T) {
 				"phone": "+37377711234",
 				"delivery_method": "personal",
 				"payment_method": "card",
+				"category": "clothing",
 				"items": [{"product_id": 105, "size_label": "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM", "quantity": 1}],
 				"total_minor": 0
 			}`,
@@ -103,6 +107,7 @@ func TestCreateOrderIndividualRejectsCraftedItems(t *testing.T) {
 				"city": "Тирасполь",
 				"delivery_method": "personal",
 				"payment_method": "card",
+				"category": "clothing",
 				"delivery_time": ["a","b","c","d","e","f","g","h","i","j","k"]
 			}`,
 		},
@@ -113,6 +118,7 @@ func TestCreateOrderIndividualRejectsCraftedItems(t *testing.T) {
 				"city": "Тирасполь",
 				"delivery_method": "personal",
 				"payment_method": "card",
+				"category": "clothing",
 				"delivery_time": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
 			}`,
 		},
@@ -123,6 +129,7 @@ func TestCreateOrderIndividualRejectsCraftedItems(t *testing.T) {
 				"city": "Тирасполь",
 				"delivery_method": "personal",
 				"payment_method": "card",
+				"category": "clothing",
 				"height": 1000
 			}`,
 		},
@@ -133,6 +140,7 @@ func TestCreateOrderIndividualRejectsCraftedItems(t *testing.T) {
 				"city": "Тирасполь",
 				"delivery_method": "personal",
 				"payment_method": "card",
+				"category": "clothing",
 				"weight": -5
 			}`,
 		},
@@ -147,6 +155,7 @@ func TestCreateOrderIndividualRejectsCraftedItems(t *testing.T) {
 				"city": "Тирасполь",
 				"delivery_method": "personal",
 				"payment_method": "card",
+				"category": "clothing",
 				"items": [
 {"product_id": 105, "size_label": "M", "quantity": 1},
 {"product_id": 105, "size_label": "M", "quantity": 1},
