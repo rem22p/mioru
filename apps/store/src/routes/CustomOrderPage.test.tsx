@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { HelmetProvider } from "@dr.pogodin/react-helmet";
 import CustomOrderPage from "./CustomOrderPage";
@@ -85,12 +85,14 @@ function renderPage(telegramLinked: boolean) {
 }
 
 // Fills everything `canSubmit` requires, so the Telegram gate is the only
-// remaining reason the button could stay disabled.
+// remaining reason the button could stay disabled. KAN-52: clothing is
+// selected so the height/weight fields exist.
 function fillForm(container: HTMLElement) {
   const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
   fireEvent.change(fileInput, {
     target: { files: [new File(["x"], "photo.png", { type: "image/png" })] },
   });
+  fireEvent.click(screen.getByTestId("custom-order-category-clothing"));
   fireEvent.change(screen.getByPlaceholderText("175"), { target: { value: "175" } });
   fireEvent.change(screen.getByTestId("city-autocomplete"), { target: { value: "Тирасполь" } });
   fireEvent.change(screen.getByTestId("custom-order-phone"), {
@@ -225,5 +227,71 @@ describe("CustomOrderPage — legacy profile phone", () => {
     seedWithPhone("+79161234567");
 
     expect(screen.queryByTestId("custom-order-use-my-phone")).not.toBeInTheDocument();
+  });
+});
+
+describe("CustomOrderPage — category choice (KAN-52)", () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+    vi.mocked(createOrder).mockClear();
+    vi.mocked(uploadOrderPhoto).mockClear();
+    globalThis.URL.createObjectURL = vi.fn(() => "blob:preview");
+    useAuthStore.setState({ isAuthenticated: true, user: makeUser(true), loading: false, error: null });
+  });
+
+  const baseFields = (container: HTMLElement) => {
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: { files: [new File(["x"], "photo.png", { type: "image/png" })] },
+    });
+    fireEvent.change(screen.getByTestId("city-autocomplete"), { target: { value: "Тирасполь" } });
+    fireEvent.change(screen.getByTestId("custom-order-phone"), {
+      target: { value: "+37360000000" },
+    });
+    fireEvent.click(screen.getByTestId("delivery-personal"));
+  };
+
+  it("requires a category — submit stays disabled without one", () => {
+    const { container } = renderPage(true);
+    baseFields(container);
+    expect(screen.getByTestId("custom-order-submit")).toBeDisabled();
+  });
+
+  it("shoes swap height/weight for the insole field", () => {
+    const { container } = renderPage(true);
+    baseFields(container);
+    fireEvent.click(screen.getByTestId("custom-order-category-shoes"));
+
+    expect(screen.getByTestId("custom-order-foot-length")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("175")).not.toBeInTheDocument();
+  });
+
+  it("accessories hide all measurement fields", () => {
+    const { container } = renderPage(true);
+    baseFields(container);
+    fireEvent.click(screen.getByTestId("custom-order-category-accessories"));
+
+    expect(screen.queryByPlaceholderText("175")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("custom-order-foot-length")).not.toBeInTheDocument();
+  });
+
+  it("sends category + foot_length for a shoes order and drops height/weight", async () => {
+    vi.mocked(uploadOrderPhoto).mockResolvedValue("/uploads/p1.jpg");
+    vi.mocked(createOrder).mockResolvedValue({ id: 1, status: "pending", created_at: "now" });
+
+    const { container } = renderPage(true);
+    baseFields(container);
+    fireEvent.click(screen.getByTestId("custom-order-category-shoes"));
+    fireEvent.change(screen.getByTestId("custom-order-foot-length"), {
+      target: { value: "27.5" },
+    });
+    fireEvent.click(screen.getByTestId("custom-order-submit"));
+
+    await waitFor(() => expect(createOrder).toHaveBeenCalled());
+    const payload = vi.mocked(createOrder).mock.calls[0][0] as unknown as Record<string, unknown>;
+    expect(payload.category).toBe("shoes");
+    expect(payload.foot_length).toBe(27.5);
+    expect(payload.height).toBeUndefined();
+    expect(payload.weight).toBeUndefined();
   });
 });

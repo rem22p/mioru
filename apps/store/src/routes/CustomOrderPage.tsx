@@ -57,6 +57,9 @@ export default function CustomOrderPage() {
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
+  // KAN-52: mandatory category choice; shoes carry the insole length.
+  const [category, setCategory] = useState<"clothing" | "shoes" | "accessories" | "">("");
+  const [footLength, setFootLength] = useState("");
   const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
   const [deliveryMethod, setDeliveryMethod] = useState("");
@@ -102,15 +105,24 @@ export default function CustomOrderPage() {
   const validate = () => {
     const errs: Record<string, string> = {};
     if (photos.length === 0) errs.photos = "Прикрепите хотя бы одно фото";
-    if (!height && !weight) errs.body = "Укажите рост или вес";
-    if (height && Number(height) < 100)
-      errs.body = "Рост не может быть меньше 100 см";
-    if (height && Number(height) > 250)
-      errs.body = "Рост не может быть больше 250 см";
-    if (weight && Number(weight) < 30)
-      errs.body = "Вес не может быть меньше 30 кг";
-    if (weight && Number(weight) > 200)
-      errs.body = "Вес не может быть больше 200 кг";
+    // KAN-52: category is mandatory; each category has its own params.
+    if (!category) errs.category = "Выберите категорию";
+    if (category === "clothing") {
+      if (!height && !weight) errs.body = "Укажите рост или вес";
+      if (height && Number(height) < 100)
+        errs.body = "Рост не может быть меньше 100 см";
+      if (height && Number(height) > 250)
+        errs.body = "Рост не может быть больше 250 см";
+      if (weight && Number(weight) < 30)
+        errs.body = "Вес не может быть меньше 30 кг";
+      if (weight && Number(weight) > 200)
+        errs.body = "Вес не может быть больше 200 кг";
+    }
+    if (category === "shoes") {
+      if (!footLength) errs.footLength = "Укажите длину стельки";
+      else if (Number(footLength) < 10 || Number(footLength) > 40)
+        errs.footLength = "Длина стельки: от 10 до 40 см";
+    }
     if (!city.trim()) errs.city = "Укажите город";
     if (!phone.trim()) errs.phone = "Введите номер телефона";
     else if (!isValidPhone(phone))
@@ -122,7 +134,7 @@ export default function CustomOrderPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setTouched({ photos: true, body: true, phone: true, city: true, deliveryMethod: true });
+    setTouched({ photos: true, body: true, category: true, footLength: true, phone: true, city: true, deliveryMethod: true });
     if (!validate()) return;
     if (!telegramLinked) {
       navigate("/profile?redirect=/custom-order", { replace: true });
@@ -149,8 +161,11 @@ export default function CustomOrderPage() {
           delivery_method: deliveryMethod,
           payment_method: "cod",
           total_minor: 0,
-          height: height ? parseFloat(height) : undefined,
-          weight: weight ? parseFloat(weight) : undefined,
+          // KAN-52: only the fields for the chosen category are sent.
+          category: category || undefined,
+          height: category === "clothing" && height ? parseFloat(height) : undefined,
+          weight: category === "clothing" && weight ? parseFloat(weight) : undefined,
+          foot_length: category === "shoes" && footLength ? parseFloat(footLength) : undefined,
           comment,
           photos: photoUrls,
         },
@@ -171,7 +186,12 @@ export default function CustomOrderPage() {
   };
 
   const canSubmit =
-    photos.length > 0 && (height || weight) && city && deliveryMethod;
+    photos.length > 0 &&
+    !!category &&
+    (category !== "clothing" || !!(height || weight)) &&
+    (category !== "shoes" || !!footLength) &&
+    city &&
+    deliveryMethod;
 
   const inputClass =
     "w-full rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-4 py-3 text-base sm:text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] transition-colors placeholder:text-[var(--color-text-muted)]";
@@ -281,7 +301,46 @@ export default function CustomOrderPage() {
               )}
             </div>
 
-            {/* Height + Weight */}
+            {/* KAN-52: category choice — required, single selection */}
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                {t("customOrder.category")}
+              </label>
+              <div
+                role="group"
+                aria-label={t("customOrder.category")}
+                data-testid="custom-order-category"
+                className="grid grid-cols-3 gap-2"
+              >
+                {(["clothing", "shoes", "accessories"] as const).map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    data-testid={`custom-order-category-${key}`}
+                    aria-pressed={category === key}
+                    onClick={() => {
+                      setCategory(key);
+                      if (touched.category && errors.category) {
+                        setErrors((prev) => ({ ...prev, category: "" }));
+                      }
+                    }}
+                    className={`rounded-xl border px-3 py-2.5 text-xs sm:text-sm font-semibold tracking-wide transition-colors ${
+                      category === key
+                        ? "border-[#44944A] bg-[#44944A]/10 text-[#44944A]"
+                        : "border-[var(--color-border-custom)] text-[var(--color-text-secondary)] hover:border-[var(--color-text-muted)]"
+                    }`}
+                  >
+                    {t(`customOrder.categories.${key}`)}
+                  </button>
+                ))}
+              </div>
+              {touched.category && errors.category && (
+                <p className="text-xs text-red-400 mt-1">{errors.category}</p>
+              )}
+            </div>
+
+            {/* KAN-52: clothing keeps height + weight */}
+            {category === "clothing" && (
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
@@ -361,6 +420,41 @@ export default function CustomOrderPage() {
                 <p className="text-xs text-red-400 mt-1">{errors.body}</p>
               )}
             </div>
+            )}
+
+            {/* KAN-52: shoes — insole length only */}
+            {category === "shoes" && (
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                  {t("customOrder.footLength")}
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={footLength}
+                  onChange={(e) => {
+                    // digits + a single decimal point, at most 4 chars ("27.5")
+                    const raw = e.target.value
+                      .replace(/[^0-9.]/g, "")
+                      .replace(/(\..*)\./g, "$1")
+                      .slice(0, 4);
+                    setFootLength(raw);
+                  }}
+                  onBlur={() => {
+                    handleBlur("footLength");
+                    if (footLength && Number(footLength) < 10) setFootLength("10");
+                    if (footLength && Number(footLength) > 40) setFootLength("40");
+                  }}
+                  className={inputClass}
+                  placeholder="27"
+                  maxLength={4}
+                  data-testid="custom-order-foot-length"
+                />
+                {touched.footLength && errors.footLength && (
+                  <p className="text-xs text-red-400 mt-1">{errors.footLength}</p>
+                )}
+              </div>
+            )}
 
             {/* Phone */}
             <div>

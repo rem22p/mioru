@@ -53,7 +53,14 @@
     "delivery": {
       "disabledForCity": "Metoda de livrare «{{method}}» nu este disponibilă pentru «{{city}}»"
     },
-    "description": "Dacă nu ați găsit articolul dorit în catalog, puteți completa acest formular. Managerii noștri vor verifica posibilitatea de a comanda acest articol individual pentru dvs."
+    "description": "Dacă nu ați găsit articolul dorit în catalog, puteți completa acest formular. Managerii noștri vor verifica posibilitatea de a comanda acest articol individual pentru dvs.",
+    "category": "Categorie",
+    "categories": {
+      "clothing": "ÎMBRĂCĂMINTE",
+      "shoes": "ÎNCĂLȚĂMINTE",
+      "accessories": "ACCESORII"
+    },
+    "footLength": "Lungimea tălpii (cm)"
   },
   "nav": {
     "inStock": "CATALOG",
@@ -344,7 +351,8 @@
       "deliveryAddress": "Adresă de livrare",
       "heightCm": "Înălțime {{value}} cm",
       "weightKg": "Greutate {{value}} kg",
-      "apt": "Ap. {{value}}"
+      "apt": "Ap. {{value}}",
+      "photos": "Fotografiile clientului"
     }
   },
   "avatar": {

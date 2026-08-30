@@ -266,6 +266,9 @@ export interface AdminOrder {
   comment: string;
   height?: number;
   weight?: number;
+  /** KAN-52: individual-order category + shoe insole length. */
+  category?: string;
+  foot_length?: number;
   delivery_time?: string[];
   photos?: string[];
   items?: AdminOrderItem[];

@@ -11,6 +11,13 @@ const MEASUREMENT_LABELS: Record<string, string> = {
   waist: "Талия",
 };
 
+// KAN-52: individual-order categories.
+const CATEGORY_LABELS: Record<string, string> = {
+  clothing: "Одежда",
+  shoes: "Обувь",
+  accessories: "Аксессуары",
+};
+
 const STATUS_OPTIONS = ["pending", "processing", "shipped", "delivered"];
 const STATUS_LABELS: Record<string, string> = {
   pending: "Ожидает",
@@ -481,6 +488,14 @@ function OrderCard({
           {/* Individual order details */}
           {o.type === "individual" && (
             <div className="grid gap-3 sm:grid-cols-2">
+              {o.category && (
+                <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
+                  <span className="text-xs text-[var(--color-text-muted)]">Категория</span>
+                  <p className="text-sm text-[var(--color-text-primary)] mt-0.5">
+                    {CATEGORY_LABELS[o.category] || o.category}
+                  </p>
+                </div>
+              )}
               {(o.height || o.weight) && (
                 <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
                   <span className="text-xs text-[var(--color-text-muted)]">Параметры</span>
@@ -488,6 +503,14 @@ function OrderCard({
                     {o.height ? `Рост ${o.height} см` : ""}
                     {o.height && o.weight ? ", " : ""}
                     {o.weight ? `Вес ${o.weight} кг` : ""}
+                  </p>
+                </div>
+              )}
+              {o.foot_length != null && (
+                <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
+                  <span className="text-xs text-[var(--color-text-muted)]">Длина стельки</span>
+                  <p className="text-sm text-[var(--color-text-primary)] mt-0.5">
+                    {o.foot_length} см
                   </p>
                 </div>
               )}

@@ -383,6 +383,8 @@ func TestIntegrationCreateOrderAllowsCodWithBusForIndividual(t *testing.T) {
 		"delivery_method": "bus",
 		"payment_method":  "cod",
 		"comment":         "привезу на маршрутке",
+		// KAN-52: individual orders declare a category.
+		"category": "accessories",
 	}
 	rr := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
 		reqOpts{sess: sess, csrfCookieName: "store_csrf", idempotencyKey: "key-cod-bus-individual-1", body: body})
