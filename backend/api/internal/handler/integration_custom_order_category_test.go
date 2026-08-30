@@ -1,10 +1,13 @@
 package handler_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"mioru/internal/model"
 )
 
 // TestIntegrationCreateOrderCategory pins KAN-52: individual orders must
@@ -130,4 +133,47 @@ func TestIntegrationCreateOrderCategoryCartGate(t *testing.T) {
 
 func keySeq(prefix string, i int) string {
 	return prefix + "-" + string(rune('a'+i))
+}
+
+// TestIntegrationCategoryProductCounts pins KAN-55: the public categories
+// endpoint carries a products_count per category, and a parent's count
+// includes its children's products (the count badge on the catalog chips).
+func TestIntegrationCategoryProductCounts(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+
+	// Seed one product into the clothing parent (id 1) and one into its
+	// child tshirts-polo (id 2) — both through the public store API.
+	if _, err := e.st.CreateProduct(ctx, model.Product{
+		Slug: "cnt-parent", CategoryID: 1, Brands: []string{"CntBrand"},
+		Name: "Parent P", Price: 100, Status: "in_stock", InStock: true,
+	}); err != nil {
+		t.Fatalf("insert parent product: %v", err)
+	}
+	if _, err := e.st.CreateProduct(ctx, model.Product{
+		Slug: "cnt-child", CategoryID: 2, Brands: []string{"CntBrand"},
+		Name: "Child P", Price: 100, Status: "in_stock", InStock: true,
+	}); err != nil {
+		t.Fatalf("insert child product: %v", err)
+	}
+
+	rr := e.do(t, http.HandlerFunc(e.storeH.ListCategories), http.MethodGet, "/api/categories", reqOpts{})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("ListCategories: want 200, got %d", rr.Code)
+	}
+	var cats []model.Category
+	decode(t, rr, &cats)
+
+	var clothing *model.Category
+	for i := range cats {
+		if cats[i].ID == 1 {
+			clothing = &cats[i]
+		}
+	}
+	if clothing == nil {
+		t.Fatal("clothing category not found")
+	}
+	if clothing.ProductsCount < 2 {
+		t.Errorf("clothing products_count = %d, want >= 2 (own + child)", clothing.ProductsCount)
+	}
 }

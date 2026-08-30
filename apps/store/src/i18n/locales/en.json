@@ -163,13 +163,31 @@
       "categories": "Categories",
       "price": "Price",
       "from": "From",
-      "to": "To"
+      "to": "To",
+      "button": "Filter"
     },
     "colorFilter": {
       "black": "Black",
       "white": "White",
       "pink": "Pink",
       "yellow": "Yellow"
+    },
+    "searchPlaceholder": "Search the catalog…",
+    "searchClear": "Clear search",
+    "panel": {
+      "availability": "Availability",
+      "availabilityAll": "All",
+      "availabilityInStock": "In stock",
+      "availabilityPreorder": "Pre-order",
+      "category": "Category",
+      "allSubcategories": "All subcategories",
+      "brand": "Brand",
+      "color": "Color",
+      "size": "Size",
+      "price": "Price",
+      "priceFrom": "From",
+      "priceTo": "To",
+      "reset": "Reset all filters"
     }
   },
   "product": {

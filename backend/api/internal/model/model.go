@@ -25,7 +25,10 @@ type Category struct {
 	Criteria   []string   `json:"criteria"`
 	SortOrder  int        `json:"sort_order"`
 	CoverImage *string    `json:"cover_image,omitempty"`
-	Children   []Category `json:"children,omitempty"`
+	// KAN-55: products in this exact category (children counted separately);
+	// powers the count badges on the catalog category chips.
+	ProductsCount int        `json:"products_count"`
+	Children      []Category `json:"children,omitempty"`
 }
 
 // Product represents a product in the catalog

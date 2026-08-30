@@ -163,13 +163,31 @@
       "categories": "Категории",
       "price": "Цена",
       "from": "От",
-      "to": "До"
+      "to": "До",
+      "button": "Фильтр"
     },
     "colorFilter": {
       "black": "Чёрный",
       "white": "Белый",
       "pink": "Розовый",
       "yellow": "Жёлтый"
+    },
+    "searchPlaceholder": "Поиск по каталогу…",
+    "searchClear": "Очистить поиск",
+    "panel": {
+      "availability": "Наличие",
+      "availabilityAll": "Все",
+      "availabilityInStock": "В наличии",
+      "availabilityPreorder": "Под заказ",
+      "category": "Категория",
+      "allSubcategories": "Все подкатегории",
+      "brand": "Бренд",
+      "color": "Цвет",
+      "size": "Размер",
+      "price": "Цена",
+      "priceFrom": "От",
+      "priceTo": "До",
+      "reset": "Сбросить все фильтры"
     }
   },
   "product": {

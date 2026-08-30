@@ -18,7 +18,10 @@ const categoryQuery = `SELECT
 		 WHERE p.category_id = c.id
 		    OR p.category_id IN (SELECT id FROM categories WHERE parent_id = c.id)
 		 ORDER BY p.stock_quantity DESC, pi.sort_order
-		 LIMIT 1) AS cover_image
+		 LIMIT 1) AS cover_image,
+		(SELECT count(*) FROM products p
+		 WHERE p.category_id = c.id
+		    OR p.category_id IN (SELECT id FROM categories WHERE parent_id = c.id)) AS products_count
 	FROM categories c
 	ORDER BY c.sort_order, c.id`
 
@@ -48,7 +51,7 @@ func (s *PostgresStore) queryCategories(ctx context.Context) ([]model.Category, 
 		var c model.Category
 		var parentID *int
 		var criteriaJSON string
-		if err := rows.Scan(&c.ID, &parentID, &c.Name, &c.Slug, &criteriaJSON, &c.SortOrder, &c.CoverImage); err != nil {
+		if err := rows.Scan(&c.ID, &parentID, &c.Name, &c.Slug, &criteriaJSON, &c.SortOrder, &c.CoverImage, &c.ProductsCount); err != nil {
 			return nil, fmt.Errorf("scan category: %w", err)
 		}
 		c.ParentID = parentID
