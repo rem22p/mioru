@@ -311,6 +311,10 @@ export interface StoreOrder {
   comment: string;
   height?: number;
   weight?: number;
+  /** KAN-52: individual-order category + shoe insole length. */
+  category?: string;
+  foot_length?: number;
+  photos?: string[];
   items?: StoreOrderItem[];
   created_at: string;
 }
@@ -341,6 +345,9 @@ export interface CreateOrderData {
   total_minor: number;
   height?: number;
   weight?: number;
+  /** KAN-52: individual-order category + shoe insole length. */
+  category?: string;
+  foot_length?: number;
   photos?: string[];
   items?: CreateOrderItem[];
 }

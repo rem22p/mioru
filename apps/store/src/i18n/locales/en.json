@@ -53,7 +53,19 @@
     "delivery": {
       "disabledForCity": "Delivery method «{{method}}» is not available for «{{city}}»"
     },
-    "description": "If you didn't find the item you want in the catalog, you can fill out this form. Our managers will check if the item can be ordered individually for you."
+    "description": "If you didn't find the item you want in the catalog, you can fill out this form. Our managers will check if the item can be ordered individually for you.",
+    "category": "Category",
+    "categories": {
+      "clothing": "CLOTHING",
+      "shoes": "SHOES",
+      "accessories": "ACCESSORIES"
+    },
+    "footLength": "Insole length (cm)",
+    "errors": {
+      "categoryRequired": "Choose a category",
+      "footLengthRequired": "Enter the insole length",
+      "footLengthRange": "Insole length: 10 to 40 cm"
+    }
   },
   "nav": {
     "inStock": "CATALOG",
@@ -344,7 +356,9 @@
       "deliveryAddress": "Delivery address",
       "heightCm": "Height {{value}} cm",
       "weightKg": "Weight {{value}} kg",
-      "apt": "Apt {{value}}"
+      "apt": "Apt {{value}}",
+      "photos": "Customer photos",
+      "footLengthCm": "Insole length {{value}} cm"
     }
   },
   "avatar": {

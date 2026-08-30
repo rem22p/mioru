@@ -66,7 +66,7 @@ func (s *PostgresStore) ListCustomerOrders(ctx context.Context, customerID int64
 		       phone,
 		       city, delivery_method, payment_method,
 		       street, house, apartment, comment,
-		       height, weight, delivery_time, photos,
+		       height, weight, COALESCE(category, '') as category, foot_length, delivery_time, photos,
 		       created_at
 		FROM orders
 		WHERE customer_id = $1
@@ -87,7 +87,7 @@ func (s *PostgresStore) ListCustomerOrders(ctx context.Context, customerID int64
 			&o.Phone,
 			&o.City, &o.DeliveryMethod, &o.PaymentMethod,
 			&o.Street, &o.House, &o.Apartment, &o.Comment,
-			&o.Height, &o.Weight, &o.DeliveryTime, &o.Photos,
+			&o.Height, &o.Weight, &o.Category, &o.FootLength, &o.DeliveryTime, &o.Photos,
 			&o.CreatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan order: %w", err)
 		}
@@ -231,6 +231,12 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 		if o.Photos == nil {
 			o.Photos = []string{}
 		}
+		// Individual-only column; without the type gate a stray category
+		// on a cart order breaks the CHECK constraint or corrupts semantics.
+		var category any
+		if o.Type == "individual" && o.Category != "" {
+			category = o.Category
+		}
 
 		// Insert order
 		err = tx.QueryRow(ctx, `
@@ -239,20 +245,20 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 			                    phone,
 			                    city, delivery_method, payment_method,
 			                    street, house, apartment, comment,
-			                    height, weight, delivery_time, photos)
+			                    height, weight, category, foot_length, delivery_time, photos)
 			VALUES ($1, $2, $3, 'pending',
 			        $4,
 			        $5,
 			        $6, $7, $8,
 			        $9, $10, $11, $12,
-			        $13, $14, $15, $16)
+			        $13, $14, $15, $16, $17, $18)
 			RETURNING id, created_at`,
 			customerID, o.Type, o.TotalMinor,
 			orderCode,
 			o.Phone,
 			o.City, o.DeliveryMethod, o.PaymentMethod,
 			o.Street, o.House, o.Apartment, o.Comment,
-			o.Height, o.Weight, o.DeliveryTime, o.Photos,
+			o.Height, o.Weight, category, o.FootLength, o.DeliveryTime, o.Photos,
 		).Scan(&o.ID, &o.CreatedAt)
 
 		// Duplicate order_code — rollback, regenerate, retry.
@@ -497,7 +503,7 @@ func (s *PostgresStore) ListAllOrders(ctx context.Context, page, perPage int, st
 		       o.phone,
 		       o.city, o.delivery_method, o.payment_method,
 		       o.street, o.house, o.apartment, o.comment,
-		       o.height, o.weight, o.delivery_time, o.photos,
+		       o.height, o.weight, COALESCE(o.category, '') as category, o.foot_length, o.delivery_time, o.photos,
 		       o.created_at,
 		       COALESCE(c.email, '') as customer_email,
 		       COALESCE(c.first_name, '') as customer_first_name
@@ -523,7 +529,7 @@ func (s *PostgresStore) ListAllOrders(ctx context.Context, page, perPage int, st
 			&o.Phone,
 			&o.City, &o.DeliveryMethod, &o.PaymentMethod,
 			&o.Street, &o.House, &o.Apartment, &o.Comment,
-			&o.Height, &o.Weight, &o.DeliveryTime, &o.Photos,
+			&o.Height, &o.Weight, &o.Category, &o.FootLength, &o.DeliveryTime, &o.Photos,
 			&o.CreatedAt,
 			&o.CustomerEmail, &o.CustomerFirstName); err != nil {
 			return nil, 0, fmt.Errorf("scan order: %w", err)

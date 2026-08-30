@@ -156,6 +156,10 @@ type Order struct {
 	// Individual order fields
 	Height       *float64    `json:"height,omitempty"`
 	Weight       *float64    `json:"weight,omitempty"`
+	// KAN-52: individual-order category (clothing | shoes | accessories)
+	// and the shoe insole length in cm. NULL on legacy orders.
+	Category   string   `json:"category,omitempty"`
+	FootLength *float64 `json:"foot_length,omitempty"`
 	DeliveryTime []string    `json:"delivery_time,omitempty"`
 	Photos       []string    `json:"photos,omitempty"`
 	Items        []OrderItem `json:"items,omitempty"`

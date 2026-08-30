@@ -893,9 +893,13 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		Comment        string   `json:"comment"`
 		Height         *float64 `json:"height"`
 		Weight         *float64 `json:"weight"`
-		DeliveryTime   []string `json:"delivery_time"`
-		Photos         []string `json:"photos"`
-		Items          []struct {
+		// KAN-52: individual orders declare a category; shoes carry the
+		// insole length in cm.
+		Category     string   `json:"category"`
+		FootLength   *float64 `json:"foot_length"`
+		DeliveryTime []string `json:"delivery_time"`
+		Photos       []string `json:"photos"`
+		Items        []struct {
 			ProductID    int64                  `json:"product_id"`
 			SizeLabel    string                 `json:"size_label"`
 			Quantity     int                    `json:"quantity"`
@@ -1017,6 +1021,46 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		jsonErrorCode(w, fmt.Sprintf("weight out of range (%g-%g kg)", minBodyWeightKg, maxBodyWeightKg), http.StatusBadRequest, "VALIDATION_FAILED")
 		return
 	}
+	// KAN-52: individual orders must declare a category. Shoes carry the
+	// insole length (bounded); clothing keeps height/weight (optional, as
+	// before); accessories carry no measurements at all. The combos are
+	// enforced so the stored data always matches what the form shows.
+	if req.Type == "individual" {
+		switch req.Category {
+		case "clothing":
+			if req.FootLength != nil {
+				jsonErrorCode(w, "foot_length is only valid for shoes", http.StatusBadRequest, "VALIDATION_FAILED")
+				return
+			}
+		case "shoes":
+			if req.Height != nil || req.Weight != nil {
+				jsonErrorCode(w, "height/weight are only valid for clothing", http.StatusBadRequest, "VALIDATION_FAILED")
+				return
+			}
+			if req.FootLength == nil {
+				jsonErrorCode(w, "foot_length is required for shoes", http.StatusBadRequest, "VALIDATION_FAILED")
+				return
+			}
+		case "accessories":
+			if req.Height != nil || req.Weight != nil || req.FootLength != nil {
+				jsonErrorCode(w, "accessories carry no measurements", http.StatusBadRequest, "VALIDATION_FAILED")
+				return
+			}
+		default:
+			jsonErrorCode(w, "category must be 'clothing', 'shoes' or 'accessories'", http.StatusBadRequest, "VALIDATION_FAILED")
+			return
+		}
+	}
+	// Individual-only fields; a crafted cart order otherwise hits the
+	// CHECK constraint as a 500 or silently persists invalid semantics.
+	if req.Type != "individual" && (req.Category != "" || req.FootLength != nil) {
+		jsonErrorCode(w, "category/foot_length are only valid for individual orders", http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
+	if req.FootLength != nil && (*req.FootLength < minFootLengthCm || *req.FootLength > maxFootLengthCm) {
+		jsonErrorCode(w, fmt.Sprintf("foot_length out of range (%g-%g cm)", minFootLengthCm, maxFootLengthCm), http.StatusBadRequest, "VALIDATION_FAILED")
+		return
+	}
 	// Photos: defence-in-depth. Telegram notifier neutralises path
 	// traversal via filepath.Base, and the body is bounded at 1 MiB,
 	// but an unbounded list/format still lets a client queue hundreds
@@ -1122,6 +1166,8 @@ func (h *CustomerHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		Comment:        req.Comment,
 		Height:         req.Height,
 		Weight:         req.Weight,
+		Category:       req.Category,
+		FootLength:     req.FootLength,
 		DeliveryTime:   req.DeliveryTime,
 		Photos:         req.Photos,
 	}
@@ -1420,6 +1466,11 @@ const (
 	maxBodyHeightCm = 300.0
 	minBodyWeightKg = 20.0
 	maxBodyWeightKg = 400.0
+
+	// KAN-52: shoe insole length bounds (cm). Real soles run ~15–35;
+	// the range is padded for tolerance.
+	minFootLengthCm = 10.0
+	maxFootLengthCm = 40.0
 )
 
 type cartItemReq struct {

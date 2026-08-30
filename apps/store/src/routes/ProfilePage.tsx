@@ -424,7 +424,31 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
 
           {/* Individual order details */}
           {o.type === "individual" && (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-3">
+              {o.photos && o.photos.length > 0 && (
+                <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
+                  <span className="text-xs text-[var(--color-text-muted)]">{t("profile.orderDetail.photos")}</span>
+                  <div className="flex flex-wrap gap-2 mt-1.5">
+                    {o.photos.map((url) => (
+                      <a key={url} href={getImageUrl(url)} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={getImageUrl(url)}
+                          alt=""
+                          className="w-20 h-20 object-cover rounded-lg border border-[var(--color-border-custom)]"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {o.category && (
+                <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
+                  <span className="text-xs text-[var(--color-text-muted)]">{t("customOrder.category")}</span>
+                  <p className="text-sm text-[var(--color-text-primary)] mt-0.5">
+                    {t(`customOrder.categories.${o.category}`, o.category)}
+                  </p>
+                </div>
+              )}
               {(o.height || o.weight) && (
                 <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
                   <span className="text-xs text-[var(--color-text-muted)]">{t("profile.orderDetail.parameters")}</span>
@@ -435,8 +459,16 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
                   </p>
                 </div>
               )}
+              {o.foot_length != null && (
+                <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
+                  <span className="text-xs text-[var(--color-text-muted)]">{t("customOrder.footLength")}</span>
+                  <p className="text-sm text-[var(--color-text-primary)] mt-0.5">
+                    {t("profile.orderDetail.footLengthCm", { value: o.foot_length })}
+                  </p>
+                </div>
+              )}
               {o.comment && (
-                <div className="sm:col-span-2 p-3 rounded-xl bg-[var(--color-bg-secondary)]">
+                <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
                   <span className="text-xs text-[var(--color-text-muted)]">{t("profile.orderDetail.comment")}</span>
                   <p className="text-sm text-[var(--color-text-primary)] mt-0.5 whitespace-pre-wrap">
                     {o.comment}

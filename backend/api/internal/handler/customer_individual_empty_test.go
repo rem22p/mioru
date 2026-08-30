@@ -46,14 +46,16 @@ func TestCreateOrderIndividualAcceptsEmptyItems(t *testing.T) {
 	fs := &individualNoItemsFakeStore{}
 	h := newCustomerHandlerForTest(fs)
 
-	// Mirrors CustomOrderPage.tsx:117-130 exactly: type=individual,
-	// no `items` field, free-form fields (height/weight/photos).
+	// Mirrors CustomOrderPage.tsx exactly: type=individual, no `items`
+	// field, free-form fields (height/weight/photos). KAN-52: individual
+	// orders declare a category; this fixture is clothing.
 	body := `{
 		"type": "individual",
 		"phone": "+37360000000",
 		"city": "Тирасполь",
 		"delivery_method": "personal",
 		"payment_method": "card",
+		"category": "clothing",
 		"height": 180,
 		"weight": 75,
 		"photos": ["/uploads/photo1.jpg"],
