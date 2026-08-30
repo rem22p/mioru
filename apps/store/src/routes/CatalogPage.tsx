@@ -127,7 +127,13 @@ export default function CatalogPage() {
   const [page, setPage] = useState(1);
   useEffect(() => {
     setSearchInput(searchQuery);
+    // A pending debounce would re-push the old input into the URL after
+    // popstate rolled it back (the back button would be undone).
+    if (debounceRef.current) clearTimeout(debounceRef.current);
   }, [searchQuery]);
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  }, []);
   const onSearchChange = (v: string) => {
     setSearchInput(v);
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -248,8 +254,11 @@ export default function CatalogPage() {
       price_min: priceMin || undefined,
       price_max: priceMax || undefined,
       search: searchQuery || undefined,
+      // Facets must follow the availability toggle, otherwise the panel
+      // offers brands/colors/sizes that yield an empty grid.
+      status: status === "all" ? undefined : status,
     });
-  }, [fetchFacets, categoryIdsKey, categoryIds, priceMin, priceMax, searchQuery]);
+  }, [fetchFacets, categoryIdsKey, categoryIds, priceMin, priceMax, searchQuery, status]);
 
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
   useEffect(() => {
@@ -300,16 +309,17 @@ export default function CatalogPage() {
     (priceMax ? 1 : 0);
 
   const setCategorySlug = (slug: string) => {
+    setPage(1); // reset page on filter change
     const sp = new URLSearchParams(searchParams);
-    sp.delete("page");
     const qs = sp.toString();
     if (slug === "all") navigate(`/catalog${qs ? `?${qs}` : ""}`);
     else navigate(`/catalog/${slug}${qs ? `?${qs}` : ""}`);
   };
 
   const resetFilters = () => {
+    setPage(1); // reset page on filter change
     const sp = new URLSearchParams(searchParams);
-    for (const k of ["brand", "color", "size", "price_min", "price_max", "status", "q", "search", "page"]) {
+    for (const k of ["brand", "color", "size", "price_min", "price_max", "status", "q", "search"]) {
       sp.delete(k);
     }
     setSearchParams(sp);
@@ -545,7 +555,7 @@ export default function CatalogPage() {
                         </p>
                         <div className="grid gap-2 sm:grid-cols-2">
                           <select
-                            value={currentParent?.id ? String(currentParent.id) : ""}
+                            value={currentParent?.slug ?? ""}
                             onChange={(e) =>
                               setCategorySlug(e.target.value || "all")
                             }
@@ -556,7 +566,7 @@ export default function CatalogPage() {
                             {categories
                               .filter((c) => !c.parent_id)
                               .map((c) => (
-                                <option key={c.id} value={String(c.id)}>
+                                <option key={c.id} value={c.slug}>
                                   {c.name}
                                 </option>
                               ))}
@@ -671,18 +681,28 @@ export default function CatalogPage() {
                           <input
                             key={`pmin-${priceMin}`}
                             type="number"
+                            min={0}
                             placeholder={t("catalog.panel.priceFrom")}
                             defaultValue={priceMin}
-                            onBlur={(e) => setParam("price_min", e.target.value)}
+                            onBlur={(e) => {
+                              // The backend silently drops non-positive values;
+                              // don't advertise a filter that isn't applied.
+                              const v = e.target.value.trim();
+                              setParam("price_min", Number(v) > 0 ? v : null);
+                            }}
                             className="flex-1 min-w-0 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                           <span className="text-[var(--color-text-muted)] text-sm shrink-0">—</span>
                           <input
                             key={`pmax-${priceMax}`}
                             type="number"
+                            min={0}
                             placeholder={t("catalog.panel.priceTo")}
                             defaultValue={priceMax}
-                            onBlur={(e) => setParam("price_max", e.target.value)}
+                            onBlur={(e) => {
+                              const v = e.target.value.trim();
+                              setParam("price_max", Number(v) > 0 ? v : null);
+                            }}
                             className="flex-1 min-w-0 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>

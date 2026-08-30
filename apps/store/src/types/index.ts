@@ -8,7 +8,7 @@ export interface Category {
   criteria: string[];
   sort_order: number;
   cover_image?: string | null;
-  /** KAN-55: products in this exact category (children counted separately). */
+  /** KAN-55: products in this category and all its descendants. */
   products_count?: number;
   children?: Category[];
 }
