@@ -463,7 +463,7 @@ function OrderCard({ order: o }: { order: StoreOrder }) {
                 <div className="p-3 rounded-xl bg-[var(--color-bg-secondary)]">
                   <span className="text-xs text-[var(--color-text-muted)]">{t("customOrder.footLength")}</span>
                   <p className="text-sm text-[var(--color-text-primary)] mt-0.5">
-                    {o.foot_length} см
+                    {t("profile.orderDetail.footLengthCm", { value: o.foot_length })}
                   </p>
                 </div>
               )}

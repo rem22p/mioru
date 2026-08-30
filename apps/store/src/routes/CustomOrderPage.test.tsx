@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { HelmetProvider } from "@dr.pogodin/react-helmet";
 import CustomOrderPage from "./CustomOrderPage";
@@ -293,5 +293,81 @@ describe("CustomOrderPage — category choice (KAN-52)", () => {
     expect(payload.foot_length).toBe(27.5);
     expect(payload.height).toBeUndefined();
     expect(payload.weight).toBeUndefined();
+  });
+});
+
+describe("CustomOrderPage — insole length input (KAN-52 F2/F3 review fixes)", () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+    vi.mocked(createOrder).mockClear();
+    vi.mocked(uploadOrderPhoto).mockClear();
+    globalThis.URL.createObjectURL = vi.fn(() => "blob:preview");
+    useAuthStore.setState({ isAuthenticated: true, user: makeUser(true), loading: false, error: null });
+  });
+
+  const baseFields = (container: HTMLElement) => {
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: { files: [new File(["x"], "photo.png", { type: "image/png" })] },
+    });
+    fireEvent.change(screen.getByTestId("city-autocomplete"), { target: { value: "Тирасполь" } });
+    fireEvent.change(screen.getByTestId("custom-order-phone"), {
+      target: { value: "+37360000000" },
+    });
+    fireEvent.click(screen.getByTestId("delivery-personal"));
+  };
+
+  it("normalises the comma decimal separator (27,5 → 27.5)", () => {
+    const { container } = renderPage(true);
+    baseFields(container);
+    fireEvent.click(screen.getByTestId("custom-order-category-shoes"));
+    fireEvent.change(screen.getByTestId("custom-order-foot-length"), { target: { value: "27,5" } });
+    expect((screen.getByTestId("custom-order-foot-length") as HTMLInputElement).value).toBe("27.5");
+  });
+
+  it("clamps out-of-range values on blur", async () => {
+    const { container } = renderPage(true);
+    baseFields(container);
+    fireEvent.click(screen.getByTestId("custom-order-category-shoes"));
+    // The framer-motion mock recreates its component functions on every
+    // render, so the subtree remounts after each event — re-query the
+    // node after every change/blur instead of caching it.
+    const typeAndBlur = (v: string): HTMLInputElement => {
+      const el = screen.getByTestId("custom-order-foot-length") as HTMLInputElement;
+      el.focus();
+      fireEvent.change(el, { target: { value: v } });
+      const afterChange = screen.getByTestId("custom-order-foot-length") as HTMLInputElement;
+      afterChange.focus();
+      act(() => {
+        afterChange.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+      });
+      return screen.getByTestId("custom-order-foot-length") as HTMLInputElement;
+    };
+    expect(typeAndBlur("41").value).toBe("40");
+    expect(typeAndBlur("5").value).toBe("10");
+  });
+
+  it("rejects a lone decimal point with a form error instead of submitting", async () => {
+    vi.mocked(uploadOrderPhoto).mockResolvedValue("/uploads/p1.jpg");
+    vi.mocked(createOrder).mockResolvedValue({ id: 1, status: "pending", created_at: "now" });
+    const { container } = renderPage(true);
+    baseFields(container);
+    fireEvent.click(screen.getByTestId("custom-order-category-shoes"));
+    fireEvent.change(screen.getByTestId("custom-order-foot-length"), { target: { value: "." } });
+    fireEvent.click(screen.getByTestId("custom-order-submit"));
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
+  it("sends 27.5 for a comma-typed shoes order", async () => {
+    vi.mocked(uploadOrderPhoto).mockResolvedValue("/uploads/p1.jpg");
+    vi.mocked(createOrder).mockResolvedValue({ id: 1, status: "pending", created_at: "now" });
+    const { container } = renderPage(true);
+    baseFields(container);
+    fireEvent.click(screen.getByTestId("custom-order-category-shoes"));
+    fireEvent.change(screen.getByTestId("custom-order-foot-length"), { target: { value: "27,5" } });
+    fireEvent.click(screen.getByTestId("custom-order-submit"));
+    await waitFor(() => expect(createOrder).toHaveBeenCalled());
+    const payload = vi.mocked(createOrder).mock.calls[0][0] as unknown as Record<string, unknown>;
+    expect(payload.foot_length).toBe(27.5);
   });
 });

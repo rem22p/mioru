@@ -106,7 +106,7 @@ export default function CustomOrderPage() {
     const errs: Record<string, string> = {};
     if (photos.length === 0) errs.photos = "Прикрепите хотя бы одно фото";
     // KAN-52: category is mandatory; each category has its own params.
-    if (!category) errs.category = "Выберите категорию";
+    if (!category) errs.category = t("customOrder.errors.categoryRequired");
     if (category === "clothing") {
       if (!height && !weight) errs.body = "Укажите рост или вес";
       if (height && Number(height) < 100)
@@ -119,9 +119,10 @@ export default function CustomOrderPage() {
         errs.body = "Вес не может быть больше 200 кг";
     }
     if (category === "shoes") {
-      if (!footLength) errs.footLength = "Укажите длину стельки";
-      else if (Number(footLength) < 10 || Number(footLength) > 40)
-        errs.footLength = "Длина стельки: от 10 до 40 см";
+      const n = Number(footLength);
+      if (!footLength) errs.footLength = t("customOrder.errors.footLengthRequired");
+      else if (!Number.isFinite(n) || n < 10 || n > 40)
+        errs.footLength = t("customOrder.errors.footLengthRange");
     }
     if (!city.trim()) errs.city = "Укажите город";
     if (!phone.trim()) errs.phone = "Введите номер телефона";
@@ -433,8 +434,9 @@ export default function CustomOrderPage() {
                   inputMode="decimal"
                   value={footLength}
                   onChange={(e) => {
-                    // digits + a single decimal point, at most 4 chars ("27.5")
+                    // Comma first: ru-locale decimal keyboards offer «,».
                     const raw = e.target.value
+                      .replace(/,/g, ".")
                       .replace(/[^0-9.]/g, "")
                       .replace(/(\..*)\./g, "$1")
                       .slice(0, 4);

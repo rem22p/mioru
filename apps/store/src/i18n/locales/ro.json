@@ -60,7 +60,12 @@
       "shoes": "ÎNCĂLȚĂMINTE",
       "accessories": "ACCESORII"
     },
-    "footLength": "Lungimea tălpii (cm)"
+    "footLength": "Lungimea tălpii (cm)",
+    "errors": {
+      "categoryRequired": "Alegeți o categorie",
+      "footLengthRequired": "Indicați lungimea tălpii",
+      "footLengthRange": "Lungimea tălpii: de la 10 la 40 cm"
+    }
   },
   "nav": {
     "inStock": "CATALOG",
@@ -352,7 +357,8 @@
       "heightCm": "Înălțime {{value}} cm",
       "weightKg": "Greutate {{value}} kg",
       "apt": "Ap. {{value}}",
-      "photos": "Fotografiile clientului"
+      "photos": "Fotografiile clientului",
+      "footLengthCm": "Lungimea tălpii {{value}} cm"
     }
   },
   "avatar": {

@@ -60,7 +60,12 @@
       "shoes": "ОБУВЬ",
       "accessories": "АКСЕССУАРЫ"
     },
-    "footLength": "Длина стельки (см)"
+    "footLength": "Длина стельки (см)",
+    "errors": {
+      "categoryRequired": "Выберите категорию",
+      "footLengthRequired": "Укажите длину стельки",
+      "footLengthRange": "Длина стельки: от 10 до 40 см"
+    }
   },
   "nav": {
     "inStock": "КАТАЛОГ",
@@ -352,7 +357,8 @@
       "heightCm": "Рост {{value}} см",
       "weightKg": "Вес {{value}} кг",
       "apt": "кв. {{value}}",
-      "photos": "Фото клиента"
+      "photos": "Фото клиента",
+      "footLengthCm": "Длина стельки {{value}} см"
     }
   },
   "avatar": {

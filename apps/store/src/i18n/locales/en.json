@@ -60,7 +60,12 @@
       "shoes": "SHOES",
       "accessories": "ACCESSORIES"
     },
-    "footLength": "Insole length (cm)"
+    "footLength": "Insole length (cm)",
+    "errors": {
+      "categoryRequired": "Choose a category",
+      "footLengthRequired": "Enter the insole length",
+      "footLengthRange": "Insole length: 10 to 40 cm"
+    }
   },
   "nav": {
     "inStock": "CATALOG",
@@ -352,7 +357,8 @@
       "heightCm": "Height {{value}} cm",
       "weightKg": "Weight {{value}} kg",
       "apt": "Apt {{value}}",
-      "photos": "Customer photos"
+      "photos": "Customer photos",
+      "footLengthCm": "Insole length {{value}} cm"
     }
   },
   "avatar": {
