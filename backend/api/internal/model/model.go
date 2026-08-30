@@ -18,14 +18,17 @@ type User struct {
 
 // Category represents a product category with tree structure
 type Category struct {
-	ID         int        `json:"id"`
-	ParentID   *int       `json:"parent_id"`
-	Name       string     `json:"name"`
-	Slug       string     `json:"slug"`
-	Criteria   []string   `json:"criteria"`
-	SortOrder  int        `json:"sort_order"`
-	CoverImage *string    `json:"cover_image,omitempty"`
-	Children   []Category `json:"children,omitempty"`
+	ID         int      `json:"id"`
+	ParentID   *int     `json:"parent_id"`
+	Name       string   `json:"name"`
+	Slug       string   `json:"slug"`
+	Criteria   []string `json:"criteria"`
+	SortOrder  int      `json:"sort_order"`
+	CoverImage *string  `json:"cover_image,omitempty"`
+	// KAN-55: products in this category and all its descendants; powers
+	// the count badges on the catalog category chips.
+	ProductsCount int        `json:"products_count"`
+	Children      []Category `json:"children,omitempty"`
 }
 
 // Product represents a product in the catalog
@@ -154,12 +157,12 @@ type Order struct {
 	Apartment      string `json:"apartment"`
 	Comment        string `json:"comment"`
 	// Individual order fields
-	Height       *float64    `json:"height,omitempty"`
-	Weight       *float64    `json:"weight,omitempty"`
+	Height *float64 `json:"height,omitempty"`
+	Weight *float64 `json:"weight,omitempty"`
 	// KAN-52: individual-order category (clothing | shoes | accessories)
 	// and the shoe insole length in cm. NULL on legacy orders.
-	Category   string   `json:"category,omitempty"`
-	FootLength *float64 `json:"foot_length,omitempty"`
+	Category     string      `json:"category,omitempty"`
+	FootLength   *float64    `json:"foot_length,omitempty"`
 	DeliveryTime []string    `json:"delivery_time,omitempty"`
 	Photos       []string    `json:"photos,omitempty"`
 	Items        []OrderItem `json:"items,omitempty"`

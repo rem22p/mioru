@@ -32,7 +32,7 @@ commands.
 | GET /api/products | — | — | — | 200 `{items,total,page,per_page}` | — | `TestIntegrationListProducts` (+ store-level paginate/filter) |
 | GET /api/products/facets | — | — | — | 200 `{brands,colors,sizes}` (KAN-14: collab brands listed individually) | 400 VALIDATION_FAILED | `TestIntegrationFacetsHappy`, `...DropsOwnSelection`, `...BadStatus`, `TestCollabBrandsFacetsSplit` |
 | GET /api/products/{slug} | — | — | — | 200 product | 404 NOT_FOUND | `TestIntegrationGetProductBySlug`, `...NotFound` |
-| GET /api/categories | — | — | — | 200 tree | — | `TestIntegrationListCategories` |
+| GET /api/categories | — | — | — | 200 tree, nodes carry `products_count` (own + all descendants) | — | `TestIntegrationListCategories`, `TestIntegrationCategoryProductCounts` |
 
 ## Store — customer auth & profile
 | Method+Path | Auth | CSRF | RL | Success | Errors | Integration test |

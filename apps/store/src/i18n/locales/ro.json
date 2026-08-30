@@ -163,13 +163,31 @@
       "categories": "Categorii",
       "price": "Preț",
       "from": "De la",
-      "to": "Până la"
+      "to": "Până la",
+      "button": "Filtrare"
     },
     "colorFilter": {
       "black": "Negru",
       "white": "Alb",
       "pink": "Roz",
       "yellow": "Galben"
+    },
+    "searchPlaceholder": "Caută în catalog…",
+    "searchClear": "Șterge căutarea",
+    "panel": {
+      "availability": "Disponibilitate",
+      "availabilityAll": "Toate",
+      "availabilityInStock": "În stoc",
+      "availabilityPreorder": "La comandă",
+      "category": "Categorie",
+      "allSubcategories": "Toate subcategoriile",
+      "brand": "Marcă",
+      "color": "Culoare",
+      "size": "Mărime",
+      "price": "Preț",
+      "priceFrom": "De la",
+      "priceTo": "Până la",
+      "reset": "Resetează toate filtrele"
     }
   },
   "product": {

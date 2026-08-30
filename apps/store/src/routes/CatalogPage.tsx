@@ -1,15 +1,14 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useCatalogStore } from "@/stores/catalogStore";
 import { useCurrencyStore } from "@/stores/currencyStore";
 import { formatPrice } from "@/lib/currency";
 import { useFavoritesStore } from "@/stores/favoritesStore";
 import { getThumbUrl, getImageUrl } from "@/lib/api";
-import { colorHex, contrastTextFor } from "@/lib/colors";
-import { Heart, ChevronDown, Search } from "lucide-react";
+import { colorHex } from "@/lib/colors";
+import { Search, SlidersHorizontal, X, Heart } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import CatalogStatusToggle from "@/components/catalog/CatalogStatusToggle";
 import { Helmet } from "@dr.pogodin/react-helmet";
 
 const PER_PAGE = 100;
@@ -25,9 +24,13 @@ function categoryEmoji(slug: string): string {
   return map[slug] || "📦";
 }
 
+/** Availability filter values (KAN-55: «Наличие» lives in the filter panel). */
+type Availability = "all" | "in_stock" | "preorder";
+
 export default function CatalogPage() {
   const { t } = useTranslation();
   const { currency } = useCurrencyStore();
+  const navigate = useNavigate();
   const {
     products,
     categories,
@@ -40,69 +43,104 @@ export default function CatalogPage() {
     fetchCategories,
   } = useCatalogStore();
 
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const { categorySlug } = useParams<{ categorySlug?: string }>();
-  const [priceMin, setPriceMin] = useState("");
-  const [priceMax, setPriceMax] = useState("");
-  const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
-  const [selectedColors, setSelectedColors] = useState<Set<string>>(new Set());
-  const [selectedSizes, setSelectedSizes] = useState<Set<string>>(new Set());
-  const [sortBy, setSortBy] = useState<"price-asc" | "price-desc" | "newest" | "popular">(
-    "popular",
-  );
-  const [dynamicFiltersOpen, setDynamicFiltersOpen] = useState(false);
-  const [filterSubsectionsOpen, setFilterSubsectionsOpen] = useState({
-    sizes: false,
-    brands: false,
-    colors: false,
-  });
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [page, setPage] = useState(1);
-  // Catalog status toggle: "in_stock" (default) | "preorder". Two-state
-  // (per the customer spec in JIRA) — no "All" option, the toggle is the
-  // boundary the user commits to when they enter the catalog. State mirrors
-  // the ?status= search param so a deep link / shared URL survives a refresh.
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialStatus = ((): "in_stock" | "preorder" => {
-    const raw = searchParams.get("status");
-    return raw === "preorder" ? "preorder" : "in_stock";
-  })();
-  const [status, setStatusRaw] = useState<"in_stock" | "preorder">(initialStatus);
 
-  // Keep URL in sync with the toggle. Page resets to 1 on every change so
-  // the user never lands on a page that no longer matches the filter scope
-  // (CLAUDE.md: "Reset page on filter change").
-  const setStatus = (next: "in_stock" | "preorder") => {
-    setStatusRaw(next);
-    setPage(1);
+  // ── KAN-55: the URL is the single source of truth for filters, so they
+  // survive navigation (back/forward), refresh and link sharing —
+  // «ФИЛЬТРЫ НЕ ДОЛЖНЫ СЛЕТАТЬ».
+  const selectedCategory = categorySlug || "all";
+  const status = ((): Availability => {
+    const raw = searchParams.get("status");
+    return raw === "in_stock" || raw === "preorder" ? raw : "all";
+  })();
+  const searchQuery = searchParams.get("search") || "";
+  const priceMin = searchParams.get("price_min") || "";
+  const priceMax = searchParams.get("price_max") || "";
+  const sortRaw = searchParams.get("sort") || "popular";
+
+  const csv = (key: string): string[] => {
+    const v = searchParams.get(key);
+    return v ? v.split("|").filter(Boolean) : [];
+  };
+  const selectedBrands = useMemo(
+    () => new Set(csv("brand")),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [searchParams],
+  );
+  const selectedColors = useMemo(
+    () => new Set(csv("color")),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [searchParams],
+  );
+  const selectedSizes = useMemo(
+    () => new Set(csv("size")),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [searchParams],
+  );
+
+  const setParam = (key: string, value: string | null) => {
     const sp = new URLSearchParams(searchParams);
-    if (next === "in_stock") {
-      sp.delete("status");
-    } else {
-      sp.set("status", next);
-    }
-    setSearchParams(sp, { replace: true });
+    if (value === null || value === "") sp.delete(key);
+    else sp.set(key, value);
+    setPage(1); // reset page on filter change (CLAUDE.md rule)
+    setSearchParams(sp);
+  };
+  const toggleCSV = (key: string, value: string) => {
+    const list = new Set(csv(key));
+    if (list.has(value)) list.delete(value);
+    else list.add(value);
+    const sp = new URLSearchParams(searchParams);
+    const arr = [...list].sort();
+    if (arr.length) sp.set(key, arr.join("|"));
+    else sp.delete(key);
+    setPage(1); // reset page on filter change
+    setSearchParams(sp);
   };
 
-  // Sync state from URL on back/forward navigation. When the user pops the
-  // history, searchParams changes but our local state doesn't — pull it back
-  // in. Page is reset to 1 because the new bucket may have fewer pages than
-  // the previous one.
+  // Sort: the URL carries the backend sort token; the select shows the
+  // friendly value.
+  const sortBy: "price-asc" | "price-desc" | "newest" | "popular" =
+    sortRaw === "price"
+      ? "price-asc"
+      : sortRaw === "-price"
+        ? "price-desc"
+        : sortRaw === "newest"
+          ? "newest"
+          : "popular";
+  const setSortBy = (next: typeof sortBy) => {
+    const token =
+      next === "price-asc"
+        ? "price"
+        : next === "price-desc"
+          ? "-price"
+          : next === "newest"
+            ? "newest"
+            : "popular";
+    setParam("sort", token === "popular" ? null : token);
+  };
+
+  // Search input keeps immediate feedback; the debounced value lands in the
+  // URL (which drives the fetch).
+  const [searchInput, setSearchInput] = useState(searchQuery);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [page, setPage] = useState(1);
   useEffect(() => {
-    const raw = searchParams.get("status");
-    const fromURL: "in_stock" | "preorder" = raw === "preorder" ? "preorder" : "in_stock";
-    if (fromURL !== status) {
-      setStatusRaw(fromURL);
-      setPage(1);
-    }
-    // We intentionally exclude `status` from deps — this effect only fires on
-    // URL changes, not on every local toggle click (which would cause a loop
-    // since setStatus also updates the URL).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+    setSearchInput(searchQuery);
+    // A pending debounce would re-push the old input into the URL after
+    // popstate rolled it back (the back button would be undone).
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  }, [searchQuery]);
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  }, []);
+  const onSearchChange = (v: string) => {
+    setSearchInput(v);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setParam("search", v || null), 300);
+  };
+
+  const [panelOpen, setPanelOpen] = useState(false);
 
   // Subscribe to `items` so the component re-renders on toggle. Selecting
   // only `isFavorite` (the function) is a no-op: Zustand sees the same
@@ -111,47 +149,11 @@ export default function CatalogPage() {
   const toggleFavorite = useFavoritesStore((state) => state.toggleFavorite);
   const isFavorite = (id: number) => items.some((i) => i.id === id);
 
-  const handleCategoryChange = (slug: string) => {
-    setSelectedCategory(slug);
-    setSelectedBrands(new Set());
-    setSelectedColors(new Set());
-    setSelectedSizes(new Set());
-    setPriceMin("");
-    setPriceMax("");
-    setPage(1);
-  };
-
-  const resetFilters = () => {
-    setSelectedBrands(new Set());
-    setSelectedColors(new Set());
-    setSelectedSizes(new Set());
-    setPriceMin("");
-    setPriceMax("");
-    setPage(1);
-  };
-
   // Bootstrap: load category tree once. Products + facets are loaded by the
   // filter-driven effects below.
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
-
-  // When navigated from homepage with a category slug, select it
-  useEffect(() => {
-    if (categorySlug && categories.length > 0) {
-      // Check if the slug exists in the category tree
-      const walk = (cats: typeof categories): boolean => {
-        for (const c of cats) {
-          if (c.slug === categorySlug) return true;
-          if (c.children && walk(c.children)) return true;
-        }
-        return false;
-      };
-      if (walk(categories)) {
-        setSelectedCategory(categorySlug);
-      }
-    }
-  }, [categorySlug, categories]);
 
   // category_id → slug lookup (used for product cards when no image is set).
   const categorySlugById = useMemo(() => {
@@ -207,19 +209,10 @@ export default function CatalogPage() {
     }
   }, [sortBy]);
 
-  // Stable keys for the Set-based filter state so deps arrays compare by value.
-  const brandKey = useMemo(
-    () => [...selectedBrands].sort().join("|"),
-    [selectedBrands],
-  );
-  const colorKey = useMemo(
-    () => [...selectedColors].sort().join("|"),
-    [selectedColors],
-  );
-  const sizeKey = useMemo(
-    () => [...selectedSizes].sort().join("|"),
-    [selectedSizes],
-  );
+  // Stable keys for deps arrays so effects compare by value.
+  const brandKey = [...selectedBrands].sort().join("|");
+  const colorKey = [...selectedColors].sort().join("|");
+  const sizeKey = [...selectedSizes].sort().join("|");
   const categoryIdsKey = categoryIds.join(",");
 
   // Fetch products whenever any filter, sort, or page changes.
@@ -234,8 +227,8 @@ export default function CatalogPage() {
       sort: sortParam,
       page: String(page),
       per_page: String(PER_PAGE),
-      search: debouncedSearch || undefined,
-      status,
+      search: searchQuery || undefined,
+      status: status === "all" ? undefined : status,
     });
   }, [
     fetchProducts,
@@ -249,7 +242,7 @@ export default function CatalogPage() {
     sortParam,
     page,
     status,
-    debouncedSearch,
+    searchQuery,
   ]);
 
   // Facets follow the scope (category + price + search) only — brand/color/size
@@ -260,8 +253,12 @@ export default function CatalogPage() {
       category_id: categoryIds.length > 0 ? categoryIds : undefined,
       price_min: priceMin || undefined,
       price_max: priceMax || undefined,
+      search: searchQuery || undefined,
+      // Facets must follow the availability toggle, otherwise the panel
+      // offers brands/colors/sizes that yield an empty grid.
+      status: status === "all" ? undefined : status,
     });
-  }, [fetchFacets, categoryIdsKey, categoryIds, priceMin, priceMax]);
+  }, [fetchFacets, categoryIdsKey, categoryIds, priceMin, priceMax, searchQuery, status]);
 
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
   useEffect(() => {
@@ -297,18 +294,52 @@ export default function CatalogPage() {
     [facets],
   );
 
-  const toggleFilter = (
-    setter: React.Dispatch<React.SetStateAction<Set<string>>>,
-    value: string,
-  ) => {
-    setter((prev) => {
-      const next = new Set(prev);
-      if (next.has(value)) next.delete(value);
-      else next.add(value);
-      return next;
-    });
-    setPage(1);
+  const toggleFilter = (key: string, value: string) => {
+    toggleCSV(key, value);
   };
+
+  // KAN-55: the number of active filter selections for the badge on the
+  // «Фильтр» button.
+  const activeFilterCount =
+    selectedBrands.size +
+    selectedColors.size +
+    selectedSizes.size +
+    (status !== "all" ? 1 : 0) +
+    (priceMin ? 1 : 0) +
+    (priceMax ? 1 : 0);
+
+  const setCategorySlug = (slug: string) => {
+    setPage(1); // reset page on filter change
+    const sp = new URLSearchParams(searchParams);
+    const qs = sp.toString();
+    if (slug === "all") navigate(`/catalog${qs ? `?${qs}` : ""}`);
+    else navigate(`/catalog/${slug}${qs ? `?${qs}` : ""}`);
+  };
+
+  const resetFilters = () => {
+    setPage(1); // reset page on filter change
+    const sp = new URLSearchParams(searchParams);
+    for (const k of ["brand", "color", "size", "price_min", "price_max", "status", "q", "search"]) {
+      sp.delete(k);
+    }
+    setSearchParams(sp);
+  };
+
+  // Cascading category selects (KAN-55): parent from the route slug, child
+  // optional. Selecting a child navigates to the child slug.
+  const currentParent = useMemo(() => {
+    if (selectedCategory === "all") return null;
+    return (
+      categories.find(
+        (c) =>
+          !c.parent_id &&
+          (c.slug === selectedCategory ||
+            c.children?.some((ch) => ch.slug === selectedCategory)),
+      ) || null
+    );
+  }, [categories, selectedCategory]);
+  const currentChildSlug =
+    currentParent?.children?.find((ch) => ch.slug === selectedCategory)?.slug || "";
 
   return (
     <div className="px-6 py-24 lg:px-8">
@@ -335,13 +366,6 @@ export default function CatalogPage() {
           <p className="text-xs font-mono uppercase tracking-[0.3em] text-[#558b5c]">
             {t("catalog.badge")}
           </p>
-          {/* Two-state status toggle ("В наличии" | "Под заказ"). Per the
-              customer spec, no "All" option — the toggle replaces the
-              "Все товары" heading so the chosen bucket is unambiguous. The
-              sliding pill animates with a spring so the active side feels
-              physical; muted border + soft shadow keep it tactile but not
-              loud (CLAUDE.md: "плавность/скорость, тактильный отклик"). */}
-          <CatalogStatusToggle value={status} onChange={setStatus} />
         </motion.div>
 
         {loading && products.length === 0 ? (
@@ -361,17 +385,46 @@ export default function CatalogPage() {
           </div>
         ) : (
           <div>
-            {/* Filter bar */}
+            {/* KAN-55 filter bar: search → category chips (with counts) →
+                sort + filter button */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="mb-8"
+              className="mb-8 space-y-3"
             >
-              {/* Category chips — horizontal scroll, wrap on mobile */}
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none flex-wrap sm:flex-nowrap items-center">
+              {/* KAN-55: standard semi-transparent search field — always
+                  visible, no green button. */}
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)] pointer-events-none" />
+                <input
+                  type="text"
+                  maxLength={200}
+                  value={searchInput}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") onSearchChange("");
+                  }}
+                  placeholder={t("catalog.searchPlaceholder")}
+                  data-testid="catalog-search-input"
+                  className="w-full rounded-xl border border-[var(--color-border-custom)] bg-[var(--color-bg-card)]/60 px-10 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A]/60 focus:bg-[var(--color-bg-card)] placeholder:text-[var(--color-text-muted)] transition-colors"
+                />
+                {searchInput && (
+                  <button
+                    type="button"
+                    onClick={() => onSearchChange("")}
+                    aria-label={t("catalog.searchClear")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Category chips — horizontal scroll, with product counts */}
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none items-center">
                 <button
-                  onClick={() => handleCategoryChange("all")}
+                  onClick={() => setCategorySlug("all")}
                   className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
                     selectedCategory === "all"
                       ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)]"
@@ -389,7 +442,7 @@ export default function CatalogPage() {
                     return (
                       <button
                         key={cat.id}
-                        onClick={() => handleCategoryChange(cat.slug)}
+                        onClick={() => setCategorySlug(cat.slug)}
                         className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
                           isActive
                             ? "bg-[#44944A] text-black shadow-[0_0_20px_rgba(68,148,74,0.4)]"
@@ -397,256 +450,20 @@ export default function CatalogPage() {
                         }`}
                       >
                         {cat.name}
+                        {(cat.products_count ?? 0) > 0 && (
+                          <span className="ml-1.5 opacity-60">{cat.products_count}</span>
+                        )}
                       </button>
                     );
                   })}
-
-              {/* Search pill — click to expand, debounced live search */}
-              {searchOpen ? (
-                <input
-                  autoFocus
-                  type="text"
-                  maxLength={200}
-                  value={searchQuery}
-                  placeholder="Поиск..."
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setSearchQuery(v);
-                    if (debounceRef.current) clearTimeout(debounceRef.current);
-                    debounceRef.current = setTimeout(() => setDebouncedSearch(v), 300);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      setSearchOpen(false);
-                      setSearchQuery("");
-                      setDebouncedSearch("");
-                      setPage(1);
-                    }
-                  }}
-                  onBlur={() => {
-                    if (!searchQuery) setSearchOpen(false);
-                  }}
-                  className="shrink-0 px-4 py-2 rounded-full text-sm font-medium bg-[var(--color-bg-card)] text-[var(--color-text-primary)] border border-[#44944A] outline-none focus:ring-2 focus:ring-[#44944A]/30 placeholder:text-[var(--color-text-muted)] w-40 sm:w-48 transition-all"
-                />
-              ) : (
-                <button
-                  onClick={() => setSearchOpen(true)}
-                  className="shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all bg-[#44944A] text-white hover:bg-[#3a7d3f] flex items-center gap-2"
-                >
-                  <Search className="h-4 w-4" />
-                  <span className="hidden sm:inline">Поиск</span>
-                </button>
-              )}
               </div>
 
-              {/* Subcategory chips — show when parent selected */}
-              {selectedCategory !== "all" &&
-                (() => {
-                  const parent = categories.find(
-                    (c) =>
-                      !c.parent_id &&
-                      c.children?.some(
-                        (ch) =>
-                          selectedCategory === ch.slug ||
-                          c.slug === selectedCategory,
-                      ),
-                  );
-                  const subCats = parent?.children || [];
-                  if (subCats.length === 0) return null;
-                  return (
-                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none flex-wrap sm:flex-nowrap">
-                      <span className="shrink-0 self-center text-xs text-[var(--color-text-muted)]">
-                        Подкатегории:
-                      </span>
-                        <button
-                          onClick={() => handleCategoryChange(parent!.slug)}
-                          className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                            selectedCategory === parent!.slug
-                              ? "bg-[#44944A] text-black shadow-[0_0_15px_rgba(68,148,74,0.3)]"
-                              : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
-                          }`}
-                        >
-                          Все
-                        </button>
-                        {subCats.map((ch) => (
-                          <button
-                            key={ch.id}
-                            onClick={() => handleCategoryChange(ch.slug)}
-                            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                              selectedCategory === ch.slug
-                                ? "bg-[var(--color-text-primary)] text-[var(--color-bg-primary)] shadow-[0_0_15px_rgba(255,255,255,0.12)]"
-                                : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] border border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
-                            }`}
-                          >
-                            {ch.name}
-                          </button>
-                        ))}
-                      </div>
-                  );
-                })()}
-
-              {/* Dynamic filters section — only when facets are available */}
-              {selectedCategory !== "all" && (availableFilters.sizes.length > 0 || availableFilters.brands.length > 0 || availableFilters.colors.length > 0) && (
-                <div className="mt-4">
-                  <button
-                    onClick={() => setDynamicFiltersOpen(!dynamicFiltersOpen)}
-                    className="w-full flex items-center justify-between rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-5 py-3 text-sm font-semibold uppercase tracking-wider text-[var(--color-text-primary)] hover:border-[#44944A]/50 transition-colors"
-                  >
-                    Фильтры
-                    <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${dynamicFiltersOpen ? "rotate-180" : ""}`} />
-                  </button>
-                  {dynamicFiltersOpen && (
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={selectedCategory}
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="mb-6 overflow-hidden"
-                  >
-                    <div className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-5 space-y-5 mt-3">
-                        <div className="space-y-5">
-                          {/* Sizes */}
-                          {availableFilters.sizes.length > 0 && (
-                            <div>
-                              <button
-                                onClick={() => setFilterSubsectionsOpen(prev => ({ ...prev, sizes: !prev.sizes }))}
-                                className="w-full flex items-center justify-between text-xs font-semibold text-[var(--color-text-primary)] mb-2 hover:text-[#44944A] transition-colors"
-                              >
-                                Размер
-                                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-300 ${filterSubsectionsOpen.sizes ? "rotate-180" : ""}`} />
-                              </button>
-                              {filterSubsectionsOpen.sizes && (
-                              <div className="flex flex-wrap gap-2">
-                                {availableFilters.sizes.map((s) => (
-                                  <button
-                                    key={s}
-                                    onClick={() =>
-                                      toggleFilter(setSelectedSizes, s)
-                                    }
-                                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-                                      selectedSizes.has(s)
-                                        ? "bg-[#44944A] text-black border-[#44944A]"
-                                        : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
-                                    }`}
-                                  >
-                                    {s}
-                                  </button>
-                                ))}
-                              </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Brands */}
-                          {availableFilters.brands.length > 0 && (
-                            <div>
-                              <button
-                                onClick={() => setFilterSubsectionsOpen(prev => ({ ...prev, brands: !prev.brands }))}
-                                className="w-full flex items-center justify-between text-xs font-semibold text-[var(--color-text-primary)] mb-2 hover:text-[#44944A] transition-colors"
-                              >
-                                Бренд
-                                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-300 ${filterSubsectionsOpen.brands ? "rotate-180" : ""}`} />
-                              </button>
-                              {filterSubsectionsOpen.brands && (
-                              <div className="flex flex-wrap gap-2">
-                                {availableFilters.brands.map((b) => (
-                                  <button
-                                    key={b}
-                                    onClick={() =>
-                                      toggleFilter(setSelectedBrands, b)
-                                    }
-                                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-                                      selectedBrands.has(b)
-                                        ? "bg-[#44944A] text-black border-[#44944A]"
-                                        : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
-                                    }`}
-                                  >
-                                    {b}
-                                  </button>
-                                ))}
-                              </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Colors */}
-                          {availableFilters.colors.length > 0 && (
-                            <div>
-                              <button
-                                onClick={() => setFilterSubsectionsOpen(prev => ({ ...prev, colors: !prev.colors }))}
-                                className="w-full flex items-center justify-between text-xs font-semibold text-[var(--color-text-primary)] mb-2 hover:text-[#44944A] transition-colors"
-                              >
-                                Цвет
-                                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-300 ${filterSubsectionsOpen.colors ? "rotate-180" : ""}`} />
-                              </button>
-                              {filterSubsectionsOpen.colors && (
-                              <div className="flex flex-wrap gap-2">
-                                {availableFilters.colors.map((c) => {
-                                  // Each chip keeps the same shape as the
-                                  // size / brand chips (rounded, same
-                                  // padding, same active state) and gets
-                                  // a small colour swatch to the right of
-                                  // the label. Unknown colour names fall
-                                  // back to neutral grey so the swatch
-                                  // always renders something readable.
-                                  const hex = colorHex(c) ?? "#888888";
-                                  return (
-                                  <button
-                                    key={c}
-                                    onClick={() =>
-                                      toggleFilter(setSelectedColors, c)
-                                    }
-                                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border inline-flex items-center gap-2 ${
-                                      selectedColors.has(c)
-                                        ? "bg-[#44944A] text-black border-[#44944A]"
-                                        : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
-                                    }`}
-                                  >
-                                    <span>{t(`catalog.colorFilter.${c}`, c)}</span>
-                                    <span
-                                      aria-hidden="true"
-                                      style={{ background: hex }}
-                                      className="inline-block h-4 w-4 rounded-md border border-black/20 shrink-0"
-                                    />
-                                  </button>
-                                  );
-                                })}
-                              </div>
-                              )}
-                            </div>
-                          )}
-
-                          {(selectedBrands.size > 0 ||
-                            selectedColors.size > 0 ||
-                            selectedSizes.size > 0 ||
-                            priceMin ||
-                            priceMax) && (
-                            <button
-                              type="button"
-                              onClick={resetFilters}
-                              className="w-full text-center text-xs text-[var(--color-text-muted)] hover:text-red-500 transition-colors py-1"
-                            >
-                              Сбросить все фильтры
-                            </button>
-                          )}
-                        </div>
-                    </div>
-                  </motion.div>
-                </AnimatePresence>
-                  )}
-                </div>
-              )}
-
-              {/* Sort + price row — 2-col grid on mobile matching product cards */}
-              <div className="grid grid-cols-2 gap-4 mt-4">
+              {/* Sort + filter button — KAN-55: «Фильтр» replaces От/До */}
+              <div className="flex items-center gap-2">
                 <select
                   value={sortBy}
-                  onChange={(e) => {
-                    setSortBy(e.target.value as typeof sortBy);
-                    setPage(1);
-                  }}
-                  className="rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-4 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] transition-colors"
+                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                  className="flex-1 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-4 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] transition-colors"
                 >
                   <option value="popular">{t("catalog.sortBy.popular")}</option>
                   <option value="newest">{t("catalog.sortBy.newest")}</option>
@@ -657,32 +474,256 @@ export default function CatalogPage() {
                     {t("catalog.sortBy.priceDesc")}
                   </option>
                 </select>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    key={`min-${categoryIdsKey}`}
-                    type="number"
-                    placeholder="От"
-                    defaultValue={priceMin}
-                    onBlur={(e) => {
-                      setPriceMin(e.target.value);
-                      setPage(1);
-                    }}
-                    className="flex-1 min-w-0 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                  <span className="text-[var(--color-text-muted)] text-sm shrink-0">—</span>
-                  <input
-                    key={`max-${categoryIdsKey}`}
-                    type="number"
-                    placeholder="До"
-                    defaultValue={priceMax}
-                    onBlur={(e) => {
-                      setPriceMax(e.target.value);
-                      setPage(1);
-                    }}
-                    className="flex-1 min-w-0 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setPanelOpen(!panelOpen)}
+                  data-testid="catalog-filter-button"
+                  aria-expanded={panelOpen}
+                  className={`relative shrink-0 flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors ${
+                    panelOpen || activeFilterCount > 0
+                      ? "border-[#44944A] text-[#44944A] bg-[#44944A]/10"
+                      : "border-[var(--color-border-custom)] text-[var(--color-text-primary)] bg-[var(--color-bg-card)] hover:border-[#44944A]/50"
+                  }`}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  {t("catalog.filters.button")}
+                  {activeFilterCount > 0 && (
+                    <span
+                      data-testid="catalog-filter-badge"
+                      className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#44944A] px-1 text-[11px] font-bold text-black"
+                    >
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
               </div>
+
+              {/* KAN-55 filter panel — available on every category bucket,
+                  including «Все категории» */}
+              <AnimatePresence initial={false}>
+                {panelOpen && (
+                  <motion.div
+                    key="catalog-filter-panel"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div
+                      data-testid="catalog-filter-panel"
+                      className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-5 space-y-5 mt-3"
+                    >
+                      {/* Наличие */}
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-primary)] mb-2">
+                          {t("catalog.panel.availability")}
+                        </p>
+                        <div
+                          role="group"
+                          data-testid="catalog-availability"
+                          className="flex gap-2"
+                        >
+                          {(
+                            [
+                              { v: "all", label: t("catalog.panel.availabilityAll") },
+                              { v: "in_stock", label: t("catalog.panel.availabilityInStock") },
+                              { v: "preorder", label: t("catalog.panel.availabilityPreorder") },
+                            ] as const
+                          ).map((o) => (
+                            <button
+                              key={o.v}
+                              type="button"
+                              data-testid={`catalog-availability-${o.v}`}
+                              aria-pressed={status === o.v}
+                              onClick={() => setParam("status", o.v === "all" ? null : o.v)}
+                              className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors border ${
+                                status === o.v
+                                  ? "bg-[#44944A] text-black border-[#44944A]"
+                                  : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:text-[var(--color-text-primary)]"
+                              }`}
+                            >
+                              {o.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Категория — cascading: parent → child */}
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-primary)] mb-2">
+                          {t("catalog.panel.category")}
+                        </p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <select
+                            value={currentParent?.slug ?? ""}
+                            onChange={(e) =>
+                              setCategorySlug(e.target.value || "all")
+                            }
+                            data-testid="catalog-category-parent-select"
+                            className="rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] transition-colors"
+                          >
+                            <option value="">{t("catalog.filters.allCategories")}</option>
+                            {categories
+                              .filter((c) => !c.parent_id)
+                              .map((c) => (
+                                <option key={c.id} value={c.slug}>
+                                  {c.name}
+                                </option>
+                              ))}
+                          </select>
+                          {currentParent &&
+                            (currentParent.children?.length || 0) > 0 && (
+                              <select
+                                value={currentChildSlug}
+                                onChange={(e) =>
+                                  setCategorySlug(e.target.value || currentParent.slug)
+                                }
+                                data-testid="catalog-category-child-select"
+                                className="rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] transition-colors"
+                              >
+                                <option value="">{t("catalog.panel.allSubcategories")}</option>
+                                {currentParent.children!.map((ch) => (
+                                  <option key={ch.id} value={ch.slug}>
+                                    {ch.name}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                        </div>
+                      </div>
+
+                      {/* Бренд */}
+                      {availableFilters.brands.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-primary)] mb-2">
+                            {t("catalog.panel.brand")}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {availableFilters.brands.map((b) => (
+                              <button
+                                key={b}
+                                onClick={() => toggleFilter("brand", b)}
+                                className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all border ${
+                                  selectedBrands.has(b)
+                                    ? "bg-[#44944A] text-black border-[#44944A]"
+                                    : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                                }`}
+                              >
+                                {b}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Цвет */}
+                      {availableFilters.colors.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-primary)] mb-2">
+                            {t("catalog.panel.color")}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {availableFilters.colors.map((c) => {
+                              const hex = colorHex(c) ?? "#888888";
+                              return (
+                                <button
+                                  key={c}
+                                  onClick={() => toggleFilter("color", c)}
+                                  className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all border inline-flex items-center gap-2 ${
+                                    selectedColors.has(c)
+                                      ? "bg-[#44944A] text-black border-[#44944A]"
+                                      : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                                  }`}
+                                >
+                                  <span>{t(`catalog.colorFilter.${c}`, c)}</span>
+                                  <span
+                                    aria-hidden="true"
+                                    style={{ background: hex }}
+                                    className="inline-block h-4 w-4 rounded-md border border-black/20 shrink-0"
+                                  />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Размер */}
+                      {availableFilters.sizes.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-primary)] mb-2">
+                            {t("catalog.panel.size")}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {availableFilters.sizes.map((s) => (
+                              <button
+                                key={s}
+                                onClick={() => toggleFilter("size", s)}
+                                className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all border ${
+                                  selectedSizes.has(s)
+                                    ? "bg-[#44944A] text-black border-[#44944A]"
+                                    : "bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border-[var(--color-border-custom)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                                }`}
+                              >
+                                {s}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Цена */}
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-primary)] mb-2">
+                          {t("catalog.panel.price")}
+                        </p>
+                        <div className="flex items-center gap-1.5 max-w-xs">
+                          <input
+                            key={`pmin-${priceMin}`}
+                            type="number"
+                            min={0}
+                            placeholder={t("catalog.panel.priceFrom")}
+                            defaultValue={priceMin}
+                            onBlur={(e) => {
+                              // The backend parses Atoi — non-positive or
+                              // fractional values are silently dropped.
+                              const v = e.target.value.trim();
+                              const n = Number(v);
+                              setParam("price_min", Number.isInteger(n) && n > 0 ? v : null);
+                            }}
+                            className="flex-1 min-w-0 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <span className="text-[var(--color-text-muted)] text-sm shrink-0">—</span>
+                          <input
+                            key={`pmax-${priceMax}`}
+                            type="number"
+                            min={0}
+                            placeholder={t("catalog.panel.priceTo")}
+                            defaultValue={priceMax}
+                            onBlur={(e) => {
+                              const v = e.target.value.trim();
+                              const n = Number(v);
+                              setParam("price_max", Number.isInteger(n) && n > 0 ? v : null);
+                            }}
+                            className="flex-1 min-w-0 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-custom)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#44944A] placeholder:text-[var(--color-text-muted)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                        </div>
+                      </div>
+
+                      {activeFilterCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={resetFilters}
+                          data-testid="catalog-filter-reset"
+                          className="w-full text-center text-xs text-[var(--color-text-muted)] hover:text-red-500 transition-colors py-1"
+                        >
+                          {t("catalog.panel.reset")}
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
 
             {/* Product grid */}

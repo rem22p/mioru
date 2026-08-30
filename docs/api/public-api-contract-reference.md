@@ -56,6 +56,7 @@ sets it explicitly.
 
 ## Store public / infra
 
+- **GET /api/categories** — `storeH.ListCategories`. **200** category **tree** (`id,parent_id,name,slug,criteria,sort_order,cover_image?,children[]`). KAN-55: each node also carries `products_count` — products in the category **and all its descendants** (recursive), powering the catalog chip badges.
 - **GET /api/products/facets** — `storeH.ListFacets`. Same params as `/api/products`. **Drops** `brand/brands/colors/sizes` before facet query (selecting a facet does not hide its siblings); keeps `status`. **200** `{brands,colors,sizes}`. KAN-14: the brands facet lists each collaboration brand individually (`unnest(brands)`), never the joined `A x B` string. Bad status→**400**.
 - **GET /api/health** — inline, no mw. **200** `{status:"ok"}`.
 - **GET /uploads/** — `uploadsSecurity`+FileServer. Sets `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; sandbox`. Path traversal blocked by stdlib `http.FileServer`/`path.Clean`.
