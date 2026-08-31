@@ -73,6 +73,13 @@
       "city": "Enter your city",
       "deliveryMethod": "Choose a delivery method",
       "photo": "Attach at least one photo"
+    },
+    "deliveryPrices": {
+      "personal": "Free",
+      "address": "25 lei",
+      "bus": "up to 50 lei",
+      "express": "up to 50 lei",
+      "moldovaPost": "up to 50 lei"
     }
   },
   "nav": {
@@ -194,7 +201,8 @@
       "price": "Price",
       "priceFrom": "From",
       "priceTo": "To",
-      "reset": "Reset all filters"
+      "reset": "Reset all filters",
+      "showAllBrands": "Show all brands"
     }
   },
   "product": {

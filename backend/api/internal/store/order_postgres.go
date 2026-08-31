@@ -226,6 +226,8 @@ func (s *PostgresStore) CreateOrder(ctx context.Context, customerID int64, o *mo
 
 		// Default nil slices to empty arrays (NOT NULL columns)
 		if o.DeliveryTime == nil {
+			// NOT NULL columns: a nil slice encodes as SQL NULL — default to
+			// an empty array so the row stays valid.
 			o.DeliveryTime = []string{}
 		}
 		if o.Photos == nil {

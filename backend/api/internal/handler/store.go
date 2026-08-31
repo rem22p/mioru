@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"mioru/internal/model"
 )
@@ -135,6 +136,16 @@ func parseProductFilter(r *http.Request) (model.ProductFilter, error) {
 	}
 	filter.Search = strings.TrimSpace(q.Get("search"))
 	filter.Brands = multiQuery(q["brand"])
+	// #88 S1: bound the public filter so a crafted brand array can't make
+	// the DB chew an arbitrarily large overlap/ILIKE input.
+	if len(filter.Brands) > 20 {
+		return filter, fmt.Errorf("too many brand values")
+	}
+	for _, b := range filter.Brands {
+		if utf8.RuneCountInString(b) > 60 {
+			return filter, fmt.Errorf("brand value too long")
+		}
+	}
 	filter.Colors = multiQuery(q["color"])
 	filter.Sizes = multiQuery(q["size"])
 	if v, err := strconv.Atoi(q.Get("price_min")); err == nil && v > 0 {

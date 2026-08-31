@@ -222,12 +222,6 @@ export const updateProduct = (slug: string, data: FormData) =>
 export const deleteProduct = (slug: string) =>
   api<void>(`/api/admin/products/${slug}`, { method: "DELETE" });
 
-export const updateProductRanks = (ranks: { id: number; rank: number }[]) =>
-  api<void>("/api/admin/products/rank", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(ranks),
-  });
 
 export const fetchCategories = () =>
   api<Category[]>("/api/admin/categories?flat=1");

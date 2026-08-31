@@ -73,6 +73,13 @@
       "city": "Укажите город",
       "deliveryMethod": "Выберите способ доставки",
       "photo": "Прикрепите хотя бы одно фото"
+    },
+    "deliveryPrices": {
+      "personal": "Бесплатно",
+      "address": "25 лей",
+      "bus": "до 50 лей",
+      "express": "до 50 лей",
+      "moldovaPost": "до 50 лей"
     }
   },
   "nav": {
@@ -194,7 +201,8 @@
       "price": "Цена",
       "priceFrom": "От",
       "priceTo": "До",
-      "reset": "Сбросить все фильтры"
+      "reset": "Сбросить все фильтры",
+      "showAllBrands": "Показать все бренды"
     }
   },
   "product": {

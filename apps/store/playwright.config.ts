@@ -23,6 +23,9 @@ export default defineConfig({
     // fraction of anti-aliasing jitter. Baselines are generated in the same
     // Playwright container image CI runs (mcr…:v1.60.0-jammy), so real diffs
     // are ~0; the ratio only absorbs sub-pixel font-rasterisation noise.
+    // #90 F1: the 1% ratio is a deliberate trade-off — it can swallow tiny
+    // text-only diffs (~0.03% of the page). Accepted: full-text pixel gates
+    // proved flaky across font rasterisers; real layout drift exceeds 1%.
     toHaveScreenshot: {
       stylePath: SCREENSHOT_CSS,
       maxDiffPixelRatio: 0.01,

@@ -31,6 +31,14 @@ type Category struct {
 	Children      []Category `json:"children,omitempty"`
 }
 
+// RankEntry is one row of a popularity-rank save (issue #71 F3): the target
+// column is chosen by the Preorder flag, never interpolated into SQL.
+type RankEntry struct {
+	ID       int64
+	Rank     int
+	Preorder bool
+}
+
 // Product represents a product in the catalog
 type Product struct {
 	ID           int64  `json:"id"`
@@ -89,7 +97,7 @@ type ProductFilter struct {
 	CategoryID  int   // legacy single-value filter; combined with CategoryIDs via OR
 	CategoryIDs []int // multi-value, lets the storefront fold a parent category + its children into one query
 	Search      string
-	Brand       string // legacy single-value filter; combined with Brands via OR
+	Brand       string // admin free-text filter; substring-match on the derived display name (AND-ed with Brands when both set)
 	Brands      []string
 	Colors      []string
 	Sizes       []string

@@ -164,3 +164,84 @@ func TestCollabBrandsFacetsSkipEmpty(t *testing.T) {
 		}
 	}
 }
+
+// TestCollabBrandsAdminFilterMatchesDisplayName pins #86 R2: a brand filter
+// carrying the joined display name ("Bape x Mastermind") also matches the
+// collab product — the admin list filter is free-text.
+func TestCollabBrandsAdminFilterMatchesDisplayName(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	mustCreateProduct(t, s, model.Product{
+		Slug: "collab-display", CategoryID: 2, Brands: []string{"Bape", "Mastermind"},
+		Name: "Collab Tee", Price: 100, Status: "in_stock", InStock: true,
+	})
+
+	got, total, err := s.ListProducts(ctx, model.ProductFilter{Brand: "Bape x Mastermind"})
+	if err != nil {
+		t.Fatalf("ListProducts(display name): %v", err)
+	}
+	if total != 1 || len(got) != 1 || got[0].Slug != "collab-display" {
+		t.Errorf("display-name filter: total=%d slugs=%v, want collab-display", total, slugsOf(got))
+	}
+}
+
+// TestCollabBrandsChipMatchIsExact pins the storefront semantics: picking
+// the "Bape" chip must not surface "Bape Kids" — the substring branch is
+// for the admin free-text filter (filter.Brand) only.
+func TestCollabBrandsChipMatchIsExact(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	mustCreateProduct(t, s, model.Product{
+		Slug: "bape-kids", CategoryID: 2, Brands: []string{"Bape Kids"},
+		Name: "Bape Kids Tee", Price: 100, Status: "in_stock", InStock: true,
+	})
+
+	got, total, err := s.ListProducts(ctx, model.ProductFilter{Brands: []string{"Bape"}})
+	if err != nil {
+		t.Fatalf("ListProducts(chip): %v", err)
+	}
+	if total != 0 || len(got) != 0 {
+		t.Errorf("chip \"Bape\" surfaced %d products, want 0 (substring must not leak into chips)", total)
+	}
+}
+
+// TestCollabBrandsFreeTextEscapesWildcards pins the admin filter: % and _
+// in the query stay literal characters, not LIKE wildcards.
+func TestCollabBrandsFreeTextEscapesWildcards(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	mustCreateProduct(t, s, model.Product{
+		Slug: "nike-air", CategoryID: 2, Brands: []string{"Nike"},
+		Name: "Nike Air", Price: 100, Status: "in_stock", InStock: true,
+	})
+
+	got, total, err := s.ListProducts(ctx, model.ProductFilter{Brand: "N_ke"})
+	if err != nil {
+		t.Fatalf("ListProducts(wildcard): %v", err)
+	}
+	if total != 0 || len(got) != 0 {
+		t.Errorf("query \"N_ke\" surfaced %d products, want 0 (underscore must stay literal)", total)
+	}
+}
+
+// TestCollabBrandsFreeTextEscapesPercent pins the % wildcard too.
+func TestCollabBrandsFreeTextEscapesPercent(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	mustCreateProduct(t, s, model.Product{
+		Slug: "adidas-50", CategoryID: 2, Brands: []string{"Adidas 50"},
+		Name: "Adidas 50", Price: 100, Status: "in_stock", InStock: true,
+	})
+
+	got, total, err := s.ListProducts(ctx, model.ProductFilter{Brand: "50%"})
+	if err != nil {
+		t.Fatalf("ListProducts(percent): %v", err)
+	}
+	if total != 0 || len(got) != 0 {
+		t.Errorf("query \"50%%\" surfaced %d products, want 0 (percent must stay literal)", total)
+	}
+}

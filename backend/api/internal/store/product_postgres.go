@@ -585,14 +585,23 @@ func buildProductFilterWhere(filter model.ProductFilter, startIdx int) (where st
 	// Brand (legacy single) + Brands (multi) collapse to a single overlap
 	// clause: a product matches when ANY of the selected brands is in its
 	// brands array — picking "Bape" or "Mastermind" both surface the
-	// "Bape x Mastermind" collaboration (KAN-14).
-	brands := filter.Brands
-	if filter.Brand != "" {
-		brands = append(brands, filter.Brand)
-	}
-	if len(brands) > 0 {
+	// "Bape x Mastermind" collaboration (KAN-14). #86 R2: the display name
+	// ("Bape x Mastermind") also matches on substring, so a manager typing
+	// the joined name into the admin filter finds the collab too.
+	// Storefront chips match exactly: a facet value is a concrete brand,
+	// so overlap must not degrade into substring matching (picking "Bape"
+	// would surface "Bape Kids").
+	if len(filter.Brands) > 0 {
 		where += fmt.Sprintf(" AND p.brands && $%d::text[]", argIdx)
-		args = append(args, brands)
+		args = append(args, filter.Brands)
+		argIdx++
+	}
+	// #86 R2: the admin filter is free text — match the derived display
+	// name ("Bape x Mastermind") as a substring. Pattern is escaped so
+	// % and _ in the query stay literal (ESCAPE '\').
+	if filter.Brand != "" {
+		where += fmt.Sprintf(` AND array_to_string(p.brands, ' x ') ILIKE $%d ESCAPE '\'`, argIdx)
+		args = append(args, "%"+escapeLike(filter.Brand)+"%")
 		argIdx++
 	}
 	if len(filter.Colors) > 0 {
@@ -704,25 +713,51 @@ func (s *PostgresStore) ListProductFacets(ctx context.Context, filter model.Prod
 	return facets, nil
 }
 
-// UpdateProductRanks sets the given rank column (popularity_rank or
-// popularity_rank_preorder) for a batch of products.
-func (s *PostgresStore) UpdateProductRanks(ctx context.Context, entries []struct {
-	ID   int64  `json:"id"`
-	Rank int    `json:"rank"`
-	Key  string `json:"key"`
-}, column string) error {
+// UpdateProductRanks sets the popularity ranks for a batch of products in a
+// single batched UPDATE (F4: no per-row round-trips inside the tx).
+func (s *PostgresStore) UpdateProductRanks(ctx context.Context, entries []model.RankEntry) error {
+	if len(entries) == 0 {
+		return nil
+	}
+	// F3: the column comes from a compile-time pair, not from a parameter.
+	// Defence in depth: the handler rejects mixed batches, and so does the
+	// store — every row must target the same column.
+	for _, e := range entries[1:] {
+		if e.Preorder != entries[0].Preorder {
+			return fmt.Errorf("update ranks: mixed preorder flags in one batch")
+		}
+	}
+	rankCol := "popularity_rank"
+	if entries[0].Preorder {
+		rankCol = "popularity_rank_preorder"
+	}
+
+	ids := make([]int64, 0, len(entries))
+	ranks := make([]int, 0, len(entries))
+	for _, e := range entries {
+		ids = append(ids, e.ID)
+		ranks = append(ranks, e.Rank)
+	}
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	for _, e := range entries {
-		query := fmt.Sprintf(`UPDATE products SET %s = $1 WHERE id = $2`, column)
-		if _, err := tx.Exec(ctx, query, e.Rank, e.ID); err != nil {
-			return fmt.Errorf("update rank for product %d: %w", e.ID, err)
-		}
+	if _, err := tx.Exec(ctx, `
+		UPDATE products SET `+rankCol+` = data.rank
+		FROM unnest($1::bigint[], $2::int[]) AS data(id, rank)
+		WHERE products.id = data.id`,
+		ids, ranks,
+	); err != nil {
+		return fmt.Errorf("update ranks: %w", err)
 	}
 
 	return tx.Commit(ctx)
+}
+
+// escapeLike makes s match literally inside a LIKE pattern (ESCAPE '\').
+func escapeLike(s string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
 }

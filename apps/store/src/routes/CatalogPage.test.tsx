@@ -176,3 +176,58 @@ describe("CatalogPage — KAN-55 filter panel", () => {
     expect(last?.price_min).toBeUndefined();
   });
 });
+
+describe("CatalogPage — brand facet cap (R5)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows 25 brands plus «show all», then expands to the full list", () => {
+    const brands = Array.from({ length: 26 }, (_, i) => `Brand${i}`);
+    setupStore();
+    useCatalogStore.setState({
+      facets: { brands, colors: [], sizes: [] },
+    } as never);
+    renderPage();
+    fireEvent.click(screen.getByTestId("catalog-filter-button"));
+
+    expect(screen.getAllByText(/^Brand\d+$/)).toHaveLength(25);
+    expect(screen.getByTestId("catalog-brands-show-all")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("catalog-brands-show-all"));
+    expect(screen.getAllByText(/^Brand\d+$/)).toHaveLength(26);
+    expect(screen.queryByTestId("catalog-brands-show-all")).toBeNull();
+  });
+});
+
+describe("CatalogPage — brand selection cap (S1)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("refuses to select more than 20 brands", () => {
+    const brands = Array.from({ length: 25 }, (_, i) => `Brand${i}`);
+    const { fetchProducts } = setupStore();
+    useCatalogStore.setState({
+      facets: { brands, colors: [], sizes: [] },
+    } as never);
+    renderPage();
+    fireEvent.click(screen.getByTestId("catalog-filter-button"));
+
+    // Select 20 brands — allowed (25 fit the default view, no show-all).
+    // Re-query after every click: each toggle re-renders the panel and
+    // invalidates the previous node handles.
+    for (let i = 0; i < 20; i++) {
+      fireEvent.click(screen.getAllByText(/^Brand\d+$/)[i]);
+    }
+    const calls = vi.mocked(fetchProducts).mock.calls;
+    const last = calls[calls.length - 1]?.[0] as { brand?: string[] } | undefined;
+    expect(last?.brand).toHaveLength(20);
+
+    // The 21st selection is refused — the URL filter stays at 20 values.
+    fireEvent.click(screen.getAllByText(/^Brand\d+$/)[20]);
+    const after = vi.mocked(fetchProducts).mock.calls;
+    const last2 = after[after.length - 1]?.[0] as { brand?: string[] } | undefined;
+    expect(last2?.brand).toHaveLength(20);
+  });
+});

@@ -73,6 +73,13 @@
       "city": "Introdu orașul tău",
       "deliveryMethod": "Alege modul de livrare",
       "photo": "Atașați cel puțin o fotografie"
+    },
+    "deliveryPrices": {
+      "personal": "Gratuit",
+      "address": "25 lei",
+      "bus": "până la 50 MDL",
+      "express": "până la 50 MDL",
+      "moldovaPost": "până la 50 MDL"
     }
   },
   "nav": {
@@ -194,7 +201,8 @@
       "price": "Preț",
       "priceFrom": "De la",
       "priceTo": "Până la",
-      "reset": "Resetează toate filtrele"
+      "reset": "Resetează toate filtrele",
+      "showAllBrands": "Arată toate mărcile"
     }
   },
   "product": {
@@ -267,7 +275,7 @@
       "deliveryItems": [
         "Întâlnire personală — Tiraspol",
         "Livrare la adresă — Tiraspol/Bender",
-        "Marșrutca — RMN + Chișinău",
+        "Rutieră — RMN + Chișinău",
         "Poșta expres — RMN",
         "Poșta Moldovei — toate orașele"
       ],
