@@ -136,4 +136,11 @@ describe("EditProfilePage — phone field is named by its own label", () => {
       "profile.phone",
     );
   });
+
+  it("associates labels with first/last name and password inputs (#83 F1)", () => {
+    renderWithPhone("+37360000000");
+    expect(screen.getByLabelText("auth.firstName")).toBeInTheDocument();
+    expect(screen.getByLabelText("auth.lastName")).toBeInTheDocument();
+    expect(screen.getByLabelText("profile.confirmPassword")).toBeInTheDocument();
+  });
 });
