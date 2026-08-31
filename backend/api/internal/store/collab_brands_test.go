@@ -226,3 +226,22 @@ func TestCollabBrandsFreeTextEscapesWildcards(t *testing.T) {
 		t.Errorf("query \"N_ke\" surfaced %d products, want 0 (underscore must stay literal)", total)
 	}
 }
+
+// TestCollabBrandsFreeTextEscapesPercent pins the % wildcard too.
+func TestCollabBrandsFreeTextEscapesPercent(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	mustCreateProduct(t, s, model.Product{
+		Slug: "adidas-50", CategoryID: 2, Brands: []string{"Adidas 50"},
+		Name: "Adidas 50", Price: 100, Status: "in_stock", InStock: true,
+	})
+
+	got, total, err := s.ListProducts(ctx, model.ProductFilter{Brand: "50%"})
+	if err != nil {
+		t.Fatalf("ListProducts(percent): %v", err)
+	}
+	if total != 0 || len(got) != 0 {
+		t.Errorf("query \"50%%\" surfaced %d products, want 0 (percent must stay literal)", total)
+	}
+}

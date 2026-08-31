@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"mioru/internal/middleware"
 	"mioru/internal/model"
@@ -52,6 +53,10 @@ func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	filter.Search = q.Get("search")
 	filter.Brand = q.Get("brand")
+	if utf8.RuneCountInString(filter.Brand) > 60 {
+		writeJSONError(w, http.StatusBadRequest, "VALIDATION_FAILED", "brand query too long")
+		return
+	}
 	filter.Status = q.Get("status")
 	filter.Sort = q.Get("sort")
 	if v, err := strconv.Atoi(q.Get("page")); err == nil && v > 0 {
@@ -295,6 +300,9 @@ func writeJSONError(w http.ResponseWriter, status int, code string, msg string) 
 
 // UpdateRanks handles PUT /api/admin/products/rank
 func (h *ProductHandler) UpdateRanks(w http.ResponseWriter, r *http.Request) {
+	// The batch is the only unbounded JSON body in the API — cap it so a
+	// huge array can't inflate a single unnest UPDATE (S1-class hardening).
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var entries []struct {
 		ID   int64  `json:"id"`
 		Rank int    `json:"rank"`
@@ -307,6 +315,16 @@ func (h *ProductHandler) UpdateRanks(w http.ResponseWriter, r *http.Request) {
 	// #71 F3: the column is chosen by a flag, never interpolated into SQL.
 	// The column comes from the first entry — reject a mixed batch instead of
 	// silently writing every row into one column.
+	if len(entries) > 5000 {
+		writeJSONError(w, http.StatusBadRequest, "VALIDATION_FAILED", "too many rank entries")
+		return
+	}
+	for _, e := range entries {
+		if e.Rank < 0 {
+			writeJSONError(w, http.StatusBadRequest, "VALIDATION_FAILED", "rank must be non-negative")
+			return
+		}
+	}
 	if len(entries) > 0 {
 		firstPreorder := entries[0].Key == "popularity_rank_preorder"
 		for _, e := range entries[1:] {
