@@ -176,3 +176,26 @@ describe("CatalogPage — KAN-55 filter panel", () => {
     expect(last?.price_min).toBeUndefined();
   });
 });
+
+describe("CatalogPage — brand facet cap (R5)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows 25 brands plus «show all», then expands to the full list", () => {
+    const brands = Array.from({ length: 26 }, (_, i) => `Brand${i}`);
+    setupStore();
+    useCatalogStore.setState({
+      facets: { brands, colors: [], sizes: [] },
+    } as never);
+    renderPage();
+    fireEvent.click(screen.getByTestId("catalog-filter-button"));
+
+    expect(screen.getAllByText(/^Brand\d+$/)).toHaveLength(25);
+    expect(screen.getByTestId("catalog-brands-show-all")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("catalog-brands-show-all"));
+    expect(screen.getAllByText(/^Brand\d+$/)).toHaveLength(26);
+    expect(screen.queryByTestId("catalog-brands-show-all")).toBeNull();
+  });
+});

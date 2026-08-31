@@ -588,16 +588,20 @@ func buildProductFilterWhere(filter model.ProductFilter, startIdx int) (where st
 	// "Bape x Mastermind" collaboration (KAN-14). #86 R2: the display name
 	// ("Bape x Mastermind") also matches on substring, so a manager typing
 	// the joined name into the admin filter finds the collab too.
-	brands := filter.Brands
-	if filter.Brand != "" {
-		brands = append(brands, filter.Brand)
+	// Storefront chips match exactly: a facet value is a concrete brand,
+	// so overlap must not degrade into substring matching (picking "Bape"
+	// would surface "Bape Kids").
+	if len(filter.Brands) > 0 {
+		where += fmt.Sprintf(" AND p.brands && $%d::text[]", argIdx)
+		args = append(args, filter.Brands)
+		argIdx++
 	}
-	if len(brands) > 0 {
-		// One parameter referenced twice: the overlap and the display-name
-		// ILIKE both consume the same brands array.
-		where += fmt.Sprintf(" AND (p.brands && $%d::text[] OR array_to_string(p.brands, ' x ') ILIKE ANY(ARRAY(SELECT '%%' || b || '%%' FROM unnest($%d::text[]) AS b)))",
-			argIdx, argIdx)
-		args = append(args, brands)
+	// #86 R2: the admin filter is free text — match the derived display
+	// name ("Bape x Mastermind") as a substring. Pattern is escaped so
+	// % and _ in the query stay literal (ESCAPE '\').
+	if filter.Brand != "" {
+		where += fmt.Sprintf(` AND array_to_string(p.brands, ' x ') ILIKE $%d ESCAPE '\'`, argIdx)
+		args = append(args, "%"+escapeLike(filter.Brand)+"%")
 		argIdx++
 	}
 	if len(filter.Colors) > 0 {
@@ -709,14 +713,6 @@ func (s *PostgresStore) ListProductFacets(ctx context.Context, filter model.Prod
 	return facets, nil
 }
 
-// RankEntry is one row of a rank save. The column is chosen by the Preorder
-// flag — never interpolated into SQL (F3, issue #71).
-type RankEntry struct {
-	ID       int64
-	Rank     int
-	Preorder bool
-}
-
 // UpdateProductRanks sets the popularity ranks for a batch of products in a
 // single batched UPDATE (F4: no per-row round-trips inside the tx).
 func (s *PostgresStore) UpdateProductRanks(ctx context.Context, entries []model.RankEntry) error {
@@ -752,4 +748,9 @@ func (s *PostgresStore) UpdateProductRanks(ctx context.Context, entries []model.
 	}
 
 	return tx.Commit(ctx)
+}
+
+// escapeLike makes s match literally inside a LIKE pattern (ESCAPE '\').
+func escapeLike(s string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
 }

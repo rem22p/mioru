@@ -305,6 +305,17 @@ func (h *ProductHandler) UpdateRanks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// #71 F3: the column is chosen by a flag, never interpolated into SQL.
+	// The column comes from the first entry — reject a mixed batch instead of
+	// silently writing every row into one column.
+	if len(entries) > 0 {
+		firstPreorder := entries[0].Key == "popularity_rank_preorder"
+		for _, e := range entries[1:] {
+			if (e.Key == "popularity_rank_preorder") != firstPreorder {
+				writeJSONError(w, http.StatusBadRequest, "VALIDATION_FAILED", "mixed rank keys in one batch")
+				return
+			}
+		}
+	}
 	storeEntries := make([]model.RankEntry, len(entries))
 	for i, e := range entries {
 		storeEntries[i] = model.RankEntry{

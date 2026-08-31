@@ -76,10 +76,10 @@
     },
     "deliveryPrices": {
       "personal": "Бесплатно",
-      "address": "25 руб",
-      "bus": "до 50 руб",
-      "express": "до 50 руб",
-      "moldovaPost": "до 50 руб"
+      "address": "25 лей",
+      "bus": "до 50 лей",
+      "express": "до 50 лей",
+      "moldovaPost": "до 50 лей"
     }
   },
   "nav": {

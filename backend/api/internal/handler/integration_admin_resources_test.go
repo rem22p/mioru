@@ -462,3 +462,47 @@ func TestIntegrationAdminListAllOrdersExposesPhone(t *testing.T) {
 			"Managers need it to call customers. orders: %+v", resp.Orders)
 	}
 }
+
+// TestIntegrationAdminListAllOrdersExposesIndividualFields pins #88 F2:
+// the admin order list carries category and foot_length for individual
+// orders (the admin card badges render from them).
+func TestIntegrationAdminListAllOrdersExposesIndividualFields(t *testing.T) {
+	e := newEnv(t)
+	sess, _ := e.customerSession(t, "admin-ind@ex.com")
+
+	body := map[string]any{
+		"type":            "individual",
+		"phone":           "+37377790854",
+		"city":            "Тирасполь",
+		"delivery_method": "personal",
+		"payment_method":  "card",
+		"category":        "shoes",
+		"foot_length":     27,
+	}
+	createRR := e.do(t, e.wrapCustomer(e.customerH.CreateOrder), http.MethodPost, "/api/store/orders",
+		reqOpts{sess: sess, csrfCookieName: cookieauth.StoreCSRFCookie, idempotencyKey: "ind-1", body: body})
+	if createRR.Code != http.StatusCreated {
+		t.Fatalf("CreateOrder: want 201, got %d (%s)", createRR.Code, createRR.Body.String())
+	}
+
+	admin := e.userSession(t, "ordindadmin", "admin")
+	rr := e.do(t, e.wrapAdmin(e.adminOrdH.ListAll), http.MethodGet, "/api/admin/orders", reqOpts{sess: admin})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("ListAll orders: want 200, got %d (%s)", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Orders []map[string]any `json:"orders"`
+	}
+	decode(t, rr, &resp)
+	if len(resp.Orders) == 0 {
+		t.Fatalf("orders is empty")
+	}
+	// The individual order is the newest; ListAll is ordered by creation.
+	got := resp.Orders[0]
+	if got["category"] != "shoes" {
+		t.Errorf("category = %v, want shoes", got["category"])
+	}
+	if fl, ok := got["foot_length"].(float64); !ok || fl != 27 {
+		t.Errorf("foot_length = %v, want 27", got["foot_length"])
+	}
+}

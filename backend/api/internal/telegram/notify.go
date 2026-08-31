@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -38,17 +39,17 @@ type Notifier struct {
 	// degrades gracefully and emits no link — the message
 	// still ships, it just won't be clickable. Set this
 	// from config.AdminURL on the cmd/server side.
-	adminURL   string
+	adminURL string
 	// storeURL is the origin of the storefront SPA, used to
 	// build the per-product "view in store" link in cart
 	// orders. Falls back to adminURL (which in turn falls
 	// back to APIBaseURL) when the operator doesn't
 	// differentiate the two SPAs.
-	storeURL   string
-	uploadDir  string
-	chatIDs    []string
-	client     *http.Client
-	rec        Recorder // optional; nil means no logging (tests + dev)
+	storeURL  string
+	uploadDir string
+	chatIDs   []string
+	client    *http.Client
+	rec       Recorder // optional; nil means no logging (tests + dev)
 
 	// lastHealth stores the result of the most recent
 	// HealthCheck call so the admin /telegram/diagnose endpoint
@@ -438,10 +439,10 @@ func (n *Notifier) formatOrderMessageHTML(o *model.Order, c *model.Customer) str
 			"<b>Итого: %.2f лей</b>\n\n"+
 			"<i>%s</i>",
 		o.ID,
-			escapeHTML(o.Type),
-			customerLine,
-			escapeHTML(c.Email),
-			escapeHTML(o.Phone),
+		escapeHTML(o.Type),
+		customerLine,
+		escapeHTML(c.Email),
+		escapeHTML(o.Phone),
 		escapeHTML(o.City),
 		escapeHTML(o.DeliveryMethod),
 		escapeHTML(o.PaymentMethod),
@@ -549,7 +550,7 @@ func individualFieldsHTML(o *model.Order) string {
 		s += fmt.Sprintf("<b>Категория:</b> %s\n", escapeHTML(label))
 	}
 	if o.FootLength != nil {
-		s += fmt.Sprintf("<b>Длина стельки:</b> %.1f см\n", *o.FootLength)
+		s += fmt.Sprintf("<b>Длина стельки:</b> %s см\n", strconv.FormatFloat(*o.FootLength, 'f', -1, 64))
 	}
 	if o.Height != nil {
 		s += fmt.Sprintf("<b>Рост:</b> %.0f см\n", *o.Height)

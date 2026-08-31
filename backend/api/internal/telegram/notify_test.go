@@ -143,3 +143,39 @@ func TestEscapeHTML(t *testing.T) {
 		})
 	}
 }
+
+// TestIndividualFieldsHTML pins #88 F5: a shoes order carries the category
+// and the exact insole length (no %.1f rounding — «10.25» must survive),
+// while a cart order renders no individual block at all.
+func TestIndividualFieldsHTML(t *testing.T) {
+	fl := func(v float64) *float64 { return &v }
+	h := func(v float64) *float64 { return &v }
+
+	t.Run("shoes order carries category and exact foot length", func(t *testing.T) {
+		o := &model.Order{Type: "individual", Category: "shoes", FootLength: fl(10.25)}
+		got := individualFieldsHTML(o)
+		if !strings.Contains(got, "Категория:</b> Обувь") {
+			t.Errorf("missing category line: %q", got)
+		}
+		if !strings.Contains(got, "Длина стельки:</b> 10.25 см") {
+			t.Errorf("foot length rounded or missing, got: %q", got)
+		}
+	})
+
+	t.Run("clothing order carries category and height/weight", func(t *testing.T) {
+		o := &model.Order{Type: "individual", Category: "clothing", Height: h(175), Weight: h(70)}
+		got := individualFieldsHTML(o)
+		if !strings.Contains(got, "Категория:</b> Одежда") {
+			t.Errorf("missing category line: %q", got)
+		}
+		if !strings.Contains(got, "Рост:</b> 175 см") || !strings.Contains(got, "Вес:</b> 70 кг") {
+			t.Errorf("missing measurements, got: %q", got)
+		}
+	})
+
+	t.Run("cart order renders no individual block", func(t *testing.T) {
+		if got := individualFieldsHTML(&model.Order{Type: "cart", Category: "shoes"}); got != "" {
+			t.Errorf("cart order leaked individual fields: %q", got)
+		}
+	})
+}
