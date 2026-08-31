@@ -164,3 +164,24 @@ func TestCollabBrandsFacetsSkipEmpty(t *testing.T) {
 		}
 	}
 }
+
+// TestCollabBrandsAdminFilterMatchesDisplayName pins #86 R2: a brand filter
+// carrying the joined display name ("Bape x Mastermind") also matches the
+// collab product — the admin list filter is free-text.
+func TestCollabBrandsAdminFilterMatchesDisplayName(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	mustCreateProduct(t, s, model.Product{
+		Slug: "collab-display", CategoryID: 2, Brands: []string{"Bape", "Mastermind"},
+		Name: "Collab Tee", Price: 100, Status: "in_stock", InStock: true,
+	})
+
+	got, total, err := s.ListProducts(ctx, model.ProductFilter{Brand: "Bape x Mastermind"})
+	if err != nil {
+		t.Fatalf("ListProducts(display name): %v", err)
+	}
+	if total != 1 || len(got) != 1 || got[0].Slug != "collab-display" {
+		t.Errorf("display-name filter: total=%d slugs=%v, want collab-display", total, slugsOf(got))
+	}
+}

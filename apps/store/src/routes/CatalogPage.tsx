@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { Helmet } from "@dr.pogodin/react-helmet";
 
 const PER_PAGE = 100;
+const BRAND_FACET_CAP = 25;
 
 function categoryEmoji(slug: string): string {
   const map: Record<string, string> = {
@@ -141,6 +142,8 @@ export default function CatalogPage() {
   };
 
   const [panelOpen, setPanelOpen] = useState(false);
+  // #86 R5: brand facet list is capped — «Показать все» expands it.
+  const [brandsExpanded, setBrandsExpanded] = useState(false);
 
   // Subscribe to `items` so the component re-renders on toggle. Selecting
   // only `isFavorite` (the function) is a no-op: Zustand sees the same
@@ -599,7 +602,10 @@ export default function CatalogPage() {
                             {t("catalog.panel.brand")}
                           </p>
                           <div className="flex flex-wrap gap-2">
-                            {availableFilters.brands.map((b) => (
+                            {(brandsExpanded
+                              ? availableFilters.brands
+                              : availableFilters.brands.slice(0, BRAND_FACET_CAP)
+                            ).map((b) => (
                               <button
                                 key={b}
                                 onClick={() => toggleFilter("brand", b)}
@@ -612,6 +618,17 @@ export default function CatalogPage() {
                                 {b}
                               </button>
                             ))}
+                            {!brandsExpanded &&
+                              availableFilters.brands.length > BRAND_FACET_CAP && (
+                                <button
+                                  type="button"
+                                  data-testid="catalog-brands-show-all"
+                                  onClick={() => setBrandsExpanded(true)}
+                                  className="px-3 py-1.5 rounded-xl text-sm font-medium text-[#44944A] hover:underline"
+                                >
+                                  {t("catalog.panel.showAllBrands")}
+                                </button>
+                              )}
                           </div>
                         </div>
                       )}

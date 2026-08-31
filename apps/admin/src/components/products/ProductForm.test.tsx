@@ -191,8 +191,8 @@ describe("ProductForm — brand editor (KAN-14)", () => {
     await userEvent.type(input, "Bape{enter}");
     await userEvent.type(input, "Mastermind{enter}");
 
-    expect(screen.getByTestId("brand-chip-Bape")).toBeInTheDocument();
-    expect(screen.getByTestId("brand-chip-Mastermind")).toBeInTheDocument();
+    expect(screen.getByTestId("brand-chip-bape")).toBeInTheDocument();
+    expect(screen.getByTestId("brand-chip-mastermind")).toBeInTheDocument();
     expect(
       screen.getByText("В карточке: Bape x Mastermind"),
     ).toBeInTheDocument();
@@ -201,8 +201,8 @@ describe("ProductForm — brand editor (KAN-14)", () => {
   it("removes a brand chip via its × button", async () => {
     const input = await renderWithCategory();
     await userEvent.type(input, "Bape{enter}");
-    await userEvent.click(screen.getByTestId("brand-remove-Bape"));
-    expect(screen.queryByTestId("brand-chip-Bape")).toBeNull();
+    await userEvent.click(screen.getByTestId("brand-remove-bape"));
+    expect(screen.queryByTestId("brand-chip-bape")).toBeNull();
     expect(screen.queryByText("В карточке: Bape")).toBeNull();
   });
 
@@ -210,14 +210,14 @@ describe("ProductForm — brand editor (KAN-14)", () => {
     const input = await renderWithCategory();
     await userEvent.type(input, "Bape{enter}");
     await userEvent.type(input, "Bape{enter}");
-    expect(screen.getAllByTestId("brand-chip-Bape")).toHaveLength(1);
+    expect(screen.getAllByTestId("brand-chip-bape")).toHaveLength(1);
   });
 
   it("turns a brand typed without Enter into a chip on blur", async () => {
     const input = await renderWithCategory();
     await userEvent.type(input, "Nike");
     fireEvent.blur(input);
-    expect(screen.getByTestId("brand-chip-Nike")).toBeInTheDocument();
+    expect(screen.getByTestId("brand-chip-nike")).toBeInTheDocument();
   });
 
   const fillRequired = async () => {
@@ -274,6 +274,6 @@ describe("ProductForm — brand editor (KAN-14)", () => {
     await screen.findByTestId("pf-restore-dialog");
     await userEvent.click(screen.getByTestId("pf-restore-confirm"));
 
-    expect(screen.getByTestId("brand-chip-OldBrand")).toBeInTheDocument();
+    expect(screen.getByTestId("brand-chip-oldbrand")).toBeInTheDocument();
   });
 });

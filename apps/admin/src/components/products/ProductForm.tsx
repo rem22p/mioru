@@ -57,6 +57,12 @@ const TEXT_FIELD_STYLE =
 // KAN-14: commit the text sitting in the brand input into the chip list.
 // Kept pure so both the Enter/blur handlers and submit — which cannot wait for
 // a setState to land — derive the same list from the same input.
+// #86 R4: stable, collision-resistant test ids from user-typed brand text.
+function slugifyBrand(b: string): string {
+  const slug = b.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return slug || "brand";
+}
+
 function withBrand(list: string[], raw: string): string[] {
   const v = raw.trim();
   // Server bounds: max 5 brands (maxBrandsPerProduct); the 60-char limit is
@@ -750,13 +756,13 @@ export default function ProductForm({
                     {brands.map((b) => (
                       <span
                         key={b}
-                        data-testid={`brand-chip-${b}`}
+                        data-testid={`brand-chip-${slugifyBrand(b)}`}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-[#44944A]/15 px-2.5 py-1 text-sm text-[var(--color-text-primary)]"
                       >
                         {b}
                         <button
                           type="button"
-                          data-testid={`brand-remove-${b}`}
+                          data-testid={`brand-remove-${slugifyBrand(b)}`}
                           aria-label={`Удалить бренд ${b}`}
                           onClick={() =>
                             setBrands((prev) => prev.filter((x) => x !== b))

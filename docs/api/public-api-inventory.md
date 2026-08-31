@@ -29,7 +29,7 @@ commands.
 ## Store — public catalog (no auth)
 | Method+Path | Auth | CSRF | RL | Success | Errors | Integration test |
 |---|---|---|---|---|---|---|
-| GET /api/products | — | — | — | 200 `{items,total,page,per_page}` | — | `TestIntegrationListProducts` (+ store-level paginate/filter) |
+| GET /api/products | — | — | — | 200 `{items,total,page,per_page}`. **sort** ∈ `{popular`(default)`, newest, price, -price}` — unknown values fall back to `popular` (KAN-14: `brand` sorts by the derived display name) | — | `TestIntegrationListProducts` (+ store-level paginate/filter) |
 | GET /api/products/facets | — | — | — | 200 `{brands,colors,sizes}` (KAN-14: collab brands listed individually) | 400 VALIDATION_FAILED | `TestIntegrationFacetsHappy`, `...DropsOwnSelection`, `...BadStatus`, `TestCollabBrandsFacetsSplit` |
 | GET /api/products/{slug} | — | — | — | 200 product | 404 NOT_FOUND | `TestIntegrationGetProductBySlug`, `...NotFound` |
 | GET /api/categories | — | — | — | 200 tree, nodes carry `products_count` (own + all descendants) | — | `TestIntegrationListCategories`, `TestIntegrationCategoryProductCounts` |

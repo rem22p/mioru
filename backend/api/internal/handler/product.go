@@ -22,11 +22,7 @@ type productStore interface {
 	CreateProduct(ctx context.Context, p model.Product) (int64, error)
 	UpdateProduct(ctx context.Context, slug string, p model.Product) error
 	DeleteProduct(ctx context.Context, slug string) error
-	UpdateProductRanks(ctx context.Context, entries []struct {
-		ID   int64  `json:"id"`
-		Rank int    `json:"rank"`
-		Key  string `json:"key"`
-	}, column string) error
+	UpdateProductRanks(ctx context.Context, entries []model.RankEntry) error
 	GetCategories(ctx context.Context) ([]model.Category, error)
 	GetCategoriesFlat(ctx context.Context) ([]model.Category, error)
 }
@@ -308,12 +304,16 @@ func (h *ProductHandler) UpdateRanks(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "INVALID_JSON", "invalid JSON")
 		return
 	}
-	// Default to the main rank column for backward compat.
-	column := "popularity_rank"
-	if len(entries) > 0 && entries[0].Key == "popularity_rank_preorder" {
-		column = "popularity_rank_preorder"
+	// #71 F3: the column is chosen by a flag, never interpolated into SQL.
+	storeEntries := make([]model.RankEntry, len(entries))
+	for i, e := range entries {
+		storeEntries[i] = model.RankEntry{
+			ID:       e.ID,
+			Rank:     e.Rank,
+			Preorder: e.Key == "popularity_rank_preorder",
+		}
 	}
-	if err := h.store.UpdateProductRanks(r.Context(), entries, column); err != nil {
+	if err := h.store.UpdateProductRanks(r.Context(), storeEntries); err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "RANK_UPDATE_FAILED", "failed to update ranks")
 		return
 	}

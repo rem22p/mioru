@@ -31,6 +31,14 @@ type Category struct {
 	Children      []Category `json:"children,omitempty"`
 }
 
+// RankEntry is one row of a popularity-rank save (issue #71 F3): the target
+// column is chosen by the Preorder flag, never interpolated into SQL.
+type RankEntry struct {
+	ID       int64
+	Rank     int
+	Preorder bool
+}
+
 // Product represents a product in the catalog
 type Product struct {
 	ID           int64  `json:"id"`

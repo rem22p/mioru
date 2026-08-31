@@ -585,13 +585,18 @@ func buildProductFilterWhere(filter model.ProductFilter, startIdx int) (where st
 	// Brand (legacy single) + Brands (multi) collapse to a single overlap
 	// clause: a product matches when ANY of the selected brands is in its
 	// brands array — picking "Bape" or "Mastermind" both surface the
-	// "Bape x Mastermind" collaboration (KAN-14).
+	// "Bape x Mastermind" collaboration (KAN-14). #86 R2: the display name
+	// ("Bape x Mastermind") also matches on substring, so a manager typing
+	// the joined name into the admin filter finds the collab too.
 	brands := filter.Brands
 	if filter.Brand != "" {
 		brands = append(brands, filter.Brand)
 	}
 	if len(brands) > 0 {
-		where += fmt.Sprintf(" AND p.brands && $%d::text[]", argIdx)
+		// One parameter referenced twice: the overlap and the display-name
+		// ILIKE both consume the same brands array.
+		where += fmt.Sprintf(" AND (p.brands && $%d::text[] OR array_to_string(p.brands, ' x ') ILIKE ANY(ARRAY(SELECT '%%' || b || '%%' FROM unnest($%d::text[]) AS b)))",
+			argIdx, argIdx)
 		args = append(args, brands)
 		argIdx++
 	}
@@ -704,24 +709,46 @@ func (s *PostgresStore) ListProductFacets(ctx context.Context, filter model.Prod
 	return facets, nil
 }
 
-// UpdateProductRanks sets the given rank column (popularity_rank or
-// popularity_rank_preorder) for a batch of products.
-func (s *PostgresStore) UpdateProductRanks(ctx context.Context, entries []struct {
-	ID   int64  `json:"id"`
-	Rank int    `json:"rank"`
-	Key  string `json:"key"`
-}, column string) error {
+// RankEntry is one row of a rank save. The column is chosen by the Preorder
+// flag — never interpolated into SQL (F3, issue #71).
+type RankEntry struct {
+	ID       int64
+	Rank     int
+	Preorder bool
+}
+
+// UpdateProductRanks sets the popularity ranks for a batch of products in a
+// single batched UPDATE (F4: no per-row round-trips inside the tx).
+func (s *PostgresStore) UpdateProductRanks(ctx context.Context, entries []model.RankEntry) error {
+	if len(entries) == 0 {
+		return nil
+	}
+	// F3: the column comes from a compile-time pair, not from a parameter.
+	rankCol := "popularity_rank"
+	if entries[0].Preorder {
+		rankCol = "popularity_rank_preorder"
+	}
+
+	ids := make([]int64, 0, len(entries))
+	ranks := make([]int, 0, len(entries))
+	for _, e := range entries {
+		ids = append(ids, e.ID)
+		ranks = append(ranks, e.Rank)
+	}
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	for _, e := range entries {
-		query := fmt.Sprintf(`UPDATE products SET %s = $1 WHERE id = $2`, column)
-		if _, err := tx.Exec(ctx, query, e.Rank, e.ID); err != nil {
-			return fmt.Errorf("update rank for product %d: %w", e.ID, err)
-		}
+	if _, err := tx.Exec(ctx, `
+		UPDATE products SET `+rankCol+` = data.rank
+		FROM unnest($1::bigint[], $2::int[]) AS data(id, rank)
+		WHERE products.id = data.id`,
+		ids, ranks,
+	); err != nil {
+		return fmt.Errorf("update ranks: %w", err)
 	}
 
 	return tx.Commit(ctx)

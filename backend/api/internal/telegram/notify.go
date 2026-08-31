@@ -533,6 +533,24 @@ func individualFieldsHTML(o *model.Order) string {
 		return ""
 	}
 	s := ""
+	// KAN-52/#88 F5: the category and the shoe insole length are the fields
+	// the manager needs to source the item — a shoes order without them
+	// reaches the chat with no parameters at all.
+	if o.Category != "" {
+		label := o.Category
+		switch o.Category {
+		case "clothing":
+			label = "Одежда"
+		case "shoes":
+			label = "Обувь"
+		case "accessories":
+			label = "Аксессуары"
+		}
+		s += fmt.Sprintf("<b>Категория:</b> %s\n", escapeHTML(label))
+	}
+	if o.FootLength != nil {
+		s += fmt.Sprintf("<b>Длина стельки:</b> %.1f см\n", *o.FootLength)
+	}
 	if o.Height != nil {
 		s += fmt.Sprintf("<b>Рост:</b> %.0f см\n", *o.Height)
 	}

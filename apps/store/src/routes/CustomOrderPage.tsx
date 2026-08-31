@@ -12,25 +12,25 @@ import { isDeliveryBlocked } from "@/lib/deliveryRules";
 import { isValidPhone, usableStoredPhone } from "@/lib/phoneValidation";
 
 const deliveryMethods = [
-  { key: "personal", price: "Бесплатно", priceColor: "text-[#44944A]" },
+  { key: "personal", priceKey: "personal", priceColor: "text-[#44944A]" },
   {
     key: "address",
-    price: "25 руб",
+    priceKey: "address",
     priceColor: "text-[var(--color-text-secondary)]",
   },
   {
     key: "bus",
-    price: "до 50 руб",
+    priceKey: "bus",
     priceColor: "text-[var(--color-text-secondary)]",
   },
   {
     key: "express",
-    price: "до 50 руб",
+    priceKey: "express",
     priceColor: "text-[var(--color-text-secondary)]",
   },
   {
     key: "moldovaPost",
-    price: "до 50 руб",
+    priceKey: "moldovaPost",
     priceColor: "text-[var(--color-text-secondary)]",
   },
 ] as const;
@@ -446,7 +446,7 @@ export default function CustomOrderPage() {
                       .replace(/,/g, ".")
                       .replace(/[^0-9.]/g, "")
                       .replace(/(\..*)\./g, "$1")
-                      .slice(0, 4);
+                      .slice(0, 5);
                     setFootLength(raw);
                   }}
                   onBlur={() => {
@@ -456,7 +456,7 @@ export default function CustomOrderPage() {
                   }}
                   className={inputClass}
                   placeholder="27"
-                  maxLength={4}
+                  maxLength={5}
                   data-testid="custom-order-foot-length"
                 />
                 {touched.footLength && errors.footLength && (
@@ -579,7 +579,7 @@ export default function CustomOrderPage() {
                       <span
                         className={`text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--color-bg-secondary)] ${method.priceColor} shrink-0 ml-3`}
                       >
-                        {method.price}
+                        {t(`customOrder.deliveryPrices.${method.priceKey}`)}
                       </span>
                     </div>
                   </label>
