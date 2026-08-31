@@ -147,7 +147,25 @@ func parseProductFilter(r *http.Request) (model.ProductFilter, error) {
 		}
 	}
 	filter.Colors = multiQuery(q["color"])
+	// #92 F4: symmetric caps with the brand array above — a crafted
+	// color/size list can't make the DB chew an unbounded ANY() input.
+	if len(filter.Colors) > 20 {
+		return filter, fmt.Errorf("too many color values")
+	}
+	for _, c := range filter.Colors {
+		if utf8.RuneCountInString(c) > 40 {
+			return filter, fmt.Errorf("color value too long")
+		}
+	}
 	filter.Sizes = multiQuery(q["size"])
+	if len(filter.Sizes) > 20 {
+		return filter, fmt.Errorf("too many size values")
+	}
+	for _, s := range filter.Sizes {
+		if utf8.RuneCountInString(s) > 32 {
+			return filter, fmt.Errorf("size value too long")
+		}
+	}
 	if v, err := strconv.Atoi(q.Get("price_min")); err == nil && v > 0 {
 		filter.PriceMin = v
 	}

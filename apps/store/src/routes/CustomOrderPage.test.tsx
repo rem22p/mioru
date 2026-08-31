@@ -289,6 +289,8 @@ describe("CustomOrderPage — category choice (KAN-52)", () => {
     const { container } = renderPage(true);
     baseFields(container);
     expect(screen.getByTestId("custom-order-submit")).toBeDisabled();
+    // #92 F1: the disabled button explains itself.
+    expect(screen.getByTestId("custom-order-category-hint")).toBeInTheDocument();
   });
 
   it("shoes swap height/weight for the insole field", () => {

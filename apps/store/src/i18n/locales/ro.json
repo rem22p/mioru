@@ -80,6 +80,9 @@
       "bus": "până la 50 MDL",
       "express": "până la 50 MDL",
       "moldovaPost": "până la 50 MDL"
+    },
+    "hints": {
+      "pickCategory": "Alegeți categoria — de ea depind câmpurile comenzii"
     }
   },
   "nav": {

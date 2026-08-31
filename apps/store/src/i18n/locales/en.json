@@ -80,6 +80,9 @@
       "bus": "up to 50 lei",
       "express": "up to 50 lei",
       "moldovaPost": "up to 50 lei"
+    },
+    "hints": {
+      "pickCategory": "Pick a category first — the order fields depend on it"
     }
   },
   "nav": {
