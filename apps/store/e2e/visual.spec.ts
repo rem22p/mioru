@@ -362,6 +362,7 @@ test.describe("No horizontal overflow (#77)", () => {
   // F2 regression gate: a full-page screenshot is as wide as the document,
   // so the visual suite once pinned an overflowing page instead of failing
   // on it. This assertion makes any horizontal overflow a hard failure.
+  // Fresh contexts: /cart empty, /checkout without address fields — those layouts aren't measured.
   const routes = [
     "/catalog",
     "/product/midnight-runner",
@@ -377,13 +378,15 @@ test.describe("No horizontal overflow (#77)", () => {
         await page.goto(route);
         await page.waitForLoadState("networkidle");
 
-        const scrollWidth = await page.evaluate(
-          () => document.documentElement.scrollWidth,
-        );
+        // clientWidth, not viewport: a visible classic scrollbar would false-red.
+        const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+          scrollWidth: document.documentElement.scrollWidth,
+          clientWidth: document.documentElement.clientWidth,
+        }));
         expect(
           scrollWidth,
           `${route} @ ${width}px: document wider than the viewport`,
-        ).toBe(width);
+        ).toBeLessThanOrEqual(clientWidth);
       });
     }
   }

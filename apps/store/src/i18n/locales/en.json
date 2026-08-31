@@ -38,7 +38,6 @@
     "height": "Height (cm)",
     "weight": "Weight (kg)",
     "city": "City",
-    "cityPlaceholder": "Enter your city",
     "deliveryMethod": "Delivery method",
     "deliveryMethods": {
       "personal": "Personal meeting",
@@ -257,6 +256,10 @@
       "order": "Pre-order",
       "fillMeasurements": "Fill measurements"
     },
+    "gallery": {
+      "prev": "Previous photo",
+      "next": "Next photo"
+    },
     "details": {
       "material": "Material",
       "careTitle": "Care recommendations",
@@ -288,6 +291,10 @@
     "free": "Free",
     "checkout": "Checkout",
     "clear": "Clear",
+    "quantity": {
+      "decrease": "Decrease",
+      "increase": "Increase"
+    },
     "section": {
       "inStock": "In stock",
       "preorder": "Pre-order",

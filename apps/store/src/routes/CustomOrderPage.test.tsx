@@ -35,9 +35,18 @@ vi.mock("react-router-dom", async (importOriginal) => {
 });
 
 vi.mock("@/components/ui/CityAutocomplete", () => ({
-  default: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+  default: ({
+    value,
+    onChange,
+    id,
+  }: {
+    value: string;
+    onChange: (v: string) => void;
+    id?: string;
+  }) => (
     <input
       data-testid="city-autocomplete"
+      id={id}
       value={value}
       onChange={(e) => onChange(e.target.value)}
     />
@@ -235,6 +244,22 @@ describe("CustomOrderPage — phone field is named by its own label", () => {
     renderPage(true);
     expect(screen.getByTestId("custom-order-phone")).toHaveAccessibleName(
       "checkout.phone",
+    );
+  });
+});
+
+describe("CustomOrderPage — city and photo named by their labels (#83 F1)", () => {
+  it("associates the city label with the autocomplete input", () => {
+    renderPage(true);
+    expect(screen.getByTestId("city-autocomplete")).toHaveAccessibleName(
+      "customOrder.city",
+    );
+  });
+
+  it("gives the photo file input an accessible name", () => {
+    renderPage(true);
+    expect(screen.getByTestId("custom-order-photo-input")).toHaveAccessibleName(
+      "customOrder.photoHint",
     );
   });
 });

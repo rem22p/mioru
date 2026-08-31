@@ -38,7 +38,6 @@
     "height": "Рост (см)",
     "weight": "Вес (кг)",
     "city": "Город",
-    "cityPlaceholder": "Введите ваш город",
     "deliveryMethod": "Способ доставки",
     "deliveryMethods": {
       "personal": "Личная встреча",
@@ -257,6 +256,10 @@
       "order": "Заказать",
       "fillMeasurements": "Заполните параметры"
     },
+    "gallery": {
+      "prev": "Предыдущее фото",
+      "next": "Следующее фото"
+    },
     "details": {
       "material": "Материал",
       "careTitle": "Рекомендации по уходу",
@@ -288,6 +291,10 @@
     "free": "Бесплатно",
     "checkout": "Оформить заказ",
     "clear": "Очистить",
+    "quantity": {
+      "decrease": "Уменьшить",
+      "increase": "Увеличить"
+    },
     "section": {
       "inStock": "В наличии",
       "preorder": "Под заказ",

@@ -277,9 +277,11 @@ export default function CustomOrderPage() {
                 </div>
               )}
 
-              {/* Upload area */}
-              <div className="relative">
+              {/* Upload area — label wraps the hidden input, so the dashed area doubles as its accessible name. */}
+              <label htmlFor="custom-order-photos" className="relative block cursor-pointer">
                 <input
+                  id="custom-order-photos"
+                  data-testid="custom-order-photo-input"
                   type="file"
                   accept="image/*"
                   multiple
@@ -298,7 +300,7 @@ export default function CustomOrderPage() {
                     {t("customOrder.photoHint")}
                   </p>
                 </div>
-              </div>
+              </label>
               {touched.photos && errors.photos && (
                 <p className="text-xs text-red-400 mt-1">{errors.photos}</p>
               )}
@@ -503,14 +505,15 @@ export default function CustomOrderPage() {
 
             {/* City */}
             <div>
-              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+              <label htmlFor="custom-order-city" className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                 {t("customOrder.city")}
               </label>
               <CityAutocomplete
+                id="custom-order-city"
                 value={city}
                 onChange={setCity}
                 className={`${inputClass} ${touched.city && errors.city ? "!border-red-500" : ""}`}
-                placeholder={t("customOrder.cityPlaceholder")}
+                placeholder={t("common.cityPlaceholder")}
               />
               {touched.city && errors.city && (
                 <p className="text-xs text-red-400 mt-1">{errors.city}</p>
