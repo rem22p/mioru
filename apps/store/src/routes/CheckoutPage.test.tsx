@@ -80,13 +80,16 @@ vi.mock("@/components/ui/CityAutocomplete", () => ({
     value,
     onChange,
     testId,
+    id,
   }: {
     value: string;
     onChange: (v: string) => void;
     testId?: string;
+    id?: string;
   }) => (
     <input
       data-testid={testId || "city-autocomplete"}
+      id={id}
       value={value}
       onChange={(e) => onChange(e.target.value)}
     />
@@ -303,5 +306,30 @@ describe("CheckoutPage — phone field is named by its own label", () => {
     expect(screen.getByTestId("checkout-phone")).toHaveAccessibleName(
       tMap["checkout.phone"],
     );
+  });
+});
+
+describe("CheckoutPage — address fields named by their own labels (#83 F1)", () => {
+  beforeEach(() => {
+    useCartStore.setState({ items: [cartItem] });
+    useAuthStore.setState({ isAuthenticated: false, user: null, loading: false, error: null });
+  });
+
+  it("associates labels with the city and address inputs", () => {
+    render(
+      <HelmetProvider>
+        <MemoryRouter>
+          <CheckoutPage />
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+    fireEvent.click(screen.getByTestId("checkout-delivery-address"));
+
+    expect(screen.getByTestId("checkout-city")).toHaveAccessibleName(
+      tMap["checkout.fields.city"],
+    );
+    expect(screen.getByLabelText("checkout.fields.street")).toBeInTheDocument();
+    expect(screen.getByLabelText("checkout.fields.house")).toBeInTheDocument();
+    expect(screen.getByLabelText("checkout.fields.apartment")).toBeInTheDocument();
   });
 });

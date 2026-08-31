@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { useCartStore } from "@/stores/cartStore";
 import { useAuthStore } from "@/stores/authStore";
-import { useFavoritesStore } from "@/stores/favoritesStore";
 import { useCurrencyStore } from "@/stores/currencyStore";
 import { formatPrice } from "@/lib/currency";
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Package } from "lucide-react";
@@ -248,7 +247,7 @@ function CartRow({
             <button
               onClick={() => updateQuantity(item.product.id, item.size, item.quantity - 1)}
               className="rounded-lg border border-[var(--color-border-custom)] w-8 h-8 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
-              aria-label="Уменьшить"
+              aria-label={t("cart.quantity.decrease")}
             >
               <Minus className="h-3.5 w-3.5" />
             </button>
@@ -261,7 +260,7 @@ function CartRow({
                 return maxStock > 0 && item.quantity >= maxStock;
               })()}
               className="rounded-lg border border-[var(--color-border-custom)] w-8 h-8 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-30 transition-colors"
-              aria-label="Увеличить"
+              aria-label={t("cart.quantity.increase")}
             >
               <Plus className="h-3.5 w-3.5" />
             </button>

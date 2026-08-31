@@ -89,10 +89,11 @@ export default function EditProfilePage() {
           className="rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border-custom)] p-6 space-y-5"
         >
           <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
+            <label htmlFor="profile-first-name" className="block text-xs font-mono uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
               {t("auth.firstName")}
             </label>
             <input
+              id="profile-first-name"
               type="text"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
@@ -103,10 +104,11 @@ export default function EditProfilePage() {
           </div>
 
           <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
+            <label htmlFor="profile-last-name" className="block text-xs font-mono uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
               {t("auth.lastName")}
             </label>
             <input
+              id="profile-last-name"
               type="text"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
@@ -141,12 +143,13 @@ export default function EditProfilePage() {
           </div>
 
           <div className="border-t border-[var(--color-border-custom)] pt-5">
-            <label className="block text-xs font-mono uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
+            <label htmlFor="profile-password" className="block text-xs font-mono uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
               {t("profile.confirmPassword")}
             </label>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)]" />
               <input
+                id="profile-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

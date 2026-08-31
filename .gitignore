@@ -74,3 +74,4 @@ dump.rdb
 
 # Local Playwright browser cache (dev-only)
 .pw-browsers/
+test-results-broken*/

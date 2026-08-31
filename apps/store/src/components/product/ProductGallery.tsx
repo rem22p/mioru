@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Product } from "@/types";
 import { getImageUrl } from "@/lib/api";
 
@@ -9,6 +10,7 @@ interface ProductGalleryProps {
 }
 
 export default function ProductGallery({ product }: ProductGalleryProps) {
+  const { t } = useTranslation();
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [failedImages, setFailedImages] = useState<Set<number>>(new Set());
 
@@ -54,14 +56,14 @@ export default function ProductGallery({ product }: ProductGalleryProps) {
                   <button
                     onClick={prevPhoto}
                     className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-[var(--color-bg-primary)]/60 border border-[var(--color-border-custom)] flex items-center justify-center text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)] hover:border-[#44944A] transition-all"
-                    aria-label="Предыдущее фото"
+                    aria-label={t("product.gallery.prev")}
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <button
                     onClick={nextPhoto}
                     className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-[var(--color-bg-primary)]/60 border border-[var(--color-border-custom)] flex items-center justify-center text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)] hover:border-[#44944A] transition-all"
-                    aria-label="Следующее фото"
+                    aria-label={t("product.gallery.next")}
                   >
                     <ChevronRight className="h-5 w-5" />
                   </button>
