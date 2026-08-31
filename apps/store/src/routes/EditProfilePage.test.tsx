@@ -128,3 +128,12 @@ describe("EditProfilePage — phone under the +373 contract", () => {
     );
   });
 });
+
+describe("EditProfilePage — phone field is named by its own label", () => {
+  it("announces the translated label, not a fixed-language name", () => {
+    renderWithPhone("+37360000000");
+    expect(screen.getByTestId("profile-phone")).toHaveAccessibleName(
+      "profile.phone",
+    );
+  });
+});

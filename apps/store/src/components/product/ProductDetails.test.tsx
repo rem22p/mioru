@@ -26,7 +26,6 @@ const product: Product = {
   price: 649,
   color: "Красный",
   model: "",
-  fit: "",
   material: "Фирменный легкий полимерный материал Croslite™",
   care: ["Промывайте в прохладной воде с мылом", "Не сушить на батарее"],
   description: "Тапочки Crocs с принтом Тачки",

@@ -214,7 +214,10 @@ export default function CheckoutPage() {
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-[var(--color-text-primary)]">
+                <label
+                  htmlFor="checkout-phone-input"
+                  className="block text-sm font-medium text-[var(--color-text-primary)]"
+                >
                   {t("checkout.phone")}
                 </label>
                 {isAuthenticated && myPhone && myPhone !== formData.phone && (
@@ -229,6 +232,7 @@ export default function CheckoutPage() {
                 )}
               </div>
               <PhoneInput
+                id="checkout-phone-input"
                 value={formData.phone}
                 onChange={(full) => updateField("phone", full)}
                 placeholder={t("checkout.phonePlaceholder")}

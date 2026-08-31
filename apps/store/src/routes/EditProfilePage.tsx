@@ -116,10 +116,14 @@ export default function EditProfilePage() {
           </div>
 
           <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
+            <label
+              htmlFor="profile-phone-input"
+              className="block text-xs font-mono uppercase tracking-wider text-[var(--color-text-secondary)] mb-2"
+            >
               {t("profile.phone")}
             </label>
             <PhoneInput
+              id="profile-phone-input"
               value={phone}
               onChange={setPhone}
               className={inputClass}

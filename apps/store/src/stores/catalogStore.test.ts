@@ -12,7 +12,6 @@ const sampleProduct: Product = {
   price: 100,
   color: "red",
   model: "",
-  fit: "",
   material: "",
   care: [],
   description: "",
