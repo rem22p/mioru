@@ -298,6 +298,12 @@ export default function CatalogPage() {
   );
 
   const toggleFilter = (key: string, value: string) => {
+    // The server caps a brand filter at 20 values (S1) — refuse to select
+    // more on the client instead of letting the whole catalog fall into
+    // the 400 error state.
+    if (key === "brand" && !selectedBrands.has(value) && selectedBrands.size >= 20) {
+      return;
+    }
     toggleCSV(key, value);
   };
 

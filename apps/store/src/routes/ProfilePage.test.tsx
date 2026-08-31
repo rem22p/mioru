@@ -22,7 +22,10 @@ vi.mock("framer-motion", () => ({
 }));
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
+  useTranslation: () => ({
+    t: (k: string, opts?: { value?: number }) =>
+      opts?.value !== undefined ? `${k}:${opts.value}` : k,
+  }),
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -96,7 +99,9 @@ describe("ProfilePage — individual order card (#88 F1)", () => {
 
     await waitFor(() => {
       expect(screen.getByText("customOrder.categories.shoes")).toBeInTheDocument();
-      expect(screen.getByText("profile.orderDetail.footLengthCm")).toBeInTheDocument();
+      // The interpolated value itself is pinned, not just the label key —
+      // dropping {value: o.foot_length} from the component must fail this.
+      expect(screen.getByText("profile.orderDetail.footLengthCm:27.5")).toBeInTheDocument();
       expect(screen.getByText("profile.orderDetail.photos")).toBeInTheDocument();
       expect(screen.getByAltText("")).toBeInTheDocument();
     });

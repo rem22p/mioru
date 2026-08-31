@@ -76,10 +76,10 @@
     },
     "deliveryPrices": {
       "personal": "Free",
-      "address": "25 MDL",
-      "bus": "up to 50 MDL",
-      "express": "up to 50 MDL",
-      "moldovaPost": "up to 50 MDL"
+      "address": "25 lei",
+      "bus": "up to 50 lei",
+      "express": "up to 50 lei",
+      "moldovaPost": "up to 50 lei"
     }
   },
   "nav": {

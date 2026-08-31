@@ -720,6 +720,13 @@ func (s *PostgresStore) UpdateProductRanks(ctx context.Context, entries []model.
 		return nil
 	}
 	// F3: the column comes from a compile-time pair, not from a parameter.
+	// Defence in depth: the handler rejects mixed batches, and so does the
+	// store — every row must target the same column.
+	for _, e := range entries[1:] {
+		if e.Preorder != entries[0].Preorder {
+			return fmt.Errorf("update ranks: mixed preorder flags in one batch")
+		}
+	}
 	rankCol := "popularity_rank"
 	if entries[0].Preorder {
 		rankCol = "popularity_rank_preorder"

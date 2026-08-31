@@ -97,7 +97,7 @@ type ProductFilter struct {
 	CategoryID  int   // legacy single-value filter; combined with CategoryIDs via OR
 	CategoryIDs []int // multi-value, lets the storefront fold a parent category + its children into one query
 	Search      string
-	Brand       string // legacy single-value filter; combined with Brands via OR
+	Brand       string // admin free-text filter; substring-match on the derived display name (AND-ed with Brands when both set)
 	Brands      []string
 	Colors      []string
 	Sizes       []string

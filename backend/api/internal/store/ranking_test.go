@@ -108,3 +108,22 @@ func TestListProductsSortPopular(t *testing.T) {
 		}
 	}
 }
+
+// TestUpdateProductRanksRejectsMixedBatch pins the store-side gate: the
+// column comes from the first entry, so a mixed batch must error instead
+// of silently writing every row into one column.
+func TestUpdateProductRanksRejectsMixedBatch(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	a := mustCreateRanked(t, s, "rank-mix-a")
+	b := mustCreateRanked(t, s, "rank-mix-b")
+
+	err := s.UpdateProductRanks(ctx, []model.RankEntry{
+		{ID: a, Rank: 1},
+		{ID: b, Rank: 2, Preorder: true},
+	})
+	if err == nil {
+		t.Fatalf("mixed batch accepted, want error")
+	}
+}
