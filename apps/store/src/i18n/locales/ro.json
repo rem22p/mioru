@@ -13,7 +13,8 @@
     "comingSoon": "În curând",
     "error": "Eroare",
     "retry": "Reîncearcă",
-    "scrollToTop": "Sus"
+    "scrollToTop": "Sus",
+    "cityPlaceholder": "Introdu orașul tău"
   },
   "auth": {
     "login": "Autentificare",
@@ -64,13 +65,20 @@
     "errors": {
       "categoryRequired": "Alegeți o categorie",
       "footLengthRequired": "Indicați lungimea tălpii",
-      "footLengthRange": "Lungimea tălpii: de la 10 la 40 cm"
+      "footLengthRange": "Lungimea tălpii: de la 10 la 40 cm",
+      "bodyRequired": "Introdu înălțimea sau greutatea",
+      "heightMin": "Înălțimea nu poate fi sub 100 cm",
+      "heightMax": "Înălțimea nu poate fi peste 250 cm",
+      "weightMin": "Greutatea nu poate fi sub 30 kg",
+      "weightMax": "Greutatea nu poate fi peste 200 kg",
+      "city": "Introdu orașul tău",
+      "deliveryMethod": "Alege modul de livrare",
+      "photo": "Atașați cel puțin o fotografie"
     }
   },
   "nav": {
     "inStock": "CATALOG",
     "customOrder": "COMANDĂ PERSONALIZATĂ",
-    "avatar": "AVATAR",
     "cart": "COȘ",
     "favorites": "FAVORITE",
     "profile": "Profil",
@@ -248,6 +256,24 @@
       "weightPlaceholder": "70",
       "order": "Comandă",
       "fillMeasurements": "Completează măsurătorile"
+    },
+    "details": {
+      "material": "Material",
+      "careTitle": "Recomandări de îngrijire",
+      "deliveryTitle": "Livrare",
+      "deliveryItems": [
+        "Întâlnire personală — Tiraspol",
+        "Livrare la adresă — Tiraspol/Bender",
+        "Marșrutca — PMN + Chișinău",
+        "Poșta expres — PMN",
+        "Poșta Moldovei — toate orașele"
+      ],
+      "returnsTitle": "Retur",
+      "returnsItems": [
+        "24 de ore pentru retur",
+        "Retur doar pentru defecte de fabricație",
+        "Produsul trebuie să aibă etichete și fără urme de purtare"
+      ]
     }
   },
   "cart": {
@@ -327,7 +353,13 @@
     "useMyPhone": "Folosește numărul meu",
     "mixedCart": "Produsele din stoc și cele la comandă trebuie comandate separat. Eliminați un tip din coș.",
     "mixedCart.inStockOnly": "Păstrează în stoc",
-    "mixedCart.preorderOnly": "Păstrează la comandă"
+    "mixedCart.preorderOnly": "Păstrează la comandă",
+    "placeholders": {
+      "street": "Str. Mitropolit Varlaam",
+      "house": "12",
+      "apartment": "45"
+    },
+    "phoneFormat": "Format: +373 și 8 cifre"
   },
   "profile": {
     "title": "Profil",

@@ -241,14 +241,19 @@ export default function CheckoutPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+              <label
+                htmlFor="checkout-city"
+                className="block text-sm font-medium text-[var(--color-text-primary)] mb-2"
+              >
                 {t("checkout.fields.city")}
               </label>
               <CityAutocomplete
                 value={formData.city}
                 onChange={(v) => updateField("city", v)}
+                placeholder={t("common.cityPlaceholder")}
                 className={inputBaseClass}
                 testId="checkout-city"
+                id="checkout-city"
               />
             </div>
 
@@ -297,42 +302,45 @@ export default function CheckoutPage() {
             {formData.deliveryMethod === "address" && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                  <label htmlFor="checkout-street" className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                     {t("checkout.fields.street")}
                   </label>
                   <input
+                    id="checkout-street"
                     type="text"
                     value={formData.street}
                     onChange={(e) => updateField("street", e.target.value)}
                     className={inputBaseClass}
-                    placeholder="Тверская"
+                    placeholder={t("checkout.placeholders.street")}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                    <label htmlFor="checkout-house" className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                       {t("checkout.fields.house")}
                     </label>
                     <input
+                      id="checkout-house"
                       type="text"
                       inputMode="numeric"
                       value={formData.house}
                       onChange={(e) => updateField("house", e.target.value)}
                       className={inputBaseClass}
-                      placeholder="12"
+                      placeholder={t("checkout.placeholders.house")}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                    <label htmlFor="checkout-apartment" className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                       {t("checkout.fields.apartment")}
                     </label>
                     <input
+                      id="checkout-apartment"
                       type="text"
                       inputMode="numeric"
                       value={formData.apartment}
                       onChange={(e) => updateField("apartment", e.target.value)}
                       className={inputBaseClass}
-                      placeholder="45"
+                      placeholder={t("checkout.placeholders.apartment")}
                     />
                   </div>
                 </div>

@@ -104,19 +104,20 @@ export default function CustomOrderPage() {
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (photos.length === 0) errs.photos = "Прикрепите хотя бы одно фото";
+    if (photos.length === 0) errs.photos = t("customOrder.errors.photo");
     // KAN-52: category is mandatory; each category has its own params.
     if (!category) errs.category = t("customOrder.errors.categoryRequired");
     if (category === "clothing") {
-      if (!height && !weight) errs.body = "Укажите рост или вес";
+      if (!height && !weight)
+        errs.body = t("customOrder.errors.bodyRequired");
       if (height && Number(height) < 100)
-        errs.body = "Рост не может быть меньше 100 см";
+        errs.body = t("customOrder.errors.heightMin");
       if (height && Number(height) > 250)
-        errs.body = "Рост не может быть больше 250 см";
+        errs.body = t("customOrder.errors.heightMax");
       if (weight && Number(weight) < 30)
-        errs.body = "Вес не может быть меньше 30 кг";
+        errs.body = t("customOrder.errors.weightMin");
       if (weight && Number(weight) > 200)
-        errs.body = "Вес не может быть больше 200 кг";
+        errs.body = t("customOrder.errors.weightMax");
     }
     if (category === "shoes") {
       const n = Number(footLength);
@@ -124,11 +125,12 @@ export default function CustomOrderPage() {
       else if (!Number.isFinite(n) || n < 10 || n > 40)
         errs.footLength = t("customOrder.errors.footLengthRange");
     }
-    if (!city.trim()) errs.city = "Укажите город";
-    if (!phone.trim()) errs.phone = "Введите номер телефона";
+    if (!city.trim()) errs.city = t("customOrder.errors.city");
+    if (!phone.trim()) errs.phone = t("checkout.phoneRequired");
     else if (!isValidPhone(phone))
-      errs.phone = "Формат: +373 и 8 цифр";
-    if (!deliveryMethod) errs.deliveryMethod = "Выберите способ доставки";
+      errs.phone = t("checkout.phoneFormat");
+    if (!deliveryMethod)
+      errs.deliveryMethod = t("customOrder.errors.deliveryMethod");
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -344,10 +346,11 @@ export default function CustomOrderPage() {
             {category === "clothing" && (
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                <label htmlFor="custom-order-height" className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                   {t("customOrder.height")}
                 </label>
                 <input
+                  id="custom-order-height"
                   type="text"
                   inputMode="numeric"
                   value={height}
@@ -381,10 +384,11 @@ export default function CustomOrderPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                <label htmlFor="custom-order-weight" className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                   {t("customOrder.weight")}
                 </label>
                 <input
+                  id="custom-order-weight"
                   type="text"
                   inputMode="numeric"
                   value={weight}
@@ -426,10 +430,11 @@ export default function CustomOrderPage() {
             {/* KAN-52: shoes — insole length only */}
             {category === "shoes" && (
               <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                <label htmlFor="custom-order-foot-length" className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                   {t("customOrder.footLength")}
                 </label>
                 <input
+                  id="custom-order-foot-length"
                   type="text"
                   inputMode="decimal"
                   value={footLength}
@@ -587,10 +592,10 @@ export default function CustomOrderPage() {
 
             {/* Comment */}
             <div>
-              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+              <label htmlFor="custom-order-comment" className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                 {t("customOrder.comment")}
               </label>
-              <textarea
+              <textarea id="custom-order-comment"
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 rows={4}

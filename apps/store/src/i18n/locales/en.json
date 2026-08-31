@@ -13,7 +13,8 @@
     "comingSoon": "Coming soon",
     "error": "Error",
     "retry": "Retry",
-    "scrollToTop": "Back to top"
+    "scrollToTop": "Back to top",
+    "cityPlaceholder": "Enter your city"
   },
   "auth": {
     "login": "Sign in",
@@ -64,13 +65,20 @@
     "errors": {
       "categoryRequired": "Choose a category",
       "footLengthRequired": "Enter the insole length",
-      "footLengthRange": "Insole length: 10 to 40 cm"
+      "footLengthRange": "Insole length: 10 to 40 cm",
+      "bodyRequired": "Enter height or weight",
+      "heightMin": "Height cannot be under 100 cm",
+      "heightMax": "Height cannot be over 250 cm",
+      "weightMin": "Weight cannot be under 30 kg",
+      "weightMax": "Weight cannot be over 200 kg",
+      "city": "Enter your city",
+      "deliveryMethod": "Choose a delivery method",
+      "photo": "Attach at least one photo"
     }
   },
   "nav": {
     "inStock": "CATALOG",
     "customOrder": "CUSTOM ORDER",
-    "avatar": "AVATAR",
     "cart": "CART",
     "favorites": "FAVORITES",
     "profile": "Profile",
@@ -248,6 +256,24 @@
       "weightPlaceholder": "70",
       "order": "Pre-order",
       "fillMeasurements": "Fill measurements"
+    },
+    "details": {
+      "material": "Material",
+      "careTitle": "Care recommendations",
+      "deliveryTitle": "Delivery",
+      "deliveryItems": [
+        "Meetup — Tiraspol",
+        "Door-to-door — Tiraspol/Bendery",
+        "Marshrutka — PMR + Chisinau",
+        "Express post — PMR",
+        "Moldova Post — all cities"
+      ],
+      "returnsTitle": "Returns",
+      "returnsItems": [
+        "24 hours for a return",
+        "Returns only for manufacturing defects",
+        "Item must have tags and no wear"
+      ]
     }
   },
   "cart": {
@@ -327,7 +353,13 @@
     "useMyPhone": "Use my number",
     "mixedCart": "In-stock and pre-order items must be ordered separately. Please remove one type from your cart.",
     "mixedCart.inStockOnly": "Keep in-stock",
-    "mixedCart.preorderOnly": "Keep pre-order"
+    "mixedCart.preorderOnly": "Keep pre-order",
+    "placeholders": {
+      "street": "Mitropolit Varlaam st.",
+      "house": "12",
+      "apartment": "45"
+    },
+    "phoneFormat": "Format: +373 and 8 digits"
   },
   "profile": {
     "title": "Profile",

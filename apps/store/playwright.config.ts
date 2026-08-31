@@ -11,6 +11,9 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
+  // #78 F9: keep the HTML report so a red visual job leaves actual/expected/
+  // diff artifacts instead of forcing log-only debugging.
+  reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',

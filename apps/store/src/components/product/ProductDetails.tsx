@@ -21,15 +21,28 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
     { id: 'delivery', label: t('product.tabs.delivery'), icon: <Truck className="h-4 w-4" /> },
   ];
 
+  // #80: tab content is fully translated (issue #80 part 3).
+  const deliveryItems = t('product.details.deliveryItems', {
+    returnObjects: true,
+  }) as unknown as string[];
+  const returnsItems = t('product.details.returnsItems', {
+    returnObjects: true,
+  }) as unknown as string[];
+
   return (
     <div className="mt-12">
-      {/* Tabs */}
-      <div className="flex border-b border-[var(--color-border-custom)]">
+      {/* Tabs — KAN-55/#77: shrink-0 + horizontal scroll keep the row inside
+          the viewport instead of stretching the document (48px overflow). */}
+      <div
+        className="flex overflow-x-auto border-b border-[var(--color-border-custom)] scrollbar-none"
+        data-testid="product-details-tabs"
+      >
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            data-testid={`product-details-tab-${tab.id}`}
             onClick={() => setActiveTab(tab.id)}
-            className={`relative flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors ${
+            className={`relative shrink-0 flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors ${
               activeTab === tab.id
                 ? 'text-white'
                 : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
@@ -58,14 +71,14 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
           >
             <div>
               <h4 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-primary)] mb-3">
-                Материал
+                {t('product.details.material')}
               </h4>
               <p className="text-[var(--color-text-secondary)] leading-relaxed">{product.material}</p>
             </div>
 
             <div>
               <h4 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-primary)] mb-3">
-                Рекомендации по уходу
+                {t('product.details.careTitle')}
               </h4>
               <div className="grid gap-3">
                 {product.care.map((item, idx) => (
@@ -94,13 +107,13 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                 <div className="w-10 h-10 rounded-lg bg-[#44944A]/10 flex items-center justify-center mb-4">
                   <Truck className="h-5 w-5 text-[#44944A]" />
                 </div>
-                <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Доставка</h4>
+                <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">
+                  {t('product.details.deliveryTitle')}
+                </h4>
                 <ul className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                  <li>• Личная встреча — Тирасполь</li>
-                  <li>• Доставка по адресу — Тирасполь/Бендеры</li>
-                  <li>• Маршрутка — ПМР + Кишинёв</li>
-                  <li>• Экспресс-почта — ПМР</li>
-                  <li>• Почта Молдовы — все города</li>
+                  {deliveryItems.map((item) => (
+                    <li key={item}>• {item}</li>
+                  ))}
                 </ul>
               </div>
 
@@ -108,11 +121,13 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                 <div className="w-10 h-10 rounded-lg bg-[#44944A]/10 flex items-center justify-center mb-4">
                   <RotateCcw className="h-5 w-5 text-[#44944A]" />
                 </div>
-                <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Возврат</h4>
+                <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">
+                  {t('product.details.returnsTitle')}
+                </h4>
                 <ul className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                  <li>• 24 часа на возврат</li>
-                  <li>• Возврат возможен только по причине производственного брака</li>
-                  <li>• Товар должен быть с бирками и без следов носки</li>
+                  {returnsItems.map((item) => (
+                    <li key={item}>• {item}</li>
+                  ))}
                 </ul>
               </div>
             </div>

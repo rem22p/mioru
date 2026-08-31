@@ -357,3 +357,34 @@ test.describe("Theme & i18n", () => {
     expect(navText.toUpperCase()).toContain("CATALOG");
   });
 });
+
+test.describe("No horizontal overflow (#77)", () => {
+  // F2 regression gate: a full-page screenshot is as wide as the document,
+  // so the visual suite once pinned an overflowing page instead of failing
+  // on it. This assertion makes any horizontal overflow a hard failure.
+  const routes = [
+    "/catalog",
+    "/product/midnight-runner",
+    "/cart",
+    "/checkout",
+  ];
+  const widths = [375, 768, 1280] as const;
+
+  for (const width of widths) {
+    for (const route of routes) {
+      test(`no horizontal overflow: ${route} @ ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(route);
+        await page.waitForLoadState("networkidle");
+
+        const scrollWidth = await page.evaluate(
+          () => document.documentElement.scrollWidth,
+        );
+        expect(
+          scrollWidth,
+          `${route} @ ${width}px: document wider than the viewport`,
+        ).toBe(width);
+      });
+    }
+  }
+});

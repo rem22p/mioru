@@ -27,14 +27,17 @@ interface CityAutocompleteProps {
   placeholder?: string;
   className?: string;
   testId?: string;
+  /** #83: wires an external <label htmlFor> to the inner input. */
+  id?: string;
 }
 
 export default function CityAutocomplete({
   value,
   onChange,
-  placeholder = "Город",
+  placeholder,
   className = "",
   testId,
+  id,
 }: CityAutocompleteProps) {
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
@@ -96,6 +99,7 @@ export default function CityAutocomplete({
     <div ref={wrapperRef} className="relative">
       <input
         ref={inputRef}
+        id={id}
         data-testid={testId}
         type="text"
         value={value}
