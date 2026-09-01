@@ -231,3 +231,31 @@ describe("CatalogPage — brand selection cap (S1)", () => {
     expect(last2?.brand).toHaveLength(20);
   });
 });
+
+describe("CatalogPage — color selection cap (F4 symmetry)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("refuses to select more than 20 colors", () => {
+    const colors = Array.from({ length: 21 }, (_, i) => `Color${i}`);
+    const { fetchProducts } = setupStore();
+    useCatalogStore.setState({
+      facets: { brands: [], colors, sizes: [] },
+    } as never);
+    renderPage();
+    fireEvent.click(screen.getByTestId("catalog-filter-button"));
+
+    for (let i = 0; i < 20; i++) {
+      fireEvent.click(screen.getAllByText(/^catalog\.colorFilter\.Color\d+$/)[i]);
+    }
+    const calls = vi.mocked(fetchProducts).mock.calls;
+    const last = calls[calls.length - 1]?.[0] as { color?: string[] } | undefined;
+    expect(last?.color).toHaveLength(20);
+
+    fireEvent.click(screen.getAllByText(/^catalog\.colorFilter\.Color\d+$/)[20]);
+    const after = vi.mocked(fetchProducts).mock.calls;
+    const last2 = after[after.length - 1]?.[0] as { color?: string[] } | undefined;
+    expect(last2?.color).toHaveLength(20);
+  });
+});

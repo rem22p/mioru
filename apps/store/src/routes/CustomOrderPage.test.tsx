@@ -300,6 +300,8 @@ describe("CustomOrderPage — category choice (KAN-52)", () => {
 
     expect(screen.getByTestId("custom-order-foot-length")).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("175")).not.toBeInTheDocument();
+    // The category hint renders only while no category is picked.
+    expect(screen.queryByTestId("custom-order-category-hint")).not.toBeInTheDocument();
   });
 
   it("accessories hide all measurement fields", () => {

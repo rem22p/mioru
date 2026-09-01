@@ -101,6 +101,20 @@ func TestParseProductFilterCaps(t *testing.T) {
 				"size":  repeatValues("42-", 20),
 			},
 		},
+		{
+			name: "exactly 40-rune color and 32-rune size pass",
+			params: map[string][]string{
+				"color": {strings.Repeat("ж", 40)},
+				"size":  {strings.Repeat("4", 32)},
+			},
+		},
+		{
+			name: "CSV form counts toward the same caps",
+			params: map[string][]string{
+				"color": {strings.Join(repeatValues("Цвет-", 21), ",")},
+			},
+			wantErr: "too many color values",
+		},
 	}
 
 	for _, tt := range tests {
