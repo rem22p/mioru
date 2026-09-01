@@ -34,9 +34,18 @@ const maxPerPage = 100
 // public route into a 500. The bound is far past any real catalog depth.
 const maxPage = 100000
 
-// maxFilterValues caps every multi-value public filter array so a crafted
-// list cannot make the DB chew an unbounded ANY() input.
+// maxFilterValues caps the chip-style multi-value filters (brand, color,
+// size) so a crafted list cannot make the DB chew an unbounded ANY() input.
+// These are hand-picked in the UI, so 20 is far above any real selection.
 const maxFilterValues = 20
+
+// maxCategoryValues caps ?category_id= separately, because its size is set by
+// the taxonomy rather than by the user: picking a root category makes the
+// storefront send every descendant id at once. The tree has already grown by
+// migration (021 pushed "Аксессуары" to 12), so a cap sized like the chip
+// arrays would eventually turn a whole root category into a 400 with no code
+// change. TestCategoryFanOutFitsFilterCap pins the two together.
+const maxCategoryValues = 100
 
 // multiQuery returns all values for the given key, supporting both repeated
 // (?brand=A&brand=B) and comma-separated (?brand=A,B) forms. Empty values are
@@ -140,7 +149,7 @@ func parseProductFilter(r *http.Request) (model.ProductFilter, error) {
 	}
 
 	rawCategories := multiQuery(q["category_id"])
-	if len(rawCategories) > maxFilterValues {
+	if len(rawCategories) > maxCategoryValues {
 		return filter, fmt.Errorf("too many category values")
 	}
 	for _, raw := range rawCategories {

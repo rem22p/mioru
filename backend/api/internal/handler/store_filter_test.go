@@ -161,7 +161,9 @@ func TestParseProductFilterPageBound(t *testing.T) {
 
 // TestParseProductFilterCategoryCap pins the cap on the category_id array —
 // the one multi-value public filter #93 left uncapped while capping its
-// brand/color/size siblings in the same function.
+// brand/color/size siblings in the same function. The bound is its own
+// constant, not the chip-array one; see TestCategoryFanOutFitsFilterCap for
+// why the two must not be merged.
 func TestParseProductFilterCategoryCap(t *testing.T) {
 	cats := func(n int) error {
 		vals := make([]string, n)
@@ -172,10 +174,10 @@ func TestParseProductFilterCategoryCap(t *testing.T) {
 		return err
 	}
 
-	if err := cats(20); err != nil {
-		t.Errorf("20 category ids rejected: %v", err)
+	if err := cats(maxCategoryValues); err != nil {
+		t.Errorf("%d category ids rejected: %v", maxCategoryValues, err)
 	}
-	if err := cats(21); err == nil {
-		t.Error("21 category ids accepted, want rejection")
+	if err := cats(maxCategoryValues + 1); err == nil {
+		t.Errorf("%d category ids accepted, want rejection", maxCategoryValues+1)
 	}
 }
