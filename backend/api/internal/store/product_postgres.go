@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"mioru/internal/model"
 )
@@ -567,11 +568,13 @@ func buildProductFilterWhere(filter model.ProductFilter, startIdx int) (where st
 		argIdx++
 	}
 	if filter.Search != "" {
-		// Defence in depth: clamp search to 200 chars (frontend maxLength
+		// Defence in depth: clamp search to 200 runes (frontend maxLength
 		// also enforces this, but a direct API call could bypass it).
+		// Guard and slice count the same unit — a byte-cut would split a
+		// multi-byte rune and hand Postgres invalid UTF-8 (SQLSTATE 22021).
 		s := filter.Search
-		if len(s) > 200 {
-			s = s[:200]
+		if utf8.RuneCountInString(s) > 200 {
+			s = string([]rune(s)[:200])
 		}
 		// Trigram fuzzy match via % operator (uses GIN index) +
 		// ILIKE fallback for substrings pg_trgm might miss. Brand search

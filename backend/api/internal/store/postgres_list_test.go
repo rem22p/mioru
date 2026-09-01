@@ -129,6 +129,10 @@ func TestListProductsFilters(t *testing.T) {
 		{"by fuzzy typo", model.ProductFilter{Search: "cotn", Sort: "name"}, []string{"tee-acme"}},
 		// Clamp: search >200 chars is truncated to 200, query still works on prefix.
 		{"clamped search", model.ProductFilter{Search: strings.Repeat("x", 250) + "Cotton", Sort: "name"}, []string{}},
+		// The clamp counts the same unit it slices: "Nike " + 120 Cyrillic
+		// runes is 245 bytes, so a byte-cut at 200 would land mid-rune and
+		// hand Postgres invalid UTF-8 (SQLSTATE 22021) instead of a result.
+		{"clamped search mixed script", model.ProductFilter{Search: "Nike " + strings.Repeat("к", 120), Sort: "name"}, []string{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
