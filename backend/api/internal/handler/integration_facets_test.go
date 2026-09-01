@@ -3,6 +3,8 @@ package handler_test
 import (
 	"context"
 	"net/http"
+	"net/url"
+	"strings"
 	"testing"
 
 	"mioru/internal/model"
@@ -92,6 +94,56 @@ func TestIntegrationFacetsBadStatus(t *testing.T) {
 	rr := e.do(t, http.HandlerFunc(e.storeH.ListFacets), http.MethodGet, "/api/products/facets?status=bogus", reqOpts{})
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("ListFacets?status=bogus: want 400, got %d (%s)", rr.Code, rr.Body.String())
+	}
+	var env errEnvelope
+	decode(t, rr, &env)
+	if env.Code != "VALIDATION_FAILED" {
+		t.Errorf("code = %q, want VALIDATION_FAILED", env.Code)
+	}
+}
+
+// TestIntegrationSearchMultibyteNoInternalError pins the end-to-end status of a
+// mixed-script search term longer than the store-side clamp. The clamp cuts on
+// a rune boundary; a byte cut would hand Postgres invalid UTF-8, the store
+// error would surface as the generic INTERNAL envelope, and both public
+// catalog routes would answer 500 to an unauthenticated request. Both routes
+// share buildProductFilterWhere, so both are asserted.
+func TestIntegrationSearchMultibyteNoInternalError(t *testing.T) {
+	e := newEnv(t)
+	facetProduct(t, e, "acme-ru", "Acme", "red")
+
+	// "Nike " + 120 Cyrillic runes = 245 bytes: a byte cut at 200 lands
+	// inside the 97th rune.
+	term := url.QueryEscape("Nike " + strings.Repeat("к", 120))
+
+	for _, tc := range []struct {
+		name   string
+		h      http.Handler
+		target string
+	}{
+		{"products", http.HandlerFunc(e.storeH.ListProducts), "/api/products?search=" + term},
+		{"facets", http.HandlerFunc(e.storeH.ListFacets), "/api/products/facets?search=" + term},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rr := e.do(t, tc.h, http.MethodGet, tc.target, reqOpts{})
+			if rr.Code != http.StatusOK {
+				t.Fatalf("want 200, got %d (%s)", rr.Code, rr.Body.String())
+			}
+		})
+	}
+}
+
+// TestIntegrationPageOverflowIsValidationError pins the end-to-end status of a
+// page number large enough to overflow offset = (page-1)*per_page into a
+// negative value. Postgres rejects a negative OFFSET, so without the bound an
+// anonymous request answers 500 INTERNAL on a public route.
+func TestIntegrationPageOverflowIsValidationError(t *testing.T) {
+	e := newEnv(t)
+
+	rr := e.do(t, http.HandlerFunc(e.storeH.ListProducts), http.MethodGet,
+		"/api/products?page=922337203685477581", reqOpts{})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("want 400, got %d (%s)", rr.Code, rr.Body.String())
 	}
 	var env errEnvelope
 	decode(t, rr, &env)

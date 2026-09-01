@@ -9,6 +9,11 @@ import (
 	"mioru/internal/model"
 )
 
+// searchMaxRunes bounds the storefront search term. The handler leaves
+// ?search= unbounded, so this is the only guard before the term reaches a
+// trigram match and three ILIKE patterns.
+const searchMaxRunes = 200
+
 // ── Products ──
 
 // CreateProduct inserts a new product with sizes, size chart, and images in a transaction.
@@ -567,11 +572,21 @@ func buildProductFilterWhere(filter model.ProductFilter, startIdx int) (where st
 		argIdx++
 	}
 	if filter.Search != "" {
-		// Defence in depth: clamp search to 200 chars (frontend maxLength
+		// Defence in depth: clamp search to 200 runes (frontend maxLength
 		// also enforces this, but a direct API call could bypass it).
+		// Cut on a rune boundary — a byte cut would split a multi-byte rune
+		// and hand Postgres invalid UTF-8 (SQLSTATE 22021). Ranging over the
+		// string yields byte offsets of rune starts, so this stays O(1) in
+		// allocations: materialising []rune(s) first would copy the whole
+		// (unbounded, unauthenticated) search string at 4 bytes per rune.
 		s := filter.Search
-		if len(s) > 200 {
-			s = s[:200]
+		n := 0
+		for i := range s {
+			if n == searchMaxRunes {
+				s = s[:i]
+				break
+			}
+			n++
 		}
 		// Trigram fuzzy match via % operator (uses GIN index) +
 		// ILIKE fallback for substrings pg_trgm might miss. Brand search

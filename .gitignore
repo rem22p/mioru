@@ -71,6 +71,7 @@ next-app/
 dist.tar.gz
 dump.rdb
 .envrc
+.envrc*
 
 # Local Playwright browser cache (dev-only)
 .pw-browsers/

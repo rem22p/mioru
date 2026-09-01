@@ -259,3 +259,34 @@ describe("CatalogPage — color selection cap (F4 symmetry)", () => {
     expect(last2?.color).toHaveLength(20);
   });
 });
+
+describe("CatalogPage — size selection cap (F4 symmetry)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("refuses to select more than 20 sizes", () => {
+    // Size chips render the raw label (no i18n prefix, unlike colors) and are
+    // sorted by localeCompare here — none of these parse as a number, so the
+    // chip order is stable across the re-render each toggle triggers.
+    const sizes = Array.from({ length: 21 }, (_, i) => `SZ${i}`);
+    const { fetchProducts } = setupStore();
+    useCatalogStore.setState({
+      facets: { brands: [], colors: [], sizes },
+    } as never);
+    renderPage();
+    fireEvent.click(screen.getByTestId("catalog-filter-button"));
+
+    for (let i = 0; i < 20; i++) {
+      fireEvent.click(screen.getAllByText(/^SZ\d+$/)[i]);
+    }
+    const calls = vi.mocked(fetchProducts).mock.calls;
+    const last = calls[calls.length - 1]?.[0] as { size?: string[] } | undefined;
+    expect(last?.size).toHaveLength(20);
+
+    fireEvent.click(screen.getAllByText(/^SZ\d+$/)[20]);
+    const after = vi.mocked(fetchProducts).mock.calls;
+    const last2 = after[after.length - 1]?.[0] as { size?: string[] } | undefined;
+    expect(last2?.size).toHaveLength(20);
+  });
+});

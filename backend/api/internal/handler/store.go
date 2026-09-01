@@ -28,6 +28,25 @@ type storeReader interface {
 // returned per_page in the body matches what actually shipped.
 const maxPerPage = 100
 
+// maxPage bounds ?page=. The store computes offset = (page-1)*per_page in int
+// arithmetic; an unbounded page overflows that into a negative number, and
+// Postgres rejects a negative OFFSET — turning an anonymous request on a
+// public route into a 500. The bound is far past any real catalog depth.
+const maxPage = 100000
+
+// maxFilterValues caps the chip-style multi-value filters (brand, color,
+// size) so a crafted list cannot make the DB chew an unbounded ANY() input.
+// These are hand-picked in the UI, so 20 is far above any real selection.
+const maxFilterValues = 20
+
+// maxCategoryValues caps ?category_id= separately, because its size is set by
+// the taxonomy rather than by the user: picking a root category makes the
+// storefront send every descendant id at once. The tree has already grown by
+// migration (021 pushed "Аксессуары" to 12), so a cap sized like the chip
+// arrays would eventually turn a whole root category into a 400 with no code
+// change. TestCategoryFanOutFitsFilterCap pins the two together.
+const maxCategoryValues = 100
+
 // multiQuery returns all values for the given key, supporting both repeated
 // (?brand=A&brand=B) and comma-separated (?brand=A,B) forms. Empty values are
 // dropped so a stray comma can't smuggle in a "match-everything" filter.
@@ -129,7 +148,11 @@ func parseProductFilter(r *http.Request) (model.ProductFilter, error) {
 		PerPage: 20,
 	}
 
-	for _, raw := range multiQuery(q["category_id"]) {
+	rawCategories := multiQuery(q["category_id"])
+	if len(rawCategories) > maxCategoryValues {
+		return filter, fmt.Errorf("too many category values")
+	}
+	for _, raw := range rawCategories {
 		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
 			filter.CategoryIDs = append(filter.CategoryIDs, v)
 		}
@@ -138,7 +161,7 @@ func parseProductFilter(r *http.Request) (model.ProductFilter, error) {
 	filter.Brands = multiQuery(q["brand"])
 	// #88 S1: bound the public filter so a crafted brand array can't make
 	// the DB chew an arbitrarily large overlap/ILIKE input.
-	if len(filter.Brands) > 20 {
+	if len(filter.Brands) > maxFilterValues {
 		return filter, fmt.Errorf("too many brand values")
 	}
 	for _, b := range filter.Brands {
@@ -149,7 +172,7 @@ func parseProductFilter(r *http.Request) (model.ProductFilter, error) {
 	filter.Colors = multiQuery(q["color"])
 	// #92 F4: symmetric caps with the brand array above — a crafted
 	// color/size list can't make the DB chew an unbounded ANY() input.
-	if len(filter.Colors) > 20 {
+	if len(filter.Colors) > maxFilterValues {
 		return filter, fmt.Errorf("too many color values")
 	}
 	for _, c := range filter.Colors {
@@ -158,7 +181,7 @@ func parseProductFilter(r *http.Request) (model.ProductFilter, error) {
 		}
 	}
 	filter.Sizes = multiQuery(q["size"])
-	if len(filter.Sizes) > 20 {
+	if len(filter.Sizes) > maxFilterValues {
 		return filter, fmt.Errorf("too many size values")
 	}
 	for _, s := range filter.Sizes {
@@ -189,6 +212,9 @@ func parseProductFilter(r *http.Request) (model.ProductFilter, error) {
 	}
 	filter.Sort = q.Get("sort")
 	if v, err := strconv.Atoi(q.Get("page")); err == nil && v > 0 {
+		if v > maxPage {
+			return filter, fmt.Errorf("page out of range")
+		}
 		filter.Page = v
 	}
 	if v, err := strconv.Atoi(q.Get("per_page")); err == nil && v > 0 {
