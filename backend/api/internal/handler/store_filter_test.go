@@ -132,3 +132,50 @@ func TestParseProductFilterCaps(t *testing.T) {
 		})
 	}
 }
+
+// TestParseProductFilterPageBound pins the upper bound on ?page=. Without it
+// the store computes offset = (page-1)*per_page in int arithmetic, which
+// overflows into a negative number for a large page (922337203685477581 → -16
+// at the default per_page). Postgres rejects a negative OFFSET, so an
+// anonymous request turns into a 500 on a public route.
+func TestParseProductFilterPageBound(t *testing.T) {
+	page := func(v string) error {
+		_, err := parseProductFilter(httptest.NewRequest("GET", "/api/products?page="+v, nil))
+		return err
+	}
+
+	if err := page("1"); err != nil {
+		t.Errorf("page=1 rejected: %v", err)
+	}
+	if err := page(fmt.Sprint(maxPage)); err != nil {
+		t.Errorf("page=maxPage rejected: %v", err)
+	}
+	if err := page(fmt.Sprint(maxPage + 1)); err == nil {
+		t.Error("page=maxPage+1 accepted, want rejection")
+	}
+	// The overflow value from the finding must not reach the store.
+	if err := page("922337203685477581"); err == nil {
+		t.Error("overflow page accepted, want rejection")
+	}
+}
+
+// TestParseProductFilterCategoryCap pins the cap on the category_id array —
+// the one multi-value public filter #93 left uncapped while capping its
+// brand/color/size siblings in the same function.
+func TestParseProductFilterCategoryCap(t *testing.T) {
+	cats := func(n int) error {
+		vals := make([]string, n)
+		for i := range vals {
+			vals[i] = "1"
+		}
+		_, err := parseProductFilter(httptest.NewRequest("GET", "/api/products?category_id="+strings.Join(vals, ","), nil))
+		return err
+	}
+
+	if err := cats(20); err != nil {
+		t.Errorf("20 category ids rejected: %v", err)
+	}
+	if err := cats(21); err == nil {
+		t.Error("21 category ids accepted, want rejection")
+	}
+}
