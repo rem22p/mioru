@@ -304,6 +304,12 @@ export default function CatalogPage() {
     if (key === "brand" && !selectedBrands.has(value) && selectedBrands.size >= 20) {
       return;
     }
+    if (key === "color" && !selectedColors.has(value) && selectedColors.size >= 20) {
+      return;
+    }
+    if (key === "size" && !selectedSizes.has(value) && selectedSizes.size >= 20) {
+      return;
+    }
     toggleCSV(key, value);
   };
 

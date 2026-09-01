@@ -29,7 +29,7 @@ commands.
 ## Store — public catalog (no auth)
 | Method+Path | Auth | CSRF | RL | Success | Errors | Integration test |
 |---|---|---|---|---|---|---|
-| GET /api/products | — | — | — | 200 `{items,total,page,per_page}`. **sort** ∈ `{popular, newest, created_at, price, -price, name, brand}` — empty or unknown value = `created_at DESC` (newest); `popular` uses `popularity_rank` (`popularity_rank_preorder` when `status=preorder`); `brand` sorts by the derived display name | — | `TestIntegrationListProducts` (+ store-level paginate/filter) |
+| GET /api/products | — | — | — | 200 `{items,total,page,per_page}`. Filter arrays capped: 20 values each, ≤60 runes per brand / ≤40 per color / ≤32 per size — oversized → 400 VALIDATION_FAILED. **sort** ∈ `{popular, newest, created_at, price, -price, name, brand}` — empty or unknown value = `created_at DESC` (newest); `popular` uses `popularity_rank` (`popularity_rank_preorder` when `status=preorder`); `brand` sorts by the derived display name | — | `TestIntegrationListProducts` (+ store-level paginate/filter) |
 | GET /api/products/facets | — | — | — | 200 `{brands,colors,sizes}` (KAN-14: collab brands listed individually) | 400 VALIDATION_FAILED | `TestIntegrationFacetsHappy`, `...DropsOwnSelection`, `...BadStatus`, `TestCollabBrandsFacetsSplit` |
 | GET /api/products/{slug} | — | — | — | 200 product | 404 NOT_FOUND | `TestIntegrationGetProductBySlug`, `...NotFound` |
 | GET /api/categories | — | — | — | 200 tree, nodes carry `products_count` (own + all descendants) | — | `TestIntegrationListCategories`, `TestIntegrationCategoryProductCounts` |

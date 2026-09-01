@@ -626,6 +626,16 @@ export default function CustomOrderPage() {
                 </button>
               </div>
             )}
+            {/* #92 F1: the disabled button explains itself — the category
+                choice is the gating step the user can act on. */}
+            {!category && (
+              <p
+                data-testid="custom-order-category-hint"
+                className="text-xs text-amber-400 text-center"
+              >
+                {t("customOrder.hints.pickCategory")}
+              </p>
+            )}
             <button
               type="submit"
               data-testid="custom-order-submit"
