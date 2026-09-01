@@ -115,6 +115,7 @@ func TestListProductsFilters(t *testing.T) {
 	mustCreateProduct(t, s, model.Product{Slug: "tee-acme", CategoryID: 2, Brand: "ACME", Name: "Cotton Tee", Price: 100, Status: "in_stock", InStock: true})
 	mustCreateProduct(t, s, model.Product{Slug: "tee-nike", CategoryID: 2, Brand: "Nike", Name: "Sport Tee", Price: 100, Status: "in_stock", InStock: true})
 	mustCreateProduct(t, s, model.Product{Slug: "sneaker-nike", CategoryID: 12, Brand: "Nike", Name: "Runner", Price: 100, Status: "in_stock", InStock: true})
+	mustCreateProduct(t, s, model.Product{Slug: "tee-ru", CategoryID: 2, Brand: "ACME", Name: "Футболка", Price: 100, Status: "in_stock", InStock: true})
 
 	tests := []struct {
 		name      string
@@ -133,6 +134,12 @@ func TestListProductsFilters(t *testing.T) {
 		// runes is 245 bytes, so a byte-cut at 200 would land mid-rune and
 		// hand Postgres invalid UTF-8 (SQLSTATE 22021) instead of a result.
 		{"clamped search mixed script", model.ProductFilter{Search: "Nike " + strings.Repeat("к", 120), Sort: "name"}, []string{}},
+		// The clamp counts runes, not bytes — pins the unit the API doc
+		// promises. 140 Cyrillic runes of padding is 280 bytes but only 140
+		// runes, so a rune clamp at 200 leaves the term untouched and the
+		// trigram match still finds "Футболка"; a byte clamp would cut at
+		// byte 200 (~rune 100), eat the token, and return nothing.
+		{"clamp counts runes not bytes", model.ProductFilter{Search: strings.Repeat("я", 140) + "Футболка", Sort: "name"}, []string{"tee-ru"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
